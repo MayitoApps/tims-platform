@@ -95,31 +95,47 @@ export default function Home() {
         setIsLoadingAuth(false);
       });
 
-    // 3. Sync Deals from Postgres Database
-    fetch('/api/deals')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.deals && Array.isArray(data.deals) && data.deals.length > 0) {
-          setDeals(data.deals);
-          try {
-            localStorage.setItem('tims_deals', JSON.stringify(data.deals));
-          } catch {}
-        }
-      })
-      .catch((err) => console.error('Error fetching deals from DB:', err));
+    // 3. Función de Sincronización en Tiempo Real con Postgres
+    const syncDataFromCloud = () => {
+      // Sync Deals
+      fetch('/api/deals')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.deals && Array.isArray(data.deals) && data.deals.length > 0) {
+            setDeals(data.deals);
+            try {
+              localStorage.setItem('tims_deals', JSON.stringify(data.deals));
+            } catch {}
+          }
+        })
+        .catch(() => {});
 
-    // 4. Sync Marketing Tasks from Postgres Database
-    fetch('/api/marketing-tasks')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
-          setMarketingTasks(data.tasks);
-          try {
-            localStorage.setItem('tims_mkt_tasks', JSON.stringify(data.tasks));
-          } catch {}
-        }
-      })
-      .catch((err) => console.error('Error fetching marketing tasks from DB:', err));
+      // Sync Marketing Tasks
+      fetch('/api/marketing-tasks')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
+            setMarketingTasks(data.tasks);
+            try {
+              localStorage.setItem('tims_mkt_tasks', JSON.stringify(data.tasks));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    };
+
+    // Consulta inicial inmediata
+    syncDataFromCloud();
+
+    // Sincronización recurrente en segundo plano (cada 8 segundos y cuando la ventana toma foco)
+    const syncInterval = setInterval(syncDataFromCloud, 8000);
+    const onWindowFocus = () => syncDataFromCloud();
+    window.addEventListener('focus', onWindowFocus);
+
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener('focus', onWindowFocus);
+    };
   }, []);
 
   const handleLogout = async () => {
