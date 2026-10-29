@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { HotelDeal, HotelDealStage, DealCategory } from '@/lib/types';
-import { HOTEL_PROPERTIES, HOTEL_SPACES } from '@/lib/initial-data';
+import { HotelDeal, HotelDealStage, DealCategory, UserProfile, RequestedRoomType } from '@/lib/types';
+import { HOTEL_PROPERTIES, HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 
 interface CommercialSectionProps {
   deals: HotelDeal[];
+  currentUser?: UserProfile | null;
   onAddDeal: (deal: Omit<HotelDeal, 'id' | 'code' | 'createdAt'>) => void;
   onUpdateDealStage: (id: string, stage: HotelDealStage) => void;
 }
@@ -22,6 +23,7 @@ const STAGES: { id: HotelDealStage; title: string; colorDot: string }[] = [
 
 export function CommercialSection({
   deals,
+  currentUser,
   onAddDeal,
   onUpdateDealStage
 }: CommercialSectionProps) {
@@ -37,6 +39,7 @@ export function CommercialSection({
   const [company, setCompany] = useState('');
   const [hotel, setHotel] = useState(HOTEL_PROPERTIES[0]);
   const [selectedSpaces, setSelectedSpaces] = useState<string[]>([]);
+  const [roomQuantities, setRoomQuantities] = useState<Record<string, number>>({});
   const [category, setCategory] = useState<DealCategory>('bodas_sociales');
   const [totalValue, setTotalValue] = useState('350000');
   const [currency, setCurrency] = useState<'MXN' | 'USD'>('MXN');
@@ -44,12 +47,20 @@ export function CommercialSection({
   const [attendees, setAttendees] = useState('120');
   const [checkIn, setCheckIn] = useState('2026-05-15');
   const [checkOut, setCheckOut] = useState('2026-05-17');
-  const [rep, setRep] = useState('Gerencia de Ventas');
   const [notes, setNotes] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
 
   const availableSpaces = HOTEL_SPACES[hotel] || [];
+  const availableRoomTypes = HOTEL_ROOM_TYPES[hotel] || [];
+
+  const getStayNights = (inDate: string, outDate: string) => {
+    const d1 = new Date(inDate);
+    const d2 = new Date(outDate);
+    const diffTime = d2.getTime() - d1.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+    return diffDays > 0 ? diffDays : 1;
+  };
 
   const handleToggleSpace = (spaceName: string) => {
     setConflictError(null);
@@ -58,9 +69,29 @@ export function CommercialSection({
     );
   };
 
+  const handleRoomQtyChange = (roomName: string, deltaOrVal: number | string) => {
+    setRoomQuantities((prev) => {
+      const current = prev[roomName] || 0;
+      let nextVal = 0;
+      if (typeof deltaOrVal === 'number') {
+        nextVal = Math.max(0, current + deltaOrVal);
+      } else {
+        nextVal = Math.max(0, parseInt(deltaOrVal) || 0);
+      }
+      const updated = { ...prev, [roomName]: nextVal };
+      const totalRooms = Object.values(updated).reduce((acc, count) => acc + count, 0);
+      const nights = getStayNights(checkIn, checkOut);
+      if (totalRooms > 0) {
+        setRoomNights(String(totalRooms * nights));
+      }
+      return updated;
+    });
+  };
+
   const handleHotelChangeInForm = (newHotel: string) => {
     setHotel(newHotel);
     setSelectedSpaces([]);
+    setRoomQuantities({});
     setConflictError(null);
   };
 
@@ -105,20 +136,29 @@ export function CommercialSection({
       }
     }
 
+    const requestedRoomsList: RequestedRoomType[] = Object.entries(roomQuantities)
+      .filter(([_, count]) => count > 0)
+      .map(([roomTypeName, count]) => ({ roomTypeName, count }));
+
+    const assignedExecutive = currentUser?.name 
+      ? `${currentUser.name}${currentUser.email ? ` (${currentUser.email})` : ''}`
+      : 'Gerencia Comercial';
+
     onAddDeal({
       clientName,
       companyOrAgency: company,
       hotelName: hotel,
       selectedSpaces: spacesToBook,
+      requestedRooms: requestedRoomsList.length > 0 ? requestedRoomsList : undefined,
       category,
       stage: 'rfp_recibido',
       totalValue: parseFloat(totalValue) || 150000,
       currency,
-      roomNights: parseInt(roomNights) || 10,
+      roomNights: parseInt(roomNights) || (requestedRoomsList.reduce((acc, r) => acc + r.count, 0) * getStayNights(checkIn, checkOut)) || 10,
       attendeesCount: parseInt(attendees) || 50,
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      assignedRep: rep,
+      assignedRep: assignedExecutive,
       notes: notes || 'Solicitud de bloqueo de espacios y cotización oficial.',
       contactEmail: email || 'contacto@empresa.com',
       contactPhone: phone || '+52 55 0000 0000'
@@ -128,6 +168,7 @@ export function CommercialSection({
     setCompany('');
     setNotes('');
     setSelectedSpaces([]);
+    setRoomQuantities({});
     setIsDealModalOpen(false);
   };
 
@@ -337,6 +378,25 @@ export function CommercialSection({
                                 </span>
                               )}
                             </div>
+
+                            {/* Desglose de Habitaciones Requeridas */}
+                            {deal.requestedRooms && deal.requestedRooms.length > 0 && (
+                              <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-2 space-y-1">
+                                <div className="text-[10px] font-bold text-amber-900 flex items-center justify-between">
+                                  <span className="flex items-center gap-1">🛏️ Habitaciones Requeridas:</span>
+                                  <span className="font-mono bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded font-bold text-[9px]">
+                                    {deal.requestedRooms.reduce((acc, r) => acc + r.count, 0)} habs
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {deal.requestedRooms.map((rm, idx) => (
+                                    <span key={idx} className="text-[9px] bg-white border border-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded font-medium shadow-2xs">
+                                      <strong className="font-bold">{rm.count}x</strong> {rm.roomTypeName}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           <div className="text-[10px] text-stone-600 font-mono bg-stone-50 p-2 rounded-lg border border-stone-100">
@@ -428,7 +488,14 @@ export function CommercialSection({
                       <td className="py-3 px-4 font-mono font-bold text-stone-900">
                         {formatCurrency(deal.totalValue, deal.currency)}
                       </td>
-                      <td className="py-3 px-4 font-mono text-stone-700 font-semibold">{deal.roomNights} RN</td>
+                      <td className="py-3 px-4 font-mono text-stone-700 font-semibold">
+                        <div>{deal.roomNights} RN</div>
+                        {deal.requestedRooms && deal.requestedRooms.length > 0 && (
+                          <div className="text-[10px] font-sans text-amber-800 font-normal mt-0.5">
+                            {deal.requestedRooms.reduce((acc, r) => acc + r.count, 0)} habs solicitadas
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-stone-600 text-[11px] whitespace-nowrap">
                         {formatDate(deal.checkInDate)} al {formatDate(deal.checkOutDate)}
                       </td>
@@ -585,6 +652,85 @@ export function CommercialSection({
                 </div>
               </div>
 
+              {/* HABITACIONES Y CABAÑAS REQUERIDAS DE ESTE HOTEL (Tipos oficiales de sus páginas web) */}
+              <div className="space-y-2 bg-stone-50 p-3.5 rounded-2xl border border-stone-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🛏️</span> Habitaciones Requeridas en {hotel}:
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                    {Object.values(roomQuantities).reduce((a, b) => a + b, 0)} habitaciones solicitadas
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500">
+                  Especifica cuántas habitaciones o cabañas de cada tipo necesitará el evento:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-52 overflow-y-auto pr-1">
+                  {availableRoomTypes.map((rt) => {
+                    const qty = roomQuantities[rt.name] || 0;
+                    return (
+                      <div
+                        key={rt.id}
+                        className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between ${
+                          qty > 0
+                            ? 'bg-emerald-50/90 border-emerald-500 text-stone-900 shadow-2xs'
+                            : 'bg-white border-stone-200 text-stone-700'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-bold text-xs text-stone-900">{rt.name}</span>
+                            <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded px-1.5 py-0.2 shrink-0">
+                              {rt.capacity}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-stone-500 mt-1 leading-tight">{rt.description}</p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-200/60">
+                          <span className="text-[10px] text-stone-600 font-medium">Cantidad:</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRoomQtyChange(rt.name, -1)}
+                              className="w-6 h-6 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold flex items-center justify-center text-xs transition-colors"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              value={qty}
+                              onChange={(e) => handleRoomQtyChange(rt.name, e.target.value)}
+                              className="w-12 text-center border border-stone-300 rounded-md py-0.5 text-xs font-mono font-bold bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRoomQtyChange(rt.name, 1)}
+                              className="w-6 h-6 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center justify-center text-xs transition-colors shadow-2xs"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {Object.values(roomQuantities).reduce((a, b) => a + b, 0) > 0 && (
+                  <div className="bg-emerald-100/70 border border-emerald-300/80 rounded-xl p-2.5 flex items-center justify-between text-xs text-emerald-950 font-medium">
+                    <span className="font-bold">
+                      {Object.values(roomQuantities).reduce((a, b) => a + b, 0)} habitaciones x {getStayNights(checkIn, checkOut)} {getStayNights(checkIn, checkOut) === 1 ? 'noche' : 'noches'}
+                    </span>
+                    <span className="font-mono font-bold text-emerald-900">
+                      = {Object.values(roomQuantities).reduce((a, b) => a + b, 0) * getStayNights(checkIn, checkOut)} Room Nights estimadas
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-stone-700 font-bold mb-1">Categoría</label>
@@ -601,12 +747,15 @@ export function CommercialSection({
                 </div>
                 <div>
                   <label className="block text-stone-700 font-bold mb-1">Ejecutivo Asignado</label>
-                  <input
-                    type="text"
-                    value={rep}
-                    onChange={(e) => setRep(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
+                  <div className="border border-stone-200 bg-stone-100 rounded-xl px-3 py-2 text-stone-800 flex items-center justify-between text-xs font-semibold">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="truncate">{currentUser?.name || 'Ejecutivo Comercial'}</span>
+                    </div>
+                    <span className="text-[9px] uppercase font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
+                      Perfil Activo
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -649,8 +798,14 @@ export function CommercialSection({
                     type="date"
                     value={checkIn}
                     onChange={(e) => {
-                      setCheckIn(e.target.value);
+                      const newCheckIn = e.target.value;
+                      setCheckIn(newCheckIn);
                       setConflictError(null);
+                      const totalRooms = Object.values(roomQuantities).reduce((acc, count) => acc + count, 0);
+                      if (totalRooms > 0) {
+                        const nights = getStayNights(newCheckIn, checkOut);
+                        setRoomNights(String(totalRooms * nights));
+                      }
                     }}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />
@@ -661,8 +816,14 @@ export function CommercialSection({
                     type="date"
                     value={checkOut}
                     onChange={(e) => {
-                      setCheckOut(e.target.value);
+                      const newCheckOut = e.target.value;
+                      setCheckOut(newCheckOut);
                       setConflictError(null);
+                      const totalRooms = Object.values(roomQuantities).reduce((acc, count) => acc + count, 0);
+                      if (totalRooms > 0) {
+                        const nights = getStayNights(checkIn, newCheckOut);
+                        setRoomNights(String(totalRooms * nights));
+                      }
                     }}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />

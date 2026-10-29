@@ -25,6 +25,7 @@ interface CalendarItem {
   value?: number;
   currency?: 'MXN' | 'USD';
   spaces?: string[];
+  requestedRooms?: { roomTypeName: string; count: number }[];
   clientOrLead?: string;
   attendees?: number;
   roomNights?: number;
@@ -77,6 +78,7 @@ export function SharedCalendar({
         value: d.totalValue,
         currency: d.currency,
         spaces: d.selectedSpaces,
+        requestedRooms: d.requestedRooms,
         clientOrLead: d.clientName,
         attendees: d.attendeesCount,
         roomNights: d.roomNights,
@@ -364,6 +366,25 @@ export function SharedCalendar({
                       className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold"
                     >
                       ✓ {sp}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Habitaciones solicitadas */}
+            {activeItemModal.requestedRooms && activeItemModal.requestedRooms.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-stone-600 uppercase tracking-wider block">
+                  Habitaciones Solicitadas ({activeItemModal.requestedRooms.reduce((a, b) => a + b.count, 0)} total):
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {activeItemModal.requestedRooms.map((rm, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold"
+                    >
+                      🛏️ {rm.count}x {rm.roomTypeName}
                     </span>
                   ))}
                 </div>

@@ -3,7 +3,8 @@ import {
   ContentPublication,
   CreativeBrief,
   HotelDeal,
-  HotelSpaceInfo
+  HotelSpaceInfo,
+  HotelRoomType
 } from './types';
 
 // =============================================================
@@ -82,6 +83,44 @@ export const HOTEL_SPACES: Record<string, HotelSpaceInfo[]> = {
 };
 
 // =============================================================
+// TIPOS DE HABITACIONES Y SUITES OFICIALES DE CADA HOTEL
+// Extraídos directamente de sus sitios oficiales (Ajusco, Tepoztlán,
+// Valle de Bravo, Frontera 49, Quinta Soledad, Veracruz)
+// =============================================================
+export const HOTEL_ROOM_TYPES: Record<string, HotelRoomType[]> = {
+  'Orgánico Ajusco': [
+    { id: 'aj-rm-mini', name: 'Mini Suite', capacity: 'Máx. 2 personas', description: 'Refugio íntimo en el bosque, calefacción, chimenea sujeta a disponibilidad, terraza privada' },
+    { id: 'aj-rm-std', name: 'Standard Suite', capacity: 'Máx. 3 personas', description: 'Cabaña-suite espaciosa con cama de lujo, sala de estar, terraza privada y vistas al bosque' },
+    { id: 'aj-rm-prem', name: 'Premium Suite', capacity: 'Máx. 3 personas', description: 'Confort superior, chimenea de leña, balcón panorámico y amenidades prémium' },
+    { id: 'aj-rm-mst', name: 'Master Suite', capacity: 'Máx. 2 personas', description: 'Máxima exclusividad, cama King Size, sala amplia, chimenea y vistas panorámicas al Pico del Águila' }
+  ],
+  'Orgánico Tepoztlán': [
+    { id: 'tp-rm-std', name: 'Habitación Estándar', capacity: 'Máx. 2 personas', description: 'Cama King Size, terraza y jardín privado con atmósfera mística de quietud' },
+    { id: 'tp-rm-prem', name: 'Habitación Premium', capacity: 'Máx. 2 personas', description: 'Cama King Size, sala de estar independiente con muebles de diseño, terraza y jardín privado' }
+  ],
+  'Orgánico Valle de Bravo': [
+    { id: 'vb-rm-mst', name: 'Suite Master', capacity: 'Máx. 2 personas', description: 'Cama King Size, terraza privada, salita de estar, madera viva y minibar de cortesía' },
+    { id: 'vb-rm-prem', name: 'Suite Premium', capacity: 'Máx. 2-4 personas', description: 'Opción 1 King o 2 Queen, balcón con vistas al bosque y jardines interiores, aislamiento acústico' }
+  ],
+  'Frontera 49 Roma Norte': [
+    { id: 'f49-rm-dlx', name: 'Habitación Deluxe', capacity: 'Máx. 2 personas', description: 'Máxima privacidad, baño y regadera privados en la habitación, cama King o Queen' },
+    { id: 'f49-rm-std', name: 'Habitación Estándar / Doble', capacity: 'Máx. 1-2 personas', description: 'Cama individual o matrimonial, baño exterior compartido impecable' },
+    { id: 'f49-rm-dor', name: 'Dormitorio Compartido', capacity: '1 cama individual', description: 'Camas individuales en dormitorio contemporáneo con lockers y acceso a coworking' }
+  ],
+  'Centro Cultural Quinta Soledad': [
+    { id: 'qs-rm-uto-mst', name: 'Suite Utopía (Casona Histórica)', capacity: 'Máx. 2 personas', description: 'Suite señorial en casona virreinal de 1870, techos altos, cama King y lencería fina' },
+    { id: 'qs-rm-uto-dob', name: 'Habitación Utopía Doble', capacity: 'Máx. 4 personas', description: 'Dos camas en el claustro histórico de la casona con vista a jardines centenarios' },
+    { id: 'qs-rm-her-sen', name: 'Habitación Hermitage Sencilla', capacity: 'Máx. 1-2 personas', description: 'Ala Hotel Express Hermitage, cama matrimonial, baño privado y desayuno' },
+    { id: 'qs-rm-her-dob', name: 'Habitación Hermitage Doble', capacity: 'Máx. 2-4 personas', description: 'Ala Hotel Express Hermitage, dos camas individuales, funcional para grupos corporativos' }
+  ],
+  'Orgánico Veracruz': [
+    { id: 'vr-rm-sui-pla', name: 'Suite de Playa Frente al Mar', capacity: 'Máx. 2 personas', description: 'Cama King Size con terraza privada y vista directa a las olas de Costa Esmeralda' },
+    { id: 'vr-rm-bun-fam', name: 'Bungalow Familiar Costa Esmeralda', capacity: 'Máx. 4-6 personas', description: 'Espacio amplio para familias o grupos de eventos con área de estar y múltiples camas' },
+    { id: 'vr-rm-dob-jar', name: 'Habitación Doble Estándar Jardín', capacity: 'Máx. 2-4 personas', description: 'Dos camas dobles, aire acondicionado y vista a la alberca y jardines tropicales' }
+  ]
+};
+
+// =============================================================
 // DATOS EJEMPLO: COMERCIALIZACIÓN HOTELERA (Reservaciones & RFPs)
 // Usando los nombres de espacios 100% exactos de gohb.com.mx
 // =============================================================
@@ -96,6 +135,11 @@ export const INITIAL_DEALS: HotelDeal[] = [
       'Salón Victoria',
       'Jardín Chula Vista',
       'Casa Club'
+    ],
+    requestedRooms: [
+      { roomTypeName: 'Master Suite', count: 2 },
+      { roomTypeName: 'Premium Suite', count: 6 },
+      { roomTypeName: 'Standard Suite', count: 6 }
     ],
     category: 'bodas_sociales',
     stage: 'contratado',
@@ -148,6 +192,10 @@ export const INITIAL_DEALS: HotelDeal[] = [
       'Bar Bienaventurado',
       'Fogatero'
     ],
+    requestedRooms: [
+      { roomTypeName: 'Suite Master', count: 5 },
+      { roomTypeName: 'Suite Premium', count: 10 }
+    ],
     category: 'grupos_convenciones',
     stage: 'contratado',
     totalValue: 510000,
@@ -172,6 +220,10 @@ export const INITIAL_DEALS: HotelDeal[] = [
       'Jardín Equilibrio',
       'Salón Imperfecto',
       'Restaurante Infinito'
+    ],
+    requestedRooms: [
+      { roomTypeName: 'Habitación Premium', count: 8 },
+      { roomTypeName: 'Habitación Estándar', count: 8 }
     ],
     category: 'bodas_sociales',
     stage: 'propuesta_enviada',
@@ -198,6 +250,11 @@ export const INITIAL_DEALS: HotelDeal[] = [
       'Restaurante El Muelle',
       'Pool Deck & Alberca'
     ],
+    requestedRooms: [
+      { roomTypeName: 'Suite de Playa Frente al Mar', count: 6 },
+      { roomTypeName: 'Bungalow Familiar Costa Esmeralda', count: 4 },
+      { roomTypeName: 'Habitación Doble Estándar Jardín', count: 8 }
+    ],
     category: 'bodas_sociales',
     stage: 'negociacion',
     totalValue: 320000,
@@ -222,6 +279,10 @@ export const INITIAL_DEALS: HotelDeal[] = [
       'Terraza',
       'Foro Cultural',
       'Restaurante Garnachería Única'
+    ],
+    requestedRooms: [
+      { roomTypeName: 'Habitación Deluxe', count: 4 },
+      { roomTypeName: 'Habitación Estándar / Doble', count: 4 }
     ],
     category: 'cuentas_empresariales',
     stage: 'contratado',

@@ -90,6 +90,18 @@ export type DealCategory =
   | 'cuentas_empresariales' // Convenios corporativos anuales
   | 'agencias_viaje';     // OTAs / Mayoristas / Consorcios de lujo
 
+export interface HotelRoomType {
+  id: string;
+  name: string;
+  capacity: string;
+  description: string;
+}
+
+export interface RequestedRoomType {
+  roomTypeName: string;
+  count: number;
+}
+
 export interface HotelDeal {
   id: string;
   code: string;
@@ -97,6 +109,7 @@ export interface HotelDeal {
   companyOrAgency: string;
   hotelName: string;
   selectedSpaces: string[]; // Espacios seleccionados del hotel
+  requestedRooms?: RequestedRoomType[]; // Desglose de habitaciones requeridas por tipo
   category: DealCategory;
   stage: HotelDealStage;
   totalValue: number; // Monto total en moneda

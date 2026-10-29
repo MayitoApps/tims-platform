@@ -187,6 +187,7 @@ export default function Home() {
         ) : (
           <CommercialSection
             deals={deals}
+            currentUser={currentUser}
             onAddDeal={handleAddDeal}
             onUpdateDealStage={handleUpdateDealStage}
           />
