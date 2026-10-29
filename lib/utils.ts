@@ -74,3 +74,4 @@ export function getPlatformBadge(platform: ExternalPlatform): { label: string; b
       return { label: 'Enlace', border: 'border-stone-200', text: 'text-stone-600' };
   }
 }
+

@@ -179,3 +179,4 @@ export function ExecutiveDashboard({ campaigns, leads }: ExecutiveDashboardProps
     </div>
   );
 }
+

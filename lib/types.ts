@@ -93,3 +93,4 @@ export interface BriefDoc {
   author: UserProfile;
   lastModified: string;
 }
+

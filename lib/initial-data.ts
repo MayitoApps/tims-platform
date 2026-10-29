@@ -313,3 +313,4 @@ export const INITIAL_BRIEF: BriefDoc = {
   author: TEAM_MEMBERS.elena,
   lastModified: '2026-03-02'
 };
+

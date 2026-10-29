@@ -215,3 +215,4 @@ export function BriefEditor({ brief, campaigns, onSaveBrief }: BriefEditorProps)
     </div>
   );
 }
+

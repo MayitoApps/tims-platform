@@ -234,3 +234,4 @@ export function SalesEnablementHub({ assets, onRequestMaterial }: SalesEnablemen
     </div>
   );
 }
+

@@ -4,7 +4,7 @@ import React from 'react';
 import { UserProfile } from '@/lib/types';
 
 interface NavbarProps {
-  currentUser: UserProfile;
+  currentUser: UserProfile | null;
   activeWorkspace: 'all' | 'marketing' | 'sales';
   onWorkspaceChange: (ws: 'all' | 'marketing' | 'sales') => void;
   searchQuery: string;
@@ -19,7 +19,7 @@ export function Navbar({
   onSearchChange,
 }: NavbarProps) {
   return (
-    <header className="sticky top-0 z-30 bg-[#faf9f6]/90 backdrop-blur-md hairline-b px-6 py-3.5 transition-colors">
+    <header className="sticky top-0 z-30 bg-[#faf9f6]/95 backdrop-blur-md hairline-b px-6 py-3.5 transition-colors">
       <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-6">
         
         {/* Brand & Workspace Switcher */}
@@ -28,7 +28,7 @@ export function Navbar({
             <span className="font-editorial text-2xl font-semibold tracking-tight text-stone-900">
               TIMS
             </span>
-            <span className="text-[10px] tracking-widest uppercase font-semibold text-stone-600 bg-stone-200/60 px-2 py-0.5 rounded-sm">
+            <span className="text-[10px] tracking-widest uppercase font-semibold text-stone-600 bg-stone-200/60 px-2 py-0.5 rounded-xs">
               Work OS
             </span>
           </div>
@@ -94,7 +94,7 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Realtime Status & User Session */}
+        {/* Realtime Status & User Session / Google Login */}
         <div className="flex items-center gap-4">
           <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 hairline-all border-emerald-100 text-[11px] text-emerald-800">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse"></span>
@@ -103,16 +103,59 @@ export function Navbar({
 
           <div className="h-4 w-px bg-stone-300 hidden lg:block"></div>
 
-          {/* User profile (Google OAuth visual indicator) */}
-          <div className="flex items-center gap-2.5">
-            <div className="text-right hidden sm:block">
-              <div className="text-xs font-medium text-stone-900">{currentUser.name}</div>
-              <div className="text-[10px] text-stone-600 capitalize">{currentUser.role} Lead · Google Auth</div>
+          {currentUser ? (
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <div className="text-xs font-medium text-stone-900">{currentUser.name}</div>
+                <div className="text-[10px] text-stone-600">{currentUser.email}</div>
+              </div>
+
+              {currentUser.avatar ? (
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  className="w-8 h-8 rounded-full border border-stone-200 object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-stone-900 text-white flex items-center justify-center text-xs font-semibold tracking-wider font-serif">
+                  {currentUser.initials}
+                </div>
+              )}
+
+              <a
+                href="/api/auth/logout"
+                title="Cerrar sesión"
+                className="text-[11px] text-stone-600 hover:text-stone-900 font-medium hairline-all px-2 py-1 rounded-md hover:bg-stone-100 transition-colors"
+              >
+                Salir
+              </a>
             </div>
-            <div className="w-8 h-8 rounded-full bg-stone-900 text-white flex items-center justify-center text-xs font-semibold tracking-wider font-serif">
-              {currentUser.initials}
-            </div>
-          </div>
+          ) : (
+            <a
+              href="/api/auth/google"
+              className="flex items-center gap-2 bg-white hairline-all hover:bg-stone-50 text-stone-800 text-xs font-medium px-3.5 py-1.5 rounded-full transition-all shadow-2xs hover:shadow-xs"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                />
+              </svg>
+              <span>Acceder con Google</span>
+            </a>
+          )}
 
         </div>
 

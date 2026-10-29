@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { ViewTabs, ActiveView } from '@/components/ViewTabs';
 import { CampaignTable } from '@/components/CampaignTable';
@@ -17,13 +17,25 @@ import {
   INITIAL_BRIEF,
   TEAM_MEMBERS
 } from '@/lib/initial-data';
-import { Campaign, SalesLead, SalesAsset, BriefDoc, CampaignStatus, LeadStage } from '@/lib/types';
+import { Campaign, SalesLead, SalesAsset, BriefDoc, CampaignStatus, LeadStage, UserProfile } from '@/lib/types';
 
 export default function Home() {
-  const [currentUser] = useState(TEAM_MEMBERS.elena);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(TEAM_MEMBERS.elena);
   const [activeWorkspace, setActiveWorkspace] = useState<'all' | 'marketing' | 'sales'>('all');
   const [activeView, setActiveView] = useState<ActiveView>('tablas');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch real Google Auth session
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user) {
+          setCurrentUser(data.user);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Domain state
   const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
