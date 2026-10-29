@@ -304,3 +304,4 @@ if (calCode.includes(oldGridContact)) {
 
 fs.writeFileSync(calPath, calCode, 'utf8');
 console.log('SharedCalendar updated successfully!');
+

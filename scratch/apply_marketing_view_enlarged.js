@@ -808,3 +808,4 @@ if (lastDivIdx !== -1) {
 
 fs.writeFileSync(mktPath, mktCode, 'utf8');
 console.log('MarketingSection updated with viewing modals successfully!');
+

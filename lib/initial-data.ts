@@ -11,6 +11,16 @@ import {
 // =============================================================
 // HOTELES OFICIALES DE GRUPO ORGÁNICO HOTEL BOUTIQUE
 // =============================================================
+export const CAMPAIGN_HOTEL_TARGETS = [
+  'Todos los Hoteles (Grupo Orgánico)',
+  'Orgánico Ajusco',
+  'Orgánico Valle de Bravo',
+  'Orgánico Tepoztlán',
+  'Orgánico Veracruz',
+  'Centro Cultural Quinta Soledad',
+  'Frontera 49 Roma Norte'
+];
+
 export const HOTEL_PROPERTIES = [
   'Orgánico Ajusco',
   'Orgánico Valle de Bravo',
@@ -309,7 +319,7 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
     id: 'cmp-1',
     code: 'MKT-101',
     title: 'Campaña Bodas en el Bosque & Romance 2026',
-    hotelTarget: 'Orgánico Ajusco',
+    hotelTarget: 'Todos los Hoteles (Grupo Orgánico)',
     type: 'temporada',
     status: 'activa',
     budget: 65000,
@@ -322,8 +332,7 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
       { id: 'l2', title: 'Drive Fotos Salón Victoria', url: 'https://drive.google.com', platform: 'drive' }
     ],
     leadOwner: 'Elena Rostova (Marketing)',
-    description: 'Atracción de parejas para bodas íntimas en el bosque con pauta segmentada a CDMX, Toluca y Querétaro.',
-    selectedSpaces: ['Salón Victoria', 'Jardín Chula Vista']
+    description: 'Campaña transversal de posicionamiento en Meta Ads y Google Search para todas las propiedades boutique del grupo.'
   },
   {
     id: 'cmp-2',
@@ -341,8 +350,7 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
       { id: 'l3', title: 'Drive Comunicados Prensa', url: 'https://drive.google.com', platform: 'drive' }
     ],
     leadOwner: 'Clara Beaumont (Comunicación)',
-    description: 'Campaña de relaciones públicas para promover el Auditorio Pierre Damian y los salones para eventos corporativos.',
-    selectedSpaces: ['Auditorio Pierre Damian', 'Salón Guadalupe']
+    description: 'Campaña de relaciones públicas para posicionar Centro Cultural Quinta Soledad para retiros de bienestar y eventos de arte.'
   },
   {
     id: 'cmp-3',
@@ -360,8 +368,7 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
       { id: 'l4', title: 'Canva Moodboard Veracruz', url: 'https://canva.com', platform: 'canva' }
     ],
     leadOwner: 'Elena Rostova (Marketing)',
-    description: 'Promoción de estancias de playa y gastronomía de mar en Restaurante El Muelle.',
-    selectedSpaces: ['Zona de Playa Privada', 'Restaurante El Muelle']
+    description: 'Promoción de estancias de descanso frente al mar y escapadas de fin de semana en Costa Esmeralda.'
   }
 ];
 

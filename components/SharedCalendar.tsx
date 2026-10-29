@@ -114,7 +114,6 @@ export function SharedCalendar({
           status: c.status,
           value: c.budget,
           currency: 'MXN' as const,
-          spaces: c.selectedSpaces,
           clientOrLead: c.leadOwner,
           notes: c.description,
           channels: c.channels
@@ -131,9 +130,12 @@ export function SharedCalendar({
         }))
       ];
 
-  // Hotel filtering
+  // Hotel filtering (Group-wide campaigns show across all hotels or when filtering 'all')
   const filteredItems = items.filter((item) => {
-    if (selectedHotel !== 'all' && item.hotel !== selectedHotel) return false;
+    if (selectedHotel !== 'all') {
+      if (item.hotel === 'Todos los Hoteles (Grupo Orgánico)') return true;
+      if (item.hotel !== selectedHotel) return false;
+    }
     return true;
   });
 
@@ -491,8 +493,8 @@ export function SharedCalendar({
               </button>
             </div>
 
-            {/* Espacios bloqueados */}
-            {activeItemModal.spaces && activeItemModal.spaces.length > 0 && (
+            {/* Espacios bloqueados (Solo para reservas comerciales) */}
+            {activeItemModal.type === 'deal' && activeItemModal.spaces && activeItemModal.spaces.length > 0 && (
               <div className="space-y-1.5">
                 <span className="text-[11px] font-bold text-stone-600 uppercase tracking-wider block">
                   Espacios Reservados:

@@ -10,7 +10,7 @@ import {
   MarketingTaskStage,
   MarketingTaskCategory
 } from '@/lib/types';
-import { HOTEL_PROPERTIES, HOTEL_SPACES } from '@/lib/initial-data';
+import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 
@@ -106,8 +106,7 @@ export function MarketingSection({
   const [campaignToDelete, setCampaignToDelete] = useState<MarketingCampaign | null>(null);
 
   const [editCTitle, setEditCTitle] = useState('');
-  const [editCHotel, setEditCHotel] = useState(HOTEL_PROPERTIES[0]);
-  const [editCSelectedSpaces, setEditCSelectedSpaces] = useState<string[]>([]);
+  const [editCHotel, setEditCHotel] = useState<string>(CAMPAIGN_HOTEL_TARGETS[0]);
   const [editCType, setEditCType] = useState<MarketingCampaign['type']>('temporada');
   const [editCStatus, setEditCStatus] = useState<MarketingCampaignStatus>('planificacion');
   const [editCBudget, setEditCBudget] = useState('45000');
@@ -160,8 +159,7 @@ export function MarketingSection({
 
   // Form states - Campaign
   const [cTitle, setCTitle] = useState('');
-  const [cHotel, setCHotel] = useState(HOTEL_PROPERTIES[0]);
-  const [cSelectedSpaces, setCSelectedSpaces] = useState<string[]>([]);
+  const [cHotel, setCHotel] = useState<string>(CAMPAIGN_HOTEL_TARGETS[0]);
   const [cType, setCType] = useState<MarketingCampaign['type']>('temporada');
   const [cBudget, setCBudget] = useState('45000');
   const [cStart, setCStart] = useState('2026-10-20');
@@ -185,22 +183,15 @@ export function MarketingSection({
   const [bMessage, setBMessage] = useState('');
   const [bDeliverables, setBDeliverables] = useState('25 Fotos HD de Espacios, 3 Reels, 1 Teaser');
 
-  const availableSpaces = HOTEL_SPACES[cHotel] || [];
 
-  const handleToggleSpace = (spaceName: string) => {
-    setCSelectedSpaces((prev) =>
-      prev.includes(spaceName) ? prev.filter((s) => s !== spaceName) : [...prev, spaceName]
-    );
-  };
 
-  const handleHotelChange = (newHotel: string) => {
-    setCHotel(newHotel);
-    setCSelectedSpaces([]);
-  };
-
-  const filteredCampaigns = campaigns.filter(
-    (c) => selectedHotelFilter === 'all' || c.hotelTarget === selectedHotelFilter
-  );
+  const filteredCampaigns = campaigns.filter((c) => {
+    if (selectedHotelFilter !== 'all') {
+      if (c.hotelTarget === 'Todos los Hoteles (Grupo Orgánico)') return true;
+      if (c.hotelTarget !== selectedHotelFilter) return false;
+    }
+    return true;
+  });
 
   const handleCreateCampaign = (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,7 +200,6 @@ export function MarketingSection({
     onAddCampaign({
       title: cTitle,
       hotelTarget: cHotel,
-      selectedSpaces: cSelectedSpaces,
       type: cType,
       status: 'planificacion',
       budget: parseFloat(cBudget) || 25000,
@@ -225,7 +215,6 @@ export function MarketingSection({
     });
 
     setCTitle('');
-    setCSelectedSpaces([]);
     setIsCampaignModalOpen(false);
   };
 
@@ -359,7 +348,6 @@ export function MarketingSection({
     setEditingCampaign(c);
     setEditCTitle(c.title);
     setEditCHotel(c.hotelTarget);
-    setEditCSelectedSpaces(c.selectedSpaces || []);
     setEditCType(c.type);
     setEditCStatus(c.status);
     setEditCBudget(String(c.budget));
@@ -370,11 +358,7 @@ export function MarketingSection({
     setIsEditCampaignModalOpen(true);
   };
 
-  const handleToggleEditCampaignSpace = (spName: string) => {
-    setEditCSelectedSpaces((prev) =>
-      prev.includes(spName) ? prev.filter((s) => s !== spName) : [...prev, spName]
-    );
-  };
+
 
   const handleSaveEditCampaign = (e: React.FormEvent) => {
     e.preventDefault();
@@ -384,7 +368,6 @@ export function MarketingSection({
       ...editingCampaign,
       title: editCTitle,
       hotelTarget: editCHotel,
-      selectedSpaces: editCSelectedSpaces,
       type: editCType,
       status: editCStatus,
       budget: parseFloat(editCBudget) || editingCampaign.budget,
@@ -870,8 +853,8 @@ export function MarketingSection({
               <thead>
                 <tr className="bg-stone-50 border-b border-stone-200 text-stone-500 font-bold uppercase text-[10px] tracking-wider">
                   <th className="py-3 px-4">Código</th>
-                  <th className="py-3 px-4">Campaña & Hotel</th>
-                  <th className="py-3 px-4">Espacios Promocionados</th>
+                  <th className="py-3 px-4">Nombre de la Campaña</th>
+                  <th className="py-3 px-4">Hotel / Alcance</th>
                   <th className="py-3 px-4">Estado</th>
                   <th className="py-3 px-4">Presupuesto</th>
                   <th className="py-3 px-4">Fechas</th>
@@ -891,21 +874,19 @@ export function MarketingSection({
                     >
                       <td className="py-3 px-4 font-mono font-bold text-stone-500">{c.code}</td>
                       <td className="py-3 px-4">
-                        <div className="font-bold text-stone-900">{c.title}</div>
-                        <div className="text-[11px] text-rose-600 font-bold">{c.hotelTarget}</div>
+                        <div className="font-bold text-stone-900 text-[13px]">{c.title}</div>
+                        <div className="text-[10px] text-stone-400 font-medium capitalize mt-0.5">{c.type.replace('_', ' ')}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {c.selectedSpaces && c.selectedSpaces.length > 0 ? (
-                            c.selectedSpaces.map((sp, idx) => (
-                              <span key={idx} className="text-[9px] bg-rose-50 text-rose-800 border border-rose-200 px-1 py-0.2 rounded-xs font-semibold">
-                                {sp}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[10px] text-stone-400 italic">Toda la propiedad</span>
-                          )}
-                        </div>
+                        {c.hotelTarget.includes('Todos') ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-full shadow-2xs">
+                            <span>🌟</span> Todo el Grupo Orgánico
+                          </span>
+                        ) : (
+                          <div className="text-[11px] text-rose-700 font-bold flex items-center gap-1">
+                            <span>🏨</span> {c.hotelTarget}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <select
@@ -1126,18 +1107,21 @@ export function MarketingSection({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-700 font-bold mb-1">Hotel Destino</label>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel o Alcance del Grupo</label>
                   <select
                     value={cHotel}
-                    onChange={(e) => handleHotelChange(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                    onChange={(e) => setCHotel(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs focus:ring-2 focus:ring-rose-500"
                   >
-                    {HOTEL_PROPERTIES.map((h) => (
+                    {CAMPAIGN_HOTEL_TARGETS.map((h) => (
                       <option key={h} value={h}>{h}</option>
                     ))}
                   </select>
+                  <span className="text-[10px] text-stone-500 mt-0.5 block">
+                    Elige un hotel boutique o todos los hoteles del grupo.
+                  </span>
                 </div>
 
                 <div>
@@ -1145,7 +1129,7 @@ export function MarketingSection({
                   <select
                     value={cType}
                     onChange={(e) => setCType(e.target.value as any)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs"
                   >
                     <option value="temporada">Temporada Alta / Festividades</option>
                     <option value="marca">Branding & Posicionamiento</option>
@@ -1153,30 +1137,6 @@ export function MarketingSection({
                     <option value="relaciones_publicas">Relaciones Públicas & Prensa</option>
                     <option value="gastronomia">Gastronomía & Restaurantes</option>
                   </select>
-                </div>
-              </div>
-
-              {/* Espacios a destacar */}
-              <div className="space-y-2 bg-stone-50 p-3 rounded-xl border border-stone-200">
-                <label className="text-[11px] font-bold text-stone-800 uppercase tracking-wider block">
-                  Espacios del Hotel a Promocionar:
-                </label>
-                <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
-                  {availableSpaces.map((space) => {
-                    const isSelected = cSelectedSpaces.includes(space.name);
-                    return (
-                      <div
-                        key={space.id}
-                        onClick={() => handleToggleSpace(space.name)}
-                        className={`p-1.5 rounded-lg border text-[11px] cursor-pointer flex items-center gap-1.5 ${
-                          isSelected ? 'bg-rose-100 border-rose-400 text-rose-900 font-bold' : 'bg-white border-stone-200 text-stone-700'
-                        }`}
-                      >
-                        <input type="checkbox" checked={isSelected} onChange={() => {}} className="accent-rose-600" />
-                        <span className="truncate">{space.name}</span>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
 
@@ -1836,28 +1796,28 @@ export function MarketingSection({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-700 font-bold mb-1">Hotel Destino</label>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel o Alcance del Grupo</label>
                   <select
                     value={editCHotel}
-                    onChange={(e) => {
-                      setEditCHotel(e.target.value);
-                      setEditCSelectedSpaces([]);
-                    }}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                    onChange={(e) => setEditCHotel(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs focus:ring-2 focus:ring-rose-500"
                   >
-                    {HOTEL_PROPERTIES.map((h) => (
+                    {CAMPAIGN_HOTEL_TARGETS.map((h) => (
                       <option key={h} value={h}>{h}</option>
                     ))}
                   </select>
+                  <span className="text-[10px] text-stone-500 mt-0.5 block">
+                    Elige un hotel boutique o todos los hoteles del grupo.
+                  </span>
                 </div>
                 <div>
                   <label className="block text-stone-700 font-bold mb-1">Estado</label>
                   <select
                     value={editCStatus}
                     onChange={(e) => setEditCStatus(e.target.value as MarketingCampaignStatus)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs"
                   >
                     <option value="planificacion">Planificación</option>
                     <option value="en_produccion">En Producción</option>
@@ -1865,30 +1825,6 @@ export function MarketingSection({
                     <option value="activa">Activa en Pauta</option>
                     <option value="finalizada">Finalizada</option>
                   </select>
-                </div>
-              </div>
-
-              {/* Espacios del Hotel */}
-              <div className="space-y-2 bg-stone-50 p-3 rounded-xl border border-stone-200">
-                <label className="text-[11px] font-bold text-stone-800 uppercase tracking-wider block">
-                  Espacios del Hotel a Promocionar:
-                </label>
-                <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
-                  {(HOTEL_SPACES[editCHotel] || []).map((space) => {
-                    const isSelected = editCSelectedSpaces.includes(space.name);
-                    return (
-                      <div
-                        key={space.id}
-                        onClick={() => handleToggleEditCampaignSpace(space.name)}
-                        className={'p-1.5 rounded-lg border text-[11px] cursor-pointer flex items-center gap-1.5 ' + (
-                          isSelected ? 'bg-rose-100 border-rose-400 text-rose-900 font-bold' : 'bg-white border-stone-200 text-stone-700'
-                        )}
-                      >
-                        <input type="checkbox" checked={isSelected} onChange={() => {}} className="accent-rose-600" />
-                        <span className="truncate">{space.name}</span>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
 
@@ -2605,27 +2541,26 @@ export function MarketingSection({
               </div>
             </div>
 
-            {/* Espacios Promocionados */}
-            <div className="space-y-2">
-              <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <span>🏛️</span> Espacios Promocionados en {viewingCampaign.hotelTarget}:
-              </h4>
-              {viewingCampaign.selectedSpaces && viewingCampaign.selectedSpaces.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {viewingCampaign.selectedSpaces.map((sp, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 font-bold text-xs"
-                    >
-                      ✓ {sp}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-stone-400 text-xs italic bg-stone-50 p-2.5 rounded-xl border border-dashed border-stone-200 block">
-                  Campaña institucional dirigida a toda la propiedad.
+            {/* Alcance de la Campaña (Hotel o Todo el Grupo) */}
+            <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-lg shrink-0">
+                  🏨
                 </span>
-              )}
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-stone-500 block">Alcance Hotelero</span>
+                  <span className="font-bold text-stone-900 text-sm">
+                    {viewingCampaign.hotelTarget}
+                  </span>
+                </div>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-[11px] font-bold border self-start sm:self-auto ${
+                viewingCampaign.hotelTarget.includes('Todos')
+                  ? 'bg-purple-50 text-purple-800 border-purple-200'
+                  : 'bg-rose-50 text-rose-800 border-rose-200'
+              }`}>
+                {viewingCampaign.hotelTarget.includes('Todos') ? '🌟 Cobertura Grupo Completo' : '📍 Hotel Específico'}
+              </span>
             </div>
 
             {/* Canales de Difusión */}
