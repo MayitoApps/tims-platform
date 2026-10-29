@@ -75,6 +75,39 @@ export interface CreativeBrief {
 }
 
 // -------------------------------------------------------------
+// TABLERO POR FASES DE MARKETING (Requerimientos & Entregables)
+// -------------------------------------------------------------
+export type MarketingTaskStage = 
+  | 'backlog'       // Solicitud recibida / Briefing
+  | 'en_produccion' // En producción (Diseño / Edición / Desarrollo)
+  | 'revision'      // En revisión y aprobación
+  | 'aprobado';     // Listo / Publicado / Entregado
+
+export type MarketingTaskCategory =
+  | 'diseno_grafico'   // Diseños gráficos (menús, banners, flyers, señalética)
+  | 'produccion_video' // Producción y edición de video (Reels, TikTok, dron)
+  | 'cambios_web'      // Cambios y mejoras en páginas web
+  | 'notas_digitales'  // Notas digitales, blog y comunicados de prensa
+  | 'pauta_publicidad' // Configuración de pauta Meta Ads y Google Ads
+  | 'fotografia';      // Sesiones fotográficas y retoque
+
+export interface MarketingTask {
+  id: string;
+  code: string;
+  title: string;
+  hotelTarget: string;
+  category: MarketingTaskCategory;
+  stage: MarketingTaskStage;
+  priority: 'alta' | 'media' | 'urgente';
+  requestedBy: string;
+  assignedTo: string;
+  dueDate: string;
+  description: string;
+  assetUrl?: string;
+  createdAt: string;
+}
+
+// -------------------------------------------------------------
 // SECCIÓN 2: COMERCIALIZACIÓN HOTELERA
 // -------------------------------------------------------------
 export type HotelDealStage = 

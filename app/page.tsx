@@ -10,7 +10,8 @@ import {
   INITIAL_CAMPAIGNS,
   INITIAL_PUBLICATIONS,
   INITIAL_BRIEFS,
-  INITIAL_DEALS
+  INITIAL_DEALS,
+  INITIAL_MARKETING_TASKS
 } from '@/lib/initial-data';
 
 import {
@@ -19,8 +20,10 @@ import {
   ContentPublication,
   CreativeBrief,
   HotelDeal,
+  MarketingTask,
   MarketingCampaignStatus,
-  HotelDealStage
+  HotelDealStage,
+  MarketingTaskStage
 } from '@/lib/types';
 
 export default function Home() {
@@ -33,6 +36,7 @@ export default function Home() {
   const [publications, setPublications] = useState<ContentPublication[]>(INITIAL_PUBLICATIONS);
   const [briefs, setBriefs] = useState<CreativeBrief[]>(INITIAL_BRIEFS);
   const [deals, setDeals] = useState<HotelDeal[]>(INITIAL_DEALS);
+  const [marketingTasks, setMarketingTasks] = useState<MarketingTask[]>(INITIAL_MARKETING_TASKS);
 
   // Live Toast Notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -114,6 +118,25 @@ export default function Home() {
     showToast('Brief creativo archivado en la biblioteca');
   };
 
+  const handleAddMarketingTask = (newTask: Omit<MarketingTask, 'id' | 'code' | 'createdAt'>) => {
+    const nextCode = `REQ-${String(marketingTasks.length + 1).padStart(2, '0')}`;
+    const created: MarketingTask = {
+      ...newTask,
+      id: `mtask-${Date.now()}`,
+      code: nextCode,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setMarketingTasks((prev) => [created, ...prev]);
+    showToast(`Requerimiento de marketing ${nextCode} registrado en el tablero`);
+  };
+
+  const handleUpdateMarketingTaskStage = (id: string, stage: MarketingTaskStage) => {
+    setMarketingTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, stage } : t))
+    );
+    showToast('Fase de requerimiento actualizada en el tablero');
+  };
+
   // -----------------------------------------------------------------
   // COMERCIALIZACIÓN HOTELERA ACTIONS
   // -----------------------------------------------------------------
@@ -179,10 +202,13 @@ export default function Home() {
             campaigns={campaigns}
             publications={publications}
             briefs={briefs}
+            marketingTasks={marketingTasks}
             onAddCampaign={handleAddCampaign}
             onUpdateCampaignStatus={handleUpdateCampaignStatus}
             onAddPublication={handleAddPublication}
             onAddBrief={handleAddBrief}
+            onAddMarketingTask={handleAddMarketingTask}
+            onUpdateMarketingTaskStage={handleUpdateMarketingTaskStage}
           />
         ) : (
           <CommercialSection

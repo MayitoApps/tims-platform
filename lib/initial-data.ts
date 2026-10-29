@@ -4,7 +4,8 @@ import {
   CreativeBrief,
   HotelDeal,
   HotelSpaceInfo,
-  HotelRoomType
+  HotelRoomType,
+  MarketingTask
 } from './types';
 
 // =============================================================
@@ -147,13 +148,13 @@ export const INITIAL_DEALS: HotelDeal[] = [
     currency: 'MXN',
     roomNights: 28,
     attendeesCount: 140,
-    checkInDate: '2026-04-18',
-    checkOutDate: '2026-04-20',
+    checkInDate: '2026-10-29',
+    checkOutDate: '2026-10-31',
     assignedRep: 'Lucía Fernández (Bodas & Sociales)',
     notes: 'Boda boutique en montaña. Ceremonia en Jardín Chula Vista y cena/baile en Salón Victoria. Casa Club para tornaboda.',
     contactEmail: 'alejandra.morales@gmail.com',
     contactPhone: '+52 55 4912 3001',
-    createdAt: '2026-02-10'
+    createdAt: '2026-10-01'
   },
   {
     id: 'deal-2',
@@ -172,13 +173,13 @@ export const INITIAL_DEALS: HotelDeal[] = [
     currency: 'MXN',
     roomNights: 0,
     attendeesCount: 95,
-    checkInDate: '2026-04-24',
-    checkOutDate: '2026-04-24',
+    checkInDate: '2026-11-04',
+    checkOutDate: '2026-11-04',
     assignedRep: 'Carlos Mendoza (MICE & Corporativo)',
     notes: 'Conferencias en Auditorio Pierre Damian, mesas de trabajo en Salón Guadalupe y comida en Restaurante Capitular.',
     contactEmail: 'mgarza@loreal.com.mx',
     contactPhone: '+52 55 8820 1199',
-    createdAt: '2026-02-18'
+    createdAt: '2026-10-10'
   },
   {
     id: 'deal-3',
@@ -202,13 +203,13 @@ export const INITIAL_DEALS: HotelDeal[] = [
     currency: 'MXN',
     roomNights: 45,
     attendeesCount: 30,
-    checkInDate: '2026-05-08',
-    checkOutDate: '2026-05-11',
+    checkInDate: '2026-11-12',
+    checkOutDate: '2026-11-15',
     assignedRep: 'Carlos Mendoza (MICE & Corporativo)',
     notes: 'Sesiones de planeación en Salón Porvenir, cenas maridaje en Restaurante Milagro y fogatada en el Fogatero.',
     contactEmail: 'santiago_bailleres@mckinsey.com',
     contactPhone: '+52 55 6019 4433',
-    createdAt: '2026-02-25'
+    createdAt: '2026-10-15'
   },
   {
     id: 'deal-4',
@@ -231,13 +232,13 @@ export const INITIAL_DEALS: HotelDeal[] = [
     currency: 'MXN',
     roomNights: 32,
     attendeesCount: 22,
-    checkInDate: '2026-05-22',
-    checkOutDate: '2026-05-24',
+    checkInDate: '2026-11-20',
+    checkOutDate: '2026-11-22',
     assignedRep: 'Sofía Rebollar (Bienestar & Eventos)',
     notes: 'Meditación matutina en Jardín Equilibrio, talleres en Salón Imperfecto y comidas en Restaurante Infinito.',
     contactEmail: 'valeria@shantiyoga.mx',
     contactPhone: '+52 777 312 8844',
-    createdAt: '2026-03-01'
+    createdAt: '2026-10-20'
   },
   {
     id: 'deal-5',
@@ -261,13 +262,13 @@ export const INITIAL_DEALS: HotelDeal[] = [
     currency: 'MXN',
     roomNights: 36,
     attendeesCount: 110,
-    checkInDate: '2026-06-12',
-    checkOutDate: '2026-06-14',
+    checkInDate: '2026-12-04',
+    checkOutDate: '2026-12-06',
     assignedRep: 'Lucía Fernández (Bodas & Sociales)',
     notes: 'Ceremonia en Playa Privada, banquete de mariscos en El Muelle y barra de cocteles en Pool Deck.',
     contactEmail: 'guillermo_sanchez@outlook.com',
     contactPhone: '+52 229 901 2288',
-    createdAt: '2026-03-02'
+    createdAt: '2026-10-22'
   },
   {
     id: 'deal-6',
@@ -290,13 +291,13 @@ export const INITIAL_DEALS: HotelDeal[] = [
     currency: 'MXN',
     roomNights: 8,
     attendeesCount: 75,
-    checkInDate: '2026-04-10',
-    checkOutDate: '2026-04-11',
+    checkInDate: '2026-12-18',
+    checkOutDate: '2026-12-19',
     assignedRep: 'Sofía Rebollar (Bienestar & Eventos)',
     notes: 'Exhibición de arte en Foro Cultural, degustación en Restaurante Garnachería Única y brindis en Terraza.',
     contactEmail: 'diego@monicasaucedo.art',
     contactPhone: '+52 55 1199 4400',
-    createdAt: '2026-03-01'
+    createdAt: '2026-10-25'
   }
 ];
 
@@ -313,8 +314,8 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
     status: 'activa',
     budget: 65000,
     spent: 38000,
-    startDate: '2026-03-01',
-    endDate: '2026-05-31',
+    startDate: '2026-10-15',
+    endDate: '2026-12-31',
     channels: ['Instagram Ads', 'Meta Ads', 'Prensa Estilo de Vida', 'Google Search MICE'],
     externalLinks: [
       { id: 'l1', title: 'Figma Creativos Bodas', url: 'https://figma.com', platform: 'figma' },
@@ -333,8 +334,8 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
     status: 'en_produccion',
     budget: 45000,
     spent: 18000,
-    startDate: '2026-04-01',
-    endDate: '2026-06-15',
+    startDate: '2026-11-01',
+    endDate: '2026-12-15',
     channels: ['PR Artículos', 'LinkedIn Corporativo', 'Newsletter Cultural'],
     externalLinks: [
       { id: 'l3', title: 'Drive Comunicados Prensa', url: 'https://drive.google.com', platform: 'drive' }
@@ -352,8 +353,8 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
     status: 'planificacion',
     budget: 35000,
     spent: 5000,
-    startDate: '2026-05-01',
-    endDate: '2026-06-30',
+    startDate: '2026-11-15',
+    endDate: '2027-01-15',
     channels: ['TikTok', 'Instagram Reels', 'Influencers Travel'],
     externalLinks: [
       { id: 'l4', title: 'Canva Moodboard Veracruz', url: 'https://canva.com', platform: 'canva' }
@@ -370,7 +371,7 @@ export const INITIAL_PUBLICATIONS: ContentPublication[] = [
     title: 'Reel: Un amanecer en Salón Victoria y Jardín Chula Vista',
     hotel: 'Orgánico Ajusco',
     channel: 'instagram',
-    publishDate: '2026-04-05',
+    publishDate: '2026-10-29',
     status: 'programado',
     responsible: 'Equipo Audiovisual'
   },
@@ -379,7 +380,7 @@ export const INITIAL_PUBLICATIONS: ContentPublication[] = [
     title: 'Nota de Prensa: Quinta Soledad, historia virreinal y modernidad en Tlalpan',
     hotel: 'Centro Cultural Quinta Soledad',
     channel: 'prensa',
-    publishDate: '2026-04-12',
+    publishDate: '2026-11-03',
     status: 'redactado',
     responsible: 'Clara Beaumont'
   },
@@ -388,7 +389,7 @@ export const INITIAL_PUBLICATIONS: ContentPublication[] = [
     title: 'TikTok: 3 razones para visitar Jardín Equilibrio en Orgánico Tepoztlán',
     hotel: 'Orgánico Tepoztlán',
     channel: 'tiktok',
-    publishDate: '2026-04-18',
+    publishDate: '2026-11-10',
     status: 'idea',
     responsible: 'Social Media Lead'
   },
@@ -397,7 +398,7 @@ export const INITIAL_PUBLICATIONS: ContentPublication[] = [
     title: 'LinkedIn: Retiros de Consejo de Alto Nivel en Salón Porvenir Valle de Bravo',
     hotel: 'Orgánico Valle de Bravo',
     channel: 'linkedin',
-    publishDate: '2026-04-22',
+    publishDate: '2026-11-20',
     status: 'diseñado',
     responsible: 'Clara Beaumont'
   }
@@ -418,7 +419,7 @@ export const INITIAL_BRIEFS: CreativeBrief[] = [
       '10 Tomas de detalle en Don Petro y Miel Sobre Limón'
     ],
     author: 'Elena Rostova',
-    date: '2026-03-20',
+    date: '2026-10-15',
     spacesTarget: ['Salón Victoria', 'Jardín Chula Vista', 'Restaurante Don Petro']
   },
   {
@@ -434,7 +435,103 @@ export const INITIAL_BRIEFS: CreativeBrief[] = [
       'Fotogalería del Auditorio Pierre Damian y Restaurante Capitular'
     ],
     author: 'Clara Beaumont',
-    date: '2026-03-25',
+    date: '2026-10-20',
     spacesTarget: ['Auditorio Pierre Damian', 'Restaurante Capitular']
+  }
+];
+
+// =============================================================
+// REQUERIMIENTOS Y ENTREGABLES DE MARKETING POR FASES (KANBAN)
+// =============================================================
+export const INITIAL_MARKETING_TASKS: MarketingTask[] = [
+  {
+    id: 'mtask-1',
+    code: 'REQ-01',
+    title: 'Diseño Menú Digital Temporada Don Petro',
+    hotelTarget: 'Orgánico Ajusco',
+    category: 'diseno_grafico',
+    stage: 'en_produccion',
+    priority: 'alta',
+    requestedBy: 'Chef Ejecutivo & Gerencia A&B',
+    assignedTo: 'Estudio de Diseño (Pablo)',
+    dueDate: '2026-11-05',
+    description: 'Actualización del diseño editorial del menú con carta de vinos de altura y cócteles de autor de Bar Miel Sobre Limón.',
+    assetUrl: 'https://figma.com',
+    createdAt: '2026-10-24'
+  },
+  {
+    id: 'mtask-2',
+    code: 'REQ-02',
+    title: 'Video Reel 4K: Experiencia Fogatero & Cabañas',
+    hotelTarget: 'Orgánico Valle de Bravo',
+    category: 'produccion_video',
+    stage: 'backlog',
+    priority: 'alta',
+    requestedBy: 'Dirección Comercial Hoteles',
+    assignedTo: 'Videógrafo (Mateo)',
+    dueDate: '2026-11-12',
+    description: 'Video teaser vertical de 30s mostrando la atmósfera nocturna del fogatero, vino caliente y suites del bosque.',
+    assetUrl: 'https://drive.google.com',
+    createdAt: '2026-10-26'
+  },
+  {
+    id: 'mtask-3',
+    code: 'REQ-03',
+    title: 'Actualización Web: Galería de Salones y Tarifas 2027',
+    hotelTarget: 'Centro Cultural Quinta Soledad',
+    category: 'cambios_web',
+    stage: 'revision',
+    priority: 'urgente',
+    requestedBy: 'Ventas Grupos MICE',
+    assignedTo: 'Webmaster / Dev Front',
+    dueDate: '2026-10-31',
+    description: 'Subir renders y fotos HD del Auditorio Pierre Damian y nuevo botón directo de solicitud de cotización.',
+    assetUrl: 'https://gohb.com.mx',
+    createdAt: '2026-10-22'
+  },
+  {
+    id: 'mtask-4',
+    code: 'REQ-04',
+    title: 'Nota Digital: Retiros Holísticos y Bienestar en Tepoztlán',
+    hotelTarget: 'Orgánico Tepoztlán',
+    category: 'notas_digitales',
+    stage: 'aprobado',
+    priority: 'media',
+    requestedBy: 'Relaciones Públicas',
+    assignedTo: 'Redactora de Contenidos (Elena)',
+    dueDate: '2026-10-28',
+    description: 'Artículo de blog y nota para medios de bienestar sobre reconexión con la naturaleza en Jardín Equilibrio.',
+    assetUrl: 'https://gohb.com.mx/blog',
+    createdAt: '2026-10-20'
+  },
+  {
+    id: 'mtask-5',
+    code: 'REQ-05',
+    title: 'Campaña Meta Ads: Fin de Año y Bodas Frente al Mar',
+    hotelTarget: 'Orgánico Veracruz',
+    category: 'pauta_publicidad',
+    stage: 'en_produccion',
+    priority: 'alta',
+    requestedBy: 'Gerencia General Veracruz',
+    assignedTo: 'Media Buyer (Daniel)',
+    dueDate: '2026-11-08',
+    description: 'Estructurar conjuntos de anuncios con segmentación a novias y parejas en Puebla, Xalapa, CDMX y Veracruz Puerto.',
+    assetUrl: 'https://facebook.com/adsmanager',
+    createdAt: '2026-10-25'
+  },
+  {
+    id: 'mtask-6',
+    code: 'REQ-06',
+    title: 'Shooting de Nuevas Habitaciones Deluxe & Rooftop',
+    hotelTarget: 'Frontera 49 Roma Norte',
+    category: 'fotografia',
+    stage: 'backlog',
+    priority: 'media',
+    requestedBy: 'Hospitalidad Urbana',
+    assignedTo: 'Fotógrafo Arquitectura',
+    dueDate: '2026-11-18',
+    description: 'Fotografía diurna y nocturna de las suites privadas, espacio de coworking y eventos en Terraza.',
+    assetUrl: 'https://drive.google.com',
+    createdAt: '2026-10-27'
   }
 ];

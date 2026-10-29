@@ -29,6 +29,9 @@ export function CommercialSection({
 }: CommercialSectionProps) {
   const [subView, setSubView] = useState<'pipeline' | 'calendario' | 'tabla' | 'reporte'>('pipeline');
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
+  const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<HotelDealStage | null>(null);
+  const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
 
   // Modal
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
@@ -294,63 +297,142 @@ export function CommercialSection({
 
       {/* SUB-VIEW 1: KANBAN PIPELINE */}
       {subView === 'pipeline' && (
-        <div className="space-y-4">
-          <div className="flex gap-4 overflow-x-auto pb-4 pt-1">
+        <div className="space-y-3">
+          {/* Board View Bar & D&D Helper */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-2 text-xs text-stone-600">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-semibold text-stone-800">Pipeline Comercial:</span>
+              <span className="text-stone-500 hidden md:inline">
+                Arrastra las tarjetas libremente entre fases para cambiar su estatus en tiempo real.
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 self-end sm:self-auto bg-stone-100 p-1 rounded-xl border border-stone-200 text-xs">
+              <button
+                onClick={() => setBoardLayout('fit')}
+                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                  boardLayout === 'fit'
+                    ? 'bg-white text-emerald-950 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900'
+                }`}
+              >
+                Ajustar a Pantalla (Sin Scroll)
+              </button>
+              <button
+                onClick={() => setBoardLayout('scroll')}
+                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
+                  boardLayout === 'scroll'
+                    ? 'bg-white text-emerald-950 shadow-xs'
+                    : 'text-stone-500 hover:text-stone-900'
+                }`}
+              >
+                Columnas Anchas
+              </button>
+            </div>
+          </div>
+
+          <div
+            className={
+              boardLayout === 'fit'
+                ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3.5 pb-4 pt-1'
+                : 'flex gap-3.5 overflow-x-auto pb-4 pt-1'
+            }
+          >
             {STAGES.map((col) => {
               const columnDeals = filteredDeals.filter((d) => d.stage === col.id);
               const colSum = columnDeals.reduce((acc, d) => acc + d.totalValue, 0);
+              const isOver = dragOverStage === col.id;
 
               return (
                 <div
                   key={col.id}
-                  className="w-80 shrink-0 bg-stone-100/70 border border-stone-200 rounded-2xl p-3.5 flex flex-col max-h-[78vh]"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverStage !== col.id) setDragOverStage(col.id);
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    setDragOverStage(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const dealId = e.dataTransfer.getData('text/plain') || draggedDealId;
+                    if (dealId) {
+                      onUpdateDealStage(dealId, col.id);
+                    }
+                    setDraggedDealId(null);
+                    setDragOverStage(null);
+                  }}
+                  className={`transition-all duration-200 rounded-2xl p-3 flex flex-col min-h-[500px] max-h-[82vh] border ${
+                    boardLayout === 'scroll' ? 'w-80 shrink-0' : 'w-full'
+                  } ${
+                    isOver
+                      ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-400/60 shadow-md'
+                      : 'bg-stone-100/70 border-stone-200'
+                  }`}
                 >
-                  <div className="flex items-center justify-between pb-2 border-b border-stone-200 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${col.colorDot}`} />
-                      <span className="text-xs font-bold text-stone-800 tracking-tight">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-200/90 mb-2.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${col.colorDot}`} />
+                      <span className="text-xs font-bold text-stone-800 tracking-tight truncate">
                         {col.title}
                       </span>
-                      <span className="text-[10px] text-stone-500 font-mono">
+                      <span className="text-[10px] text-stone-500 font-mono shrink-0">
                         ({columnDeals.length})
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono font-bold text-stone-800">
+                    <span className="text-[10px] font-mono font-bold text-stone-800 shrink-0 ml-1">
                       {formatCurrency(colSum)}
                     </span>
                   </div>
 
-                  <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+                  <div className="space-y-2.5 overflow-y-auto flex-1 pr-0.5">
                     {columnDeals.map((deal) => {
                       const catInfo = getDealCategoryLabel(deal.category);
                       const stageIdx = STAGES.findIndex((s) => s.id === deal.stage);
+                      const isBeingDragged = draggedDealId === deal.id;
 
                       return (
                         <div
                           key={deal.id}
-                          className="bg-white border border-stone-200 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-shadow space-y-2.5"
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', deal.id);
+                            setDraggedDealId(deal.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggedDealId(null);
+                            setDragOverStage(null);
+                          }}
+                          className={`bg-white border rounded-xl p-3 shadow-2xs hover:shadow-xs transition-all space-y-2 cursor-grab active:cursor-grabbing ${
+                            isBeingDragged
+                              ? 'opacity-35 border-dashed border-emerald-500 scale-98'
+                              : 'border-stone-200 hover:border-stone-300'
+                          }`}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-sm">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div className="min-w-0">
+                              <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded-xs">
                                 {deal.code}
                               </span>
-                              <h4 className="font-editorial text-base font-bold text-stone-900 leading-snug mt-1">
+                              <h4 className="font-editorial text-sm font-bold text-stone-900 leading-snug mt-0.5 truncate" title={deal.companyOrAgency}>
                                 {deal.companyOrAgency}
                               </h4>
-                              <div className="text-xs text-stone-600 font-medium">
-                                Contacto: {deal.clientName}
+                              <div className="text-[11px] text-stone-500 font-medium truncate">
+                                {deal.clientName}
                               </div>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right shrink-0">
                               <div className="font-mono text-xs font-bold text-emerald-900">
                                 {formatCurrency(deal.totalValue, deal.currency)}
                               </div>
                             </div>
                           </div>
 
-                          <div className="space-y-1.5 text-xs">
-                            <div className="text-[11px] font-bold text-rose-700 flex items-center gap-1">
+                          <div className="space-y-1 text-xs">
+                            <div className="text-[11px] font-bold text-rose-700 flex items-center gap-1 truncate">
                               <span>🏨</span> {deal.hotelName}
                             </div>
 
@@ -360,7 +442,7 @@ export function CommercialSection({
                                 {deal.selectedSpaces.map((sp, idx) => (
                                   <span
                                     key={idx}
-                                    className="text-[9px] font-semibold bg-emerald-50/80 text-emerald-900 border border-emerald-200 px-1.5 py-0.5 rounded-sm"
+                                    className="text-[9px] font-semibold bg-emerald-50/80 text-emerald-900 border border-emerald-200 px-1.5 py-0.2 rounded-sm"
                                   >
                                     ✓ {sp}
                                   </span>
@@ -373,24 +455,21 @@ export function CommercialSection({
                                 {catInfo.label}
                               </span>
                               {deal.roomNights > 0 && (
-                                <span className="text-[9px] font-mono bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded-sm font-semibold">
-                                  {deal.roomNights} Room Nights
+                                <span className="text-[9px] font-mono bg-stone-100 text-stone-700 px-1.5 py-0.2 rounded-sm font-semibold">
+                                  {deal.roomNights} RN
                                 </span>
                               )}
                             </div>
 
                             {/* Desglose de Habitaciones Requeridas */}
                             {deal.requestedRooms && deal.requestedRooms.length > 0 && (
-                              <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-2 space-y-1">
-                                <div className="text-[10px] font-bold text-amber-900 flex items-center justify-between">
-                                  <span className="flex items-center gap-1">🛏️ Habitaciones Requeridas:</span>
-                                  <span className="font-mono bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded font-bold text-[9px]">
-                                    {deal.requestedRooms.reduce((acc, r) => acc + r.count, 0)} habs
-                                  </span>
+                              <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-1.5 space-y-0.5">
+                                <div className="text-[9px] font-bold text-amber-900 flex items-center justify-between">
+                                  <span className="flex items-center gap-1">🛏️ Habitaciones ({deal.requestedRooms.reduce((acc, r) => acc + r.count, 0)} total):</span>
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                   {deal.requestedRooms.map((rm, idx) => (
-                                    <span key={idx} className="text-[9px] bg-white border border-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded font-medium shadow-2xs">
+                                    <span key={idx} className="text-[9px] bg-white border border-amber-200/80 text-amber-900 px-1 py-0.2 rounded font-medium shadow-2xs">
                                       <strong className="font-bold">{rm.count}x</strong> {rm.roomTypeName}
                                     </span>
                                   ))}
@@ -399,17 +478,21 @@ export function CommercialSection({
                             )}
                           </div>
 
-                          <div className="text-[10px] text-stone-600 font-mono bg-stone-50 p-2 rounded-lg border border-stone-100">
-                            📅 {formatDate(deal.checkInDate)} al {formatDate(deal.checkOutDate)}
+                          <div className="text-[10px] text-stone-600 font-mono bg-stone-50 p-1.5 rounded-lg border border-stone-100 flex items-center justify-between">
+                            <span>📅 {formatDate(deal.checkInDate)}</span>
+                            <span>→ {formatDate(deal.checkOutDate)}</span>
                           </div>
 
-                          <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-[10px]">
-                            <span className="text-stone-500 font-medium">{deal.assignedRep.split(' ')[0]}</span>
-                            <div className="flex items-center gap-1">
+                          <div className="flex items-center justify-between pt-1.5 border-t border-stone-100 text-[10px]">
+                            <span className="text-stone-500 font-medium truncate" title={deal.assignedRep}>
+                              👤 {deal.assignedRep.split(' ')[0]}
+                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
                               {stageIdx > 0 && (
                                 <button
                                   onClick={() => moveStage(deal, 'prev')}
-                                  className="px-2 py-0.5 rounded-md border border-stone-300 hover:bg-stone-100 font-bold"
+                                  title="Mover a etapa anterior"
+                                  className="px-1.5 py-0.5 rounded-md border border-stone-300 hover:bg-stone-100 font-bold"
                                 >
                                   ◀
                                 </button>
@@ -417,7 +500,8 @@ export function CommercialSection({
                               {stageIdx < STAGES.length - 1 && (
                                 <button
                                   onClick={() => moveStage(deal, 'next')}
-                                  className="px-2 py-0.5 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 font-bold"
+                                  title="Mover a etapa siguiente"
+                                  className="px-1.5 py-0.5 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 font-bold"
                                 >
                                   ▶
                                 </button>

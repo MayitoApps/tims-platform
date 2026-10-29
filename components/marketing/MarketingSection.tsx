@@ -256,7 +256,205 @@ export function MarketingSection({
         </div>
       )}
 
-      {/* SUB-VIEW: CALENDARIO EXCLUSIVO DE MARKETING (SEPARADO) */}
+            {/* SUB-VIEW 0: TABLERO DE ENTREGABLES & REQUERIMIENTOS POR FASES (DRAG & DROP) */}
+      {subView === 'tablero' && (
+        <div className="space-y-3">
+          {/* Helper notice */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-2 text-xs text-stone-600">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              <span className="font-semibold text-stone-800">Flujo de Producción Creativa:</span>
+              <span className="text-stone-500 hidden md:inline">
+                Arrastra las tarjetas entre fases (Diseño, Videos, Web, Notas) o usa las flechas ◀ ▶ para mover de estatus.
+              </span>
+            </div>
+            <div className="text-[11px] text-stone-500 font-mono">
+              Mostrando {filteredTasks.length} de {marketingTasks.length} requerimientos
+            </div>
+          </div>
+
+          <div
+            className={
+              boardLayout === 'fit'
+                ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5 pb-4 pt-1'
+                : 'flex gap-3.5 overflow-x-auto pb-4 pt-1'
+            }
+          >
+            {MARKETING_STAGES.map((col) => {
+              const stageTasks = filteredTasks.filter((t) => t.stage === col.id);
+              const isOver = dragOverStage === col.id;
+
+              return (
+                <div
+                  key={col.id}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverStage !== col.id) setDragOverStage(col.id);
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    setDragOverStage(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverStage(null);
+                    const taskId = e.dataTransfer.getData('text/plain') || draggedTaskId;
+                    if (taskId) {
+                      onUpdateMarketingTaskStage(taskId, col.id);
+                    }
+                    setDraggedTaskId(null);
+                  }}
+                  className={`flex flex-col rounded-2xl p-3 border transition-all min-h-[460px] ${
+                    boardLayout === 'scroll' ? 'w-80 shrink-0' : 'w-full'
+                  } ${
+                    isOver
+                      ? 'bg-purple-50/80 border-purple-500 ring-2 ring-purple-300'
+                      : 'bg-stone-100/75 border-stone-200/80'
+                  }`}
+                >
+                  {/* Column Header */}
+                  <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-stone-200">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${col.colorDot}`} />
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-stone-800">
+                        {col.title}
+                      </h4>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold bg-white px-2 py-0.5 rounded-full border border-stone-200 text-stone-700">
+                      {stageTasks.length}
+                    </span>
+                  </div>
+
+                  {/* Tasks in stage */}
+                  <div className="space-y-2.5 flex-1">
+                    {stageTasks.length === 0 ? (
+                      <div className="h-32 rounded-xl border border-dashed border-stone-300 flex items-center justify-center text-center p-3 text-stone-400 text-xs">
+                        Sin requerimientos en esta fase. Arrastra aquí para mover.
+                      </div>
+                    ) : (
+                      stageTasks.map((task) => {
+                        const isDragging = draggedTaskId === task.id;
+                        const catMeta = MARKETING_CATEGORIES.find((c) => c.id === task.category);
+                        const priorityClass =
+                          task.priority === 'urgente'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : task.priority === 'alta'
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-blue-50 text-blue-700 border-blue-200';
+
+                        return (
+                          <div
+                            key={task.id}
+                            draggable={true}
+                            onDragStart={(e) => {
+                              setDraggedTaskId(task.id);
+                              e.dataTransfer.setData('text/plain', task.id);
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                            onDragEnd={() => {
+                              setDraggedTaskId(null);
+                              setDragOverStage(null);
+                            }}
+                            className={`bg-white rounded-xl p-3.5 border transition-all cursor-grab active:cursor-grabbing hover:shadow-md space-y-2.5 select-none ${
+                              isDragging
+                                ? 'opacity-40 border-stone-400 shadow-xl'
+                                : 'border-stone-200/90 shadow-2xs hover:border-stone-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1 text-[10px]">
+                              <span className="font-mono font-bold text-stone-400">
+                                {task.code}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-md font-semibold border ${
+                                  catMeta?.badge || 'bg-stone-100 text-stone-700'
+                                }`}
+                              >
+                                {catMeta?.icon} {catMeta?.label}
+                              </span>
+                            </div>
+
+                            <div>
+                              <h5 className="font-bold text-stone-900 text-xs sm:text-[13px] leading-snug">
+                                {task.title}
+                              </h5>
+                              <p className="text-[11px] text-rose-600 font-bold mt-0.5">
+                                {task.hotelTarget}
+                              </p>
+                            </div>
+
+                            {task.description && (
+                              <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed bg-stone-50 p-2 rounded-lg border border-stone-100">
+                                {task.description}
+                              </p>
+                            )}
+
+                            <div className="flex items-center justify-between text-[10px] pt-1 border-t border-stone-100">
+                              <span className={`px-1.5 py-0.5 rounded-sm font-semibold border ${priorityClass}`}>
+                                Prioridad {task.priority.toUpperCase()}
+                              </span>
+                              <span className="text-stone-500 font-medium">
+                                📅 {formatDate(task.dueDate)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-[10px] text-stone-500 pt-0.5">
+                              <span className="truncate max-w-[120px]">
+                                Resp: <strong className="text-stone-700">{task.assignedTo}</strong>
+                              </span>
+
+                              {task.assetUrl && (
+                                <a
+                                  href={task.assetUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-indigo-600 hover:text-indigo-800 font-semibold underline"
+                                >
+                                  Ver Recurso ↗
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Quick Step Buttons */}
+                            <div className="flex items-center justify-between pt-1.5 border-t border-stone-100 text-[10px]">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  moveTaskStage(task, 'prev');
+                                }}
+                                disabled={col.id === 'backlog'}
+                                className="px-2 py-0.5 rounded-sm border border-stone-200 text-stone-600 hover:bg-stone-50 disabled:opacity-30 disabled:pointer-events-none font-bold"
+                                title="Fase anterior"
+                              >
+                                ◀ Fase previa
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  moveTaskStage(task, 'next');
+                                }}
+                                disabled={col.id === 'aprobado'}
+                                className="px-2 py-0.5 rounded-sm bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none font-bold"
+                                title="Avanzar de fase"
+                              >
+                                Avanzar ▶
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+{/* SUB-VIEW: CALENDARIO EXCLUSIVO DE MARKETING (SEPARADO) */}
       {subView === 'calendario' && (
         <SharedCalendar
           mode="marketing"
@@ -713,6 +911,169 @@ export function MarketingSection({
                   className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold"
                 >
                   Crear Brief
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL: NUEVO REQUERIMIENTO DE MARKETING (DISEÑO, VIDEO, WEB, NOTAS) */}
+      {isTaskModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-lg p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div>
+                <h3 className="font-editorial text-2xl font-bold text-stone-900">
+                  Dar de Alta Requerimiento de Marketing
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Solicitud para diseño gráfico, videos, notas digitales, cambios web o pauta publicitaria.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsTaskModalOpen(false)}
+                className="text-stone-400 hover:text-stone-600 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTask} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">
+                  Título del Requerimiento / Pieza
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ej. Menús Impresos & QR Restaurante Orgánico Valle de Bravo"
+                  value={tTitle}
+                  onChange={(e) => setTTitle(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel Destino</label>
+                  <select
+                    value={tHotel}
+                    onChange={(e) => setTHotel(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    {HOTEL_PROPERTIES.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Tipo de Entregable</label>
+                  <select
+                    value={tCategory}
+                    onChange={(e) => setTCategory(e.target.value as MarketingTaskCategory)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    {MARKETING_CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Nivel de Prioridad</label>
+                  <select
+                    value={tPriority}
+                    onChange={(e) => setTPriority(e.target.value as any)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold"
+                  >
+                    <option value="media">Media (Habitual)</option>
+                    <option value="alta">Alta (Campaña Próxima)</option>
+                    <option value="urgente">Urgente (Lanzamiento Inmediato)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Fecha Límite de Entrega</label>
+                  <input
+                    type="date"
+                    required
+                    value={tDueDate}
+                    onChange={(e) => setTDueDate(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Solicitado por</label>
+                  <input
+                    type="text"
+                    placeholder="ej. Gerente de Alimentos & Bebidas"
+                    value={tRequestedBy}
+                    onChange={(e) => setTRequestedBy(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Asignado a</label>
+                  <input
+                    type="text"
+                    placeholder="ej. Diseñador Senior / Editor de Video"
+                    value={tAssignedTo}
+                    onChange={(e) => setTAssignedTo(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">
+                  Enlace a Recursos / Figma / Drive (Opcional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/... o https://figma.com/..."
+                  value={tAssetUrl}
+                  onChange={(e) => setTAssetUrl(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">
+                  Descripción & Especificaciones
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Dimensiones, formatos requeridos, copies, paleta de colores o instrucciones específicas..."
+                  value={tDesc}
+                  onChange={(e) => setTDesc(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => setIsTaskModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold shadow-xs"
+                >
+                  Guardar Requerimiento
                 </button>
               </div>
             </form>

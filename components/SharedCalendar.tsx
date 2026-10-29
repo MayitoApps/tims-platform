@@ -40,10 +40,11 @@ export function SharedCalendar({
   onAddDealClick,
   onAddCampaignClick
 }: SharedCalendarProps) {
-  // Navigation State (Default to April 2026 where samples are concentrated)
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 1));
+  // Navigation State (Starts at today's real date)
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedHotel, setSelectedHotel] = useState<string>('all');
   const [activeItemModal, setActiveItemModal] = useState<CalendarItem | null>(null);
+  const [activeDayModal, setActiveDayModal] = useState<{ dayNum: number; dateStr: string; items: CalendarItem[] } | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -62,7 +63,7 @@ export function SharedCalendar({
   };
 
   const handleJumpToToday = () => {
-    setCurrentDate(new Date(2026, 3, 1));
+    setCurrentDate(new Date());
   };
 
   // STRICT SEPARATION: Commercial ONLY sees deals; Marketing ONLY sees campaigns + PR
@@ -240,17 +241,19 @@ export function SharedCalendar({
           {Array.from({ length: daysInMonth }).map((_, idx) => {
             const dayNum = idx + 1;
             const dayItems = getItemsForDay(dayNum);
-            const isToday = dayNum === 18 && month === 3;
+            const today = new Date();
+            const isToday = dayNum === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
 
             return (
               <div
                 key={`day-${dayNum}`}
-                className={`min-h-32 p-2 flex flex-col justify-between transition-colors hover:bg-stone-50/80 group ${
-                  isToday ? 'bg-amber-50/40 ring-1 ring-amber-400 inset-0' : ''
+                className={`min-h-36 sm:min-h-40 p-2 flex flex-col justify-between transition-colors hover:bg-stone-50/90 group ${
+                  isToday ? 'bg-amber-50/50 ring-2 ring-amber-400/80 inset-0' : ''
                 }`}
               >
-                {/* Header */}
-                <div className="flex items-center justify-between pb-1">
+                {/* Day Header */}
+                <div className="flex items-center justify-between pb-1.5 border-b border-stone-100/60">
                   <span
                     className={`text-xs font-mono font-bold ${
                       isToday
@@ -261,15 +264,20 @@ export function SharedCalendar({
                     {dayNum}
                   </span>
                   {dayItems.length > 0 && (
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-stone-100 text-stone-600">
-                      {dayItems.length}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDayModal({ dayNum, dateStr, items: dayItems })}
+                      title="Ver todos los eventos de este día"
+                      className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-stone-100 hover:bg-emerald-100 hover:text-emerald-900 text-stone-600 transition-colors cursor-pointer"
+                    >
+                      {dayItems.length} {dayItems.length === 1 ? 'ev' : 'evs'}
+                    </button>
                   )}
                 </div>
 
-                {/* Items in Cell */}
-                <div className="space-y-1.5 overflow-y-auto max-h-26 pr-0.5 no-scrollbar flex-1">
-                  {dayItems.map((item) => {
+                {/* Prominent Day Items (Shows top 2 cleanly) */}
+                <div className="space-y-1.5 flex-1 pt-1.5 overflow-hidden flex flex-col justify-start">
+                  {dayItems.slice(0, 2).map((item) => {
                     const isDeal = item.type === 'deal';
                     const isCamp = item.type === 'campaign';
 
@@ -277,7 +285,7 @@ export function SharedCalendar({
                       <div
                         key={item.id}
                         onClick={() => setActiveItemModal(item)}
-                        className={`p-1.5 rounded-lg border text-left cursor-pointer transition-all hover:scale-[1.02] shadow-2xs leading-tight ${
+                        className={`p-1.5 rounded-lg border text-left cursor-pointer transition-all hover:scale-[1.01] shadow-2xs leading-tight ${
                           isDeal
                             ? 'bg-emerald-50/95 border-emerald-300 text-emerald-950 hover:bg-emerald-100'
                             : isCamp
@@ -290,7 +298,7 @@ export function SharedCalendar({
                             {item.hotel.replace('Orgánico ', '').replace('Centro Cultural ', '')}
                           </span>
                           {item.value && (
-                            <span className="text-[9px] font-mono font-bold shrink-0">
+                            <span className="text-[9px] font-mono font-bold shrink-0 text-emerald-900">
                               {formatCurrency(item.value, item.currency)}
                             </span>
                           )}
@@ -300,7 +308,7 @@ export function SharedCalendar({
                           {item.title}
                         </div>
 
-                        {/* Espacios bloqueados */}
+                        {/* Espacios bloqueados o habitaciones */}
                         {item.spaces && item.spaces.length > 0 && (
                           <div className="text-[8px] font-semibold text-emerald-900 truncate mt-0.5">
                             📍 {item.spaces[0]} {item.spaces.length > 1 ? `(+${item.spaces.length - 1})` : ''}
@@ -309,12 +317,116 @@ export function SharedCalendar({
                       </div>
                     );
                   })}
+
+                  {/* Indicator if more than 2 items to prevent cramping */}
+                  {dayItems.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveDayModal({ dayNum, dateStr, items: dayItems })}
+                      className="w-full text-center py-1 px-1.5 rounded-md bg-stone-100 hover:bg-emerald-100 hover:text-emerald-900 text-stone-700 text-[10px] font-bold transition-all shadow-2xs"
+                    >
+                      +{dayItems.length - 2} más eventos →
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Day Overview Modal (Evita saturación cuando hay varios eventos) */}
+      {activeDayModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-xl p-6 sm:p-7 space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-800 font-bold block">
+                  Agenda del Día · {mode === 'commercial' ? 'Comercialización' : 'Marketing'}
+                </span>
+                <h3 className="font-editorial text-xl font-bold text-slate-900">
+                  {activeDayModal.dayNum} de {monthNames[month]} de {year}
+                </h3>
+              </div>
+              <button
+                onClick={() => setActiveDayModal(null)}
+                className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-y-auto space-y-3 flex-1 pr-1">
+              {activeDayModal.items.map((item) => {
+                const isDeal = item.type === 'deal';
+                const isCamp = item.type === 'campaign';
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      setActiveItemModal(item);
+                      setActiveDayModal(null);
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all hover:scale-[1.01] hover:shadow-xs space-y-2 ${
+                      isDeal
+                        ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 hover:bg-emerald-100'
+                        : isCamp
+                        ? 'bg-rose-50/90 border-rose-300 text-rose-950 hover:bg-rose-100'
+                        : 'bg-indigo-50/90 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>🏨</span> {item.hotel}
+                      </span>
+                      {item.value && (
+                        <span className="font-mono text-xs font-bold text-emerald-900">
+                          {formatCurrency(item.value, item.currency)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="font-editorial font-bold text-sm text-stone-900">
+                      {item.title}
+                    </div>
+
+                    {item.spaces && item.spaces.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {item.spaces.map((sp, idx) => (
+                          <span key={idx} className="text-[10px] font-semibold bg-white/80 border border-emerald-300 text-emerald-900 px-2 py-0.5 rounded-md">
+                            ✓ {sp}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {item.requestedRooms && item.requestedRooms.length > 0 && (
+                      <div className="text-[10px] text-amber-900 font-semibold bg-amber-100/70 border border-amber-200/80 px-2 py-1 rounded-lg">
+                        🛏️ {item.requestedRooms.map(r => `${r.count}x ${r.roomTypeName}`).join(', ')}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between text-[11px] text-stone-600 pt-1 border-t border-stone-200/50">
+                      <span>Fechas: {formatDate(item.startDate)} al {formatDate(item.endDate)}</span>
+                      <span className="text-emerald-800 font-bold hover:underline">Ver detalles completos →</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-stone-200">
+              <button
+                onClick={() => setActiveDayModal(null)}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detail Modal */}
       {activeItemModal && (
