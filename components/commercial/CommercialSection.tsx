@@ -1,14 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
-import { HotelDeal, HotelDealStage, DealCategory, UserProfile, RequestedRoomType } from '@/lib/types';
+import React, { useState, useEffect } from 'react';
+import { HotelDeal, HotelDealStage, DealCategory, UserProfile, RequestedRoomType, PaymentStatus } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
+import { QuotationPrintModal } from './QuotationPrintModal';
+import { AvailabilityCheckerModal } from './AvailabilityCheckerModal';
 
 interface CommercialSectionProps {
   deals: HotelDeal[];
   currentUser?: UserProfile | null;
+  selectedDealId?: string | null;
+  onClearSelectedDealId?: () => void;
   onAddDeal: (deal: Omit<HotelDeal, 'id' | 'code' | 'createdAt'>) => void;
   onUpdateDeal: (deal: HotelDeal) => void;
   onDeleteDeal: (dealId: string) => void;
@@ -26,6 +30,8 @@ const STAGES: { id: HotelDealStage; title: string; colorDot: string }[] = [
 export function CommercialSection({
   deals,
   currentUser,
+  selectedDealId,
+  onClearSelectedDealId,
   onAddDeal,
   onUpdateDeal,
   onDeleteDeal,
@@ -47,8 +53,23 @@ export function CommercialSection({
   const [editConflictError, setEditConflictError] = useState<string | null>(null);
   const [dealToDelete, setDealToDelete] = useState<HotelDeal | null>(null);
 
-  // Modal - Ver Detalle Completo en Grande
+  // Modal - Ver Detalle Completo en Grande & Cotización PDF & Checker
   const [viewingDeal, setViewingDeal] = useState<HotelDeal | null>(null);
+  const [quotationDeal, setQuotationDeal] = useState<HotelDeal | null>(null);
+  const [isCheckerOpen, setIsCheckerOpen] = useState(false);
+
+  // Auto-open deal if passed via selectedDealId (e.g. from Notifications)
+  useEffect(() => {
+    if (selectedDealId) {
+      const found = deals.find((d) => d.id === selectedDealId);
+      if (found) {
+        setViewingDeal(found);
+      }
+      if (onClearSelectedDealId) {
+        onClearSelectedDealId();
+      }
+    }
+  }, [selectedDealId, deals, onClearSelectedDealId]);
 
   // Edit form states
   const [editClientName, setEditClientName] = useState('');
@@ -60,6 +81,9 @@ export function CommercialSection({
   const [editStage, setEditStage] = useState<HotelDealStage>('rfp_recibido');
   const [editTotalValue, setEditTotalValue] = useState('350000');
   const [editCurrency, setEditCurrency] = useState<'MXN' | 'USD'>('MXN');
+  const [editDepositAmount, setEditDepositAmount] = useState('0');
+  const [editPaymentStatus, setEditPaymentStatus] = useState<PaymentStatus>('pendiente');
+  const [editPaymentDueDate, setEditPaymentDueDate] = useState('');
   const [editRoomNights, setEditRoomNights] = useState('24');
   const [editAttendees, setEditAttendees] = useState('120');
   const [editCheckIn, setEditCheckIn] = useState('2026-05-15');
@@ -77,6 +101,9 @@ export function CommercialSection({
   const [category, setCategory] = useState<DealCategory>('bodas_sociales');
   const [totalValue, setTotalValue] = useState('350000');
   const [currency, setCurrency] = useState<'MXN' | 'USD'>('MXN');
+  const [depositAmount, setDepositAmount] = useState('0');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('pendiente');
+  const [paymentDueDate, setPaymentDueDate] = useState('');
   const [roomNights, setRoomNights] = useState('24');
   const [attendees, setAttendees] = useState('120');
   const [checkIn, setCheckIn] = useState('2026-05-15');
@@ -156,6 +183,9 @@ export function CommercialSection({
     setEditStage(deal.stage);
     setEditTotalValue(String(deal.totalValue));
     setEditCurrency(deal.currency);
+    setEditDepositAmount(String(deal.depositAmount || 0));
+    setEditPaymentStatus(deal.paymentStatus || 'pendiente');
+    setEditPaymentDueDate(deal.paymentDueDate || '');
     setEditRoomNights(String(deal.roomNights));
     setEditAttendees(String(deal.attendeesCount || 0));
     setEditCheckIn(deal.checkInDate);
@@ -253,6 +283,9 @@ export function CommercialSection({
       .filter(([_, count]) => count > 0)
       .map(([roomTypeName, count]) => ({ roomTypeName, count }));
 
+    const editValNum = parseFloat(editTotalValue) || editingDeal.totalValue;
+    const editDepNum = parseFloat(editDepositAmount) || 0;
+
     const updated: HotelDeal = {
       ...editingDeal,
       clientName: editClientName,
@@ -262,8 +295,12 @@ export function CommercialSection({
       requestedRooms: requestedRoomsBreakdown,
       category: editCategory,
       stage: editStage,
-      totalValue: parseFloat(editTotalValue) || editingDeal.totalValue,
+      totalValue: editValNum,
       currency: editCurrency,
+      depositAmount: editDepNum,
+      paymentStatus: editPaymentStatus,
+      balanceDue: Math.max(0, editValNum - editDepNum),
+      paymentDueDate: editPaymentDueDate || undefined,
       roomNights: parseInt(editRoomNights) || 0,
       attendeesCount: parseInt(editAttendees) || 0,
       checkInDate: editCheckIn,
@@ -317,6 +354,9 @@ export function CommercialSection({
       ? `${currentUser.name}${currentUser.email ? ` (${currentUser.email})` : ''}`
       : 'Gerencia Comercial';
 
+    const totalValNum = parseFloat(totalValue) || 150000;
+    const depValNum = parseFloat(depositAmount) || 0;
+
     onAddDeal({
       clientName,
       companyOrAgency: company,
@@ -325,8 +365,12 @@ export function CommercialSection({
       requestedRooms: requestedRoomsList.length > 0 ? requestedRoomsList : undefined,
       category,
       stage: 'rfp_recibido',
-      totalValue: parseFloat(totalValue) || 150000,
+      totalValue: totalValNum,
       currency,
+      depositAmount: depValNum,
+      paymentStatus,
+      balanceDue: Math.max(0, totalValNum - depValNum),
+      paymentDueDate: paymentDueDate || undefined,
       roomNights: parseInt(roomNights) || (requestedRoomsList.reduce((acc, r) => acc + r.count, 0) * getStayNights(checkIn, checkOut)) || 10,
       attendeesCount: parseInt(attendees) || 50,
       checkInDate: checkIn,
@@ -342,7 +386,19 @@ export function CommercialSection({
     setNotes('');
     setSelectedSpaces([]);
     setRoomQuantities({});
+    setDepositAmount('0');
+    setPaymentStatus('pendiente');
+    setPaymentDueDate('');
     setIsDealModalOpen(false);
+  };
+
+  const handleBookAvailable = (targetHotel: string, targetIn: string, targetOut: string, targetSpaces: string[]) => {
+    setHotel(targetHotel);
+    setCheckIn(targetIn);
+    setCheckOut(targetOut);
+    setSelectedSpaces(targetSpaces);
+    setConflictError(null);
+    setIsDealModalOpen(true);
   };
 
   const moveStage = (deal: HotelDeal, direction: 'prev' | 'next') => {
@@ -439,13 +495,19 @@ export function CommercialSection({
             </select>
           </div>
 
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setIsCheckerOpen(true)}
+              className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold transition-all border border-stone-300 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <span>🔍 Consultar Disponibilidad</span>
+            </button>
             <button
               onClick={() => {
                 setConflictError(null);
                 setIsDealModalOpen(true);
               }}
-              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>+ Nuevo Grupo / Cotización con Espacios</span>
             </button>
@@ -651,17 +713,48 @@ export function CommercialSection({
                             )}
                           </div>
 
+                          {/* Control de Anticipos y Pagos */}
+                          <div className="flex items-center justify-between text-[10px] bg-stone-50 px-2 py-1 rounded-md border border-stone-100">
+                            <span className="font-semibold text-stone-600">
+                              Anticipo: {formatCurrency(deal.depositAmount || 0, deal.currency)}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
+                                deal.paymentStatus === 'liquidado'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : deal.paymentStatus === 'anticipo_pagado'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {deal.paymentStatus === 'liquidado'
+                                ? 'Liquidado'
+                                : deal.paymentStatus === 'anticipo_pagado'
+                                ? 'Anticipo'
+                                : 'Sin pago'}
+                            </span>
+                          </div>
+
                           <div className="text-[10px] text-stone-600 font-mono bg-stone-50 p-1.5 rounded-lg border border-stone-100 flex items-center justify-between">
                             <span>📅 {formatDate(deal.checkInDate)}</span>
                             <span>→ {formatDate(deal.checkOutDate)}</span>
                           </div>
 
-                          {/* Botón de apertura en grande */}
+                          {/* Botón de apertura en grande y cotización */}
                           <div className="flex items-center justify-between pt-1 text-[10px] text-stone-500">
                             <span className="font-bold text-emerald-800 flex items-center gap-1 hover:underline">
                               👁️ Ver ficha completa
                             </span>
-                            <span className="text-[9px] text-stone-400">Clic para ampliar</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setQuotationDeal(deal);
+                              }}
+                              className="px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold flex items-center gap-1 cursor-pointer"
+                              title="Generar e Imprimir Cotización / PDF"
+                            >
+                              <span>📄 Cotización</span>
+                            </button>
                           </div>
 
                           <div className="flex items-center justify-between pt-1.5 border-t border-stone-100 text-[10px]">
@@ -788,7 +881,20 @@ export function CommercialSection({
                         </select>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-stone-900">
-                        {formatCurrency(deal.totalValue, deal.currency)}
+                        <div>{formatCurrency(deal.totalValue, deal.currency)}</div>
+                        <div className="flex items-center gap-1 mt-0.5 font-sans font-normal text-[10px]">
+                          <span
+                            className={`px-1.5 py-0.2 rounded font-bold ${
+                              deal.paymentStatus === 'liquidado'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : deal.paymentStatus === 'anticipo_pagado'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {deal.paymentStatus === 'liquidado' ? 'Liquidado' : deal.paymentStatus === 'anticipo_pagado' ? 'Anticipo Pagado' : 'Pendiente'}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-3 px-4 font-mono text-stone-700 font-semibold">
                         <div>{deal.roomNights} RN</div>
@@ -807,9 +913,19 @@ export function CommercialSection({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              setQuotationDeal(deal);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Generar e Imprimir Cotización / PDF"
+                          >
+                            <span>📄</span> PDF
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setViewingDeal(deal);
                             }}
-                            className="px-2 py-1 rounded-lg bg-stone-100 text-stone-800 border border-stone-200 text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-900 transition-colors flex items-center gap-1 shadow-2xs"
+                            className="px-2 py-1 rounded-lg bg-stone-100 text-stone-800 border border-stone-200 text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-900 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
                             title="Ver ficha completa en grande"
                           >
                             <span>👁️</span> Ver
@@ -1123,6 +1239,61 @@ export function CommercialSection({
                     onChange={(e) => setRoomNights(e.target.value)}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />
+                </div>
+              </div>
+
+              {/* Control de Anticipos y Pagos */}
+              <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <span>💳</span> Control de Anticipos & Liquidación
+                  </h4>
+                  <span className="text-[11px] text-amber-800 font-semibold font-mono">
+                    Saldo Restante: {formatCurrency(Math.max(0, (parseFloat(totalValue) || 0) - (parseFloat(depositAmount) || 0)), currency)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                      Anticipo Pagado / Recibido
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      placeholder="0"
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-bold font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                      Estado del Pago
+                    </label>
+                    <select
+                      value={paymentStatus}
+                      onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                      <option value="pendiente">Pendiente (Sin anticipo)</option>
+                      <option value="anticipo_pagado">Anticipo Pagado (Reserva Firme)</option>
+                      <option value="liquidado">Liquidado 100%</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                      Fecha Límite de Liquidación
+                    </label>
+                    <input
+                      type="date"
+                      value={paymentDueDate}
+                      onChange={(e) => setPaymentDueDate(e.target.value)}
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1471,6 +1642,61 @@ export function CommercialSection({
                 </div>
               </div>
 
+              {/* Control de Anticipos y Pagos (Edición) */}
+              <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <span>💳</span> Control de Anticipos & Liquidación
+                  </h4>
+                  <span className="text-[11px] text-amber-800 font-semibold font-mono">
+                    Saldo Restante: {formatCurrency(Math.max(0, (parseFloat(editTotalValue) || 0) - (parseFloat(editDepositAmount) || 0)), editCurrency)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                      Anticipo Pagado / Recibido
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editDepositAmount}
+                      onChange={(e) => setEditDepositAmount(e.target.value)}
+                      placeholder="0"
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-bold font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                      Estado del Pago
+                    </label>
+                    <select
+                      value={editPaymentStatus}
+                      onChange={(e) => setEditPaymentStatus(e.target.value as PaymentStatus)}
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                      <option value="pendiente">Pendiente (Sin anticipo)</option>
+                      <option value="anticipo_pagado">Anticipo Pagado (Reserva Firme)</option>
+                      <option value="liquidado">Liquidado 100%</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                      Fecha Límite de Liquidación
+                    </label>
+                    <input
+                      type="date"
+                      value={editPaymentDueDate}
+                      onChange={(e) => setEditPaymentDueDate(e.target.value)}
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Contacto */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1631,13 +1857,22 @@ export function CommercialSection({
                 </div>
               </div>
 
-              <button
-                onClick={() => setViewingDeal(null)}
-                className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center text-lg font-bold transition-colors shrink-0"
-                title="Cerrar (Esc)"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setQuotationDeal(viewingDeal)}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Generar Vista de Impresión y Descargar PDF"
+                >
+                  <span>📄 Generar Cotización / PDF</span>
+                </button>
+                <button
+                  onClick={() => setViewingDeal(null)}
+                  className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center text-lg font-bold transition-colors shrink-0 cursor-pointer"
+                  title="Cerrar (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Tarjetas Métricas Principales */}
@@ -1680,6 +1915,53 @@ export function CommercialSection({
                   {getStayNights(viewingDeal.checkInDate, viewingDeal.checkOutDate)} <span className="text-xs font-sans text-purple-800 font-normal">noches</span>
                 </div>
                 <span className="text-[10px] text-purple-700 font-medium">{formatDate(viewingDeal.checkInDate)}</span>
+              </div>
+            </div>
+
+            {/* Control de Anticipos y Estado Financiero */}
+            <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+                  <span>💳</span> Resumen de Anticipos y Cobranza
+                </h4>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                    viewingDeal.paymentStatus === 'liquidado'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : viewingDeal.paymentStatus === 'anticipo_pagado'
+                      ? 'bg-amber-100 text-amber-800 border-amber-300'
+                      : 'bg-rose-100 text-rose-800 border-rose-300'
+                  }`}
+                >
+                  {viewingDeal.paymentStatus === 'liquidado'
+                    ? 'LIQUIDADO 100%'
+                    : viewingDeal.paymentStatus === 'anticipo_pagado'
+                    ? 'ANTICIPO ABONADO'
+                    : 'PENDIENTE DE PAGO'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+                  <span className="text-[10px] text-stone-500 uppercase font-semibold block">Anticipo Recibido:</span>
+                  <span className="font-mono text-base font-extrabold text-stone-900">
+                    {formatCurrency(viewingDeal.depositAmount || 0, viewingDeal.currency)}
+                  </span>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+                  <span className="text-[10px] text-stone-500 uppercase font-semibold block">Saldo Pendiente:</span>
+                  <span className="font-mono text-base font-extrabold text-emerald-950">
+                    {formatCurrency(Math.max(0, viewingDeal.totalValue - (viewingDeal.depositAmount || 0)), viewingDeal.currency)}
+                  </span>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+                  <span className="text-[10px] text-stone-500 uppercase font-semibold block">Fecha Límite de Liquidación:</span>
+                  <span className="font-bold text-stone-900">
+                    {viewingDeal.paymentDueDate ? formatDate(viewingDeal.paymentDueDate) : 'Sin fecha límite registrada'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1887,6 +2169,22 @@ export function CommercialSection({
             </div>
           </div>
         </div>
+      )}
+      {/* MODAL DE COTIZACIÓN IMPRIMIBLE EN PDF */}
+      {quotationDeal && (
+        <QuotationPrintModal
+          deal={quotationDeal}
+          onClose={() => setQuotationDeal(null)}
+        />
+      )}
+
+      {/* MODAL BUSCADOR RÁPIDO DE DISPONIBILIDAD */}
+      {isCheckerOpen && (
+        <AvailabilityCheckerModal
+          deals={deals}
+          onClose={() => setIsCheckerOpen(false)}
+          onBookAvailable={handleBookAvailable}
+        />
       )}
     </div>
   );

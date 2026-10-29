@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       INSERT INTO hotel_deals (
         id, code, client_name, company_or_agency, hotel_name, category,
         selected_spaces, requested_rooms, stage, total_value, currency,
+        deposit_amount, payment_status, payment_due_date,
         room_nights, attendees_count, check_in_date, check_out_date,
         assigned_rep, notes, contact_email, contact_phone, created_at
       ) VALUES (
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
         ${JSON.stringify(deal.selectedSpaces || [])}::jsonb,
         ${JSON.stringify(deal.requestedRooms || [])}::jsonb,
         ${deal.stage}, ${deal.totalValue}, ${deal.currency || 'MXN'},
+        ${deal.depositAmount || 0}, ${deal.paymentStatus || 'pendiente'}, ${deal.paymentDueDate || null},
         ${deal.roomNights || 0}, ${deal.attendeesCount || 0},
         ${deal.checkInDate}, ${deal.checkOutDate}, ${deal.assignedRep},
         ${deal.notes || ''}, ${deal.contactEmail || ''}, ${deal.contactPhone || ''},
@@ -75,6 +77,9 @@ export async function POST(request: Request) {
         stage = EXCLUDED.stage,
         total_value = EXCLUDED.total_value,
         currency = EXCLUDED.currency,
+        deposit_amount = EXCLUDED.deposit_amount,
+        payment_status = EXCLUDED.payment_status,
+        payment_due_date = EXCLUDED.payment_due_date,
         room_nights = EXCLUDED.room_nights,
         attendees_count = EXCLUDED.attendees_count,
         check_in_date = EXCLUDED.check_in_date,

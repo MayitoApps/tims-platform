@@ -91,6 +91,12 @@ export type MarketingTaskCategory =
   | 'pauta_publicidad' // Configuración de pauta Meta Ads y Google Ads
   | 'fotografia';      // Sesiones fotográficas y retoque
 
+export interface TaskChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 export interface MarketingTask {
   id: string;
   code: string;
@@ -104,6 +110,7 @@ export interface MarketingTask {
   dueDate: string;
   description: string;
   assetUrl?: string;
+  checklist?: TaskChecklistItem[];
   createdAt: string;
 }
 
@@ -122,6 +129,11 @@ export type DealCategory =
   | 'bodas_sociales'      // Bodas de destino, aniversarios
   | 'cuentas_empresariales' // Convenios corporativos anuales
   | 'agencias_viaje';     // OTAs / Mayoristas / Consorcios de lujo
+
+export type PaymentStatus = 
+  | 'pendiente'        // Sin anticipo aún
+  | 'anticipo_pagado'  // Anticipo abonado (fecha asegurada)
+  | 'liquidado';       // 100% pagado
 
 export interface HotelRoomType {
   id: string;
@@ -147,6 +159,10 @@ export interface HotelDeal {
   stage: HotelDealStage;
   totalValue: number; // Monto total en moneda
   currency: 'MXN' | 'USD';
+  depositAmount?: number; // Monto de anticipo pagado
+  paymentStatus?: PaymentStatus; // Estatus financiero: pendiente | anticipo_pagado | liquidado
+  balanceDue?: number; // Saldo por cobrar
+  paymentDueDate?: string; // Fecha límite para liquidar el saldo total
   roomNights: number; // Noches de habitación estimadas
   attendeesCount?: number; // Personas para banquete/evento
   checkInDate: string;

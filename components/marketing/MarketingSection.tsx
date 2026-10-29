@@ -8,7 +8,8 @@ import {
   MarketingCampaignStatus,
   MarketingTask,
   MarketingTaskStage,
-  MarketingTaskCategory
+  MarketingTaskCategory,
+  TaskChecklistItem
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge } from '@/lib/utils';
@@ -99,6 +100,8 @@ export function MarketingSection({
   const [editTDueDate, setEditTDueDate] = useState('2026-11-15');
   const [editTDesc, setEditTDesc] = useState('');
   const [editTAssetUrl, setEditTAssetUrl] = useState('');
+  const [editTChecklist, setEditTChecklist] = useState<TaskChecklistItem[]>([]);
+  const [newEditChecklistText, setNewEditChecklistText] = useState('');
 
   // Modals - Edit & Delete States (Campaigns)
   const [editingCampaign, setEditingCampaign] = useState<MarketingCampaign | null>(null);
@@ -156,6 +159,8 @@ export function MarketingSection({
   const [tDueDate, setTDueDate] = useState('2026-11-15');
   const [tDesc, setTDesc] = useState('');
   const [tAssetUrl, setTAssetUrl] = useState('');
+  const [tChecklist, setTChecklist] = useState<TaskChecklistItem[]>([]);
+  const [newChecklistText, setNewChecklistText] = useState('');
 
   // Form states - Campaign
   const [cTitle, setCTitle] = useState('');
@@ -274,7 +279,8 @@ export function MarketingSection({
       assignedTo: tAssignedTo || 'Equipo Creativo',
       dueDate: tDueDate,
       description: tDesc || 'Requerimiento de marketing y contenidos.',
-      assetUrl: tAssetUrl || undefined
+      assetUrl: tAssetUrl || undefined,
+      checklist: tChecklist
     });
 
     setTTitle('');
@@ -282,7 +288,22 @@ export function MarketingSection({
     setTAssetUrl('');
     setTRequestedBy('');
     setTAssignedTo('');
+    setTChecklist([]);
+    setNewChecklistText('');
     setIsTaskModalOpen(false);
+  };
+
+  const handleToggleChecklistItem = (task: MarketingTask, itemId: string) => {
+    const updatedChecklist = (task.checklist || []).map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    const updatedTask = { ...task, checklist: updatedChecklist };
+    if (viewingTask && viewingTask.id === task.id) {
+      setViewingTask(updatedTask);
+    }
+    if (onUpdateMarketingTask) {
+      onUpdateMarketingTask(updatedTask);
+    }
   };
 
   const moveTaskStage = (task: MarketingTask, direction: 'prev' | 'next') => {
@@ -307,6 +328,8 @@ export function MarketingSection({
     setEditTDueDate(task.dueDate);
     setEditTDesc(task.description || '');
     setEditTAssetUrl(task.assetUrl || '');
+    setEditTChecklist(task.checklist || []);
+    setNewEditChecklistText('');
     setIsEditTaskModalOpen(true);
   };
 
@@ -325,7 +348,8 @@ export function MarketingSection({
       assignedTo: editTAssignedTo || 'Equipo Creativo',
       dueDate: editTDueDate,
       description: editTDesc,
-      assetUrl: editTAssetUrl || undefined
+      assetUrl: editTAssetUrl || undefined,
+      checklist: editTChecklist
     };
 
     if (onUpdateMarketingTask) {
@@ -735,6 +759,26 @@ export function MarketingSection({
                               <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed bg-stone-50 p-2 rounded-lg border border-stone-100">
                                 {task.description}
                               </p>
+                            )}
+
+                            {/* Checklist de Entregables Mini Progress */}
+                            {task.checklist && task.checklist.length > 0 && (
+                              <div className="bg-purple-50/50 border border-purple-200/80 rounded-lg p-2 space-y-1">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-stone-700">
+                                  <span className="flex items-center gap-1 text-purple-900">☑️ Entregables:</span>
+                                  <span className="font-mono text-purple-900 font-extrabold">
+                                    {task.checklist.filter((i) => i.completed).length} / {task.checklist.length}
+                                  </span>
+                                </div>
+                                <div className="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className="bg-purple-700 h-full rounded-full transition-all"
+                                    style={{
+                                      width: `${(task.checklist.filter((i) => i.completed).length / task.checklist.length) * 100}%`
+                                    }}
+                                  />
+                                </div>
+                              </div>
                             )}
 
                             <div className="flex items-center justify-between text-[10px] pt-1 border-t border-stone-100">
@@ -1514,6 +1558,73 @@ export function MarketingSection({
                 />
               </div>
 
+              {/* Checklist de Entregables */}
+              <div className="bg-purple-50/50 border border-purple-200/80 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-purple-950 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <span>☑️</span> Checklist de Entregables ({tChecklist.length})
+                  </label>
+                  <span className="text-[10px] text-purple-700">Subtareas del requerimiento</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newChecklistText}
+                    onChange={(e) => setNewChecklistText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newChecklistText.trim()) {
+                          setTChecklist([
+                            ...tChecklist,
+                            { id: `chk-${Date.now()}-${Math.random()}`, text: newChecklistText.trim(), completed: false }
+                          ]);
+                          setNewChecklistText('');
+                        }
+                      }
+                    }}
+                    placeholder="ej. Formato Reel 9:16, Story vertical, Banner Web..."
+                    className="flex-1 border border-stone-300 rounded-xl px-3 py-1.5 text-xs text-stone-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newChecklistText.trim()) {
+                        setTChecklist([
+                          ...tChecklist,
+                          { id: `chk-${Date.now()}-${Math.random()}`, text: newChecklistText.trim(), completed: false }
+                        ]);
+                        setNewChecklistText('');
+                      }
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs cursor-pointer shrink-0 shadow-2xs"
+                  >
+                    + Añadir
+                  </button>
+                </div>
+
+                {tChecklist.length > 0 && (
+                  <div className="space-y-1 pt-1 max-h-36 overflow-y-auto">
+                    {tChecklist.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-white border border-purple-100 text-xs"
+                      >
+                        <span className="text-stone-800 font-medium">{item.text}</span>
+                        <button
+                          type="button"
+                          onClick={() => setTChecklist(tChecklist.filter((i) => i.id !== item.id))}
+                          className="text-stone-400 hover:text-rose-600 font-bold px-1.5 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2 pt-3 border-t border-stone-200">
                 <button
                   type="button"
@@ -1674,6 +1785,84 @@ export function MarketingSection({
                   onChange={(e) => setEditTDesc(e.target.value)}
                   className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
                 />
+              </div>
+
+              {/* Checklist de Entregables */}
+              <div className="bg-purple-50/60 p-3.5 rounded-2xl border border-purple-200/70 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-purple-950 font-bold text-xs uppercase tracking-wider">
+                    ☑️ Checklist de Entregables ({editTChecklist.filter(i => i.completed).length}/{editTChecklist.length})
+                  </label>
+                  <span className="text-[11px] text-purple-700">Sub-ítems a completar</span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newEditChecklistText}
+                    onChange={(e) => setNewEditChecklistText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newEditChecklistText.trim()) {
+                          setEditTChecklist([
+                            ...editTChecklist,
+                            { id: `chk-${Date.now()}-${Math.random()}`, text: newEditChecklistText.trim(), completed: false }
+                          ]);
+                          setNewEditChecklistText('');
+                        }
+                      }
+                    }}
+                    placeholder="Ej. Copy en inglés, Export 1080x1920, Aprobación..."
+                    className="flex-1 border border-purple-300 rounded-xl px-3 py-1.5 text-xs text-stone-900 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newEditChecklistText.trim()) {
+                        setEditTChecklist([
+                          ...editTChecklist,
+                          { id: `chk-${Date.now()}-${Math.random()}`, text: newEditChecklistText.trim(), completed: false }
+                        ]);
+                        setNewEditChecklistText('');
+                      }
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs cursor-pointer shrink-0 shadow-2xs"
+                  >
+                    + Añadir
+                  </button>
+                </div>
+
+                {editTChecklist.length > 0 && (
+                  <div className="space-y-1 pt-1 max-h-36 overflow-y-auto">
+                    {editTChecklist.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-white border border-purple-100 text-xs"
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer flex-1">
+                          <input
+                            type="checkbox"
+                            checked={item.completed}
+                            onChange={() => {
+                              setEditTChecklist(editTChecklist.map(i => i.id === item.id ? { ...i, completed: !i.completed } : i));
+                            }}
+                            className="rounded border-stone-300 text-purple-700 focus:ring-purple-500"
+                          />
+                          <span className={`${item.completed ? 'line-through text-stone-400' : 'text-stone-800 font-medium'}`}>
+                            {item.text}
+                          </span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setEditTChecklist(editTChecklist.filter((i) => i.id !== item.id))}
+                          className="text-stone-400 hover:text-rose-600 font-bold px-1.5 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between items-center pt-3 border-t border-stone-200">
@@ -2398,6 +2587,57 @@ export function MarketingSection({
               <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 text-stone-800 text-xs leading-relaxed whitespace-pre-wrap">
                 {viewingTask.description || 'Sin descripción detallada.'}
               </div>
+            </div>
+
+            {/* Checklist de Entregables Interactivo */}
+            <div className="space-y-2.5 bg-stone-50 p-4 rounded-2xl border border-stone-200">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <span>☑️</span> Checklist de Entregables
+                </h4>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-stone-200 text-stone-800">
+                  {viewingTask.checklist && viewingTask.checklist.length > 0
+                    ? `${viewingTask.checklist.filter(i => i.completed).length} de ${viewingTask.checklist.length} completados`
+                    : 'Sin entregables'}
+                </span>
+              </div>
+
+              {viewingTask.checklist && viewingTask.checklist.length > 0 ? (
+                <div className="space-y-1.5 pt-1">
+                  {viewingTask.checklist.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleToggleChecklistItem(viewingTask, item.id)}
+                      className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        item.completed
+                          ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                          : 'bg-white border-stone-200 hover:border-purple-300 text-stone-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold ${
+                          item.completed
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'border-stone-400 bg-white text-transparent'
+                        }`}>
+                          ✓
+                        </span>
+                        <span className={`text-xs ${item.completed ? 'line-through text-stone-500' : 'font-medium'}`}>
+                          {item.text}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-stone-400 uppercase tracking-wider font-semibold">
+                        {item.completed ? 'Completado' : 'Pendiente'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-stone-500 italic py-1">
+                  No hay entregables específicos definidos para este requerimiento. Puedes agregarlos haciendo clic en Editar Requerimiento.
+                </p>
+              )}
             </div>
 
             {/* Recurso / Enlace si existe */}

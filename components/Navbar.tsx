@@ -1,20 +1,25 @@
 'use client';
 
 import React from 'react';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, HotelDeal } from '@/lib/types';
+import { UpcomingEventsNotification } from './UpcomingEventsNotification';
 
 interface NavbarProps {
   currentUser: UserProfile;
   activeSection: 'marketing' | 'commercial';
   onSectionChange: (section: 'marketing' | 'commercial') => void;
   onLogout: () => void;
+  deals?: HotelDeal[];
+  onSelectDeal?: (deal: HotelDeal) => void;
 }
 
 export function Navbar({
   currentUser,
   activeSection,
   onSectionChange,
-  onLogout
+  onLogout,
+  deals = [],
+  onSelectDeal
 }: NavbarProps) {
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-stone-200 px-4 sm:px-8 py-3 transition-colors shadow-2xs">
@@ -56,12 +61,22 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Realtime DB status & User Profile */}
+        {/* Realtime DB status, Notifications & User Profile */}
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
             <span>Neon Realtime Activo</span>
           </div>
+
+          {/* Notificaciones de Eventos Próximos */}
+          <UpcomingEventsNotification
+            deals={deals}
+            onSelectEvent={(deal) => {
+              if (onSelectDeal) {
+                onSelectDeal(deal);
+              }
+            }}
+          />
 
           <div className="h-5 w-px bg-stone-200 hidden sm:block" />
 

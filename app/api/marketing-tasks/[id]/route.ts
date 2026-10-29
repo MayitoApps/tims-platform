@@ -24,6 +24,12 @@ export async function PUT(
         SET stage = ${updates.stage}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id};
       `;
+    } else if (Object.keys(updates).length === 1 && updates.checklist) {
+      await sql`
+        UPDATE marketing_tasks
+        SET checklist = ${JSON.stringify(updates.checklist)}::jsonb, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id};
+      `;
     } else {
       await sql`
         UPDATE marketing_tasks
@@ -38,6 +44,7 @@ export async function PUT(
           due_date = COALESCE(${updates.dueDate}, due_date),
           description = COALESCE(${updates.description}, description),
           asset_url = COALESCE(${updates.assetUrl}, asset_url),
+          checklist = COALESCE(${updates.checklist ? JSON.stringify(updates.checklist) : null}::jsonb, checklist),
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id};
       `;

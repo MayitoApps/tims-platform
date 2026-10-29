@@ -44,6 +44,9 @@ export async function ensureTables(): Promise<boolean> {
         stage TEXT NOT NULL,
         total_value NUMERIC NOT NULL,
         currency TEXT NOT NULL DEFAULT 'MXN',
+        deposit_amount NUMERIC DEFAULT 0,
+        payment_status TEXT DEFAULT 'pendiente',
+        payment_due_date TEXT,
         room_nights INTEGER NOT NULL DEFAULT 0,
         attendees_count INTEGER NOT NULL DEFAULT 0,
         check_in_date TEXT NOT NULL,
@@ -56,6 +59,11 @@ export async function ensureTables(): Promise<boolean> {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+
+    // Dynamic column additions for existing installations
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC DEFAULT 0;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pendiente';`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS payment_due_date TEXT;`;
 
     // 2. Marketing Tasks Table
     await sql`
@@ -72,8 +80,47 @@ export async function ensureTables(): Promise<boolean> {
         due_date TEXT NOT NULL,
         description TEXT,
         asset_url TEXT,
+        checklist JSONB NOT NULL DEFAULT '[]'::jsonb,
         created_at TEXT NOT NULL,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    await sql`ALTER TABLE marketing_tasks ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]'::jsonb;`;
+
+    // 3. Marketing Campaigns Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS marketing_campaigns (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL,
+        title TEXT NOT NULL,
+        hotel_target TEXT NOT NULL,
+        type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        budget NUMERIC NOT NULL,
+        spent NUMERIC NOT NULL DEFAULT 0,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        channels JSONB NOT NULL DEFAULT '[]'::jsonb,
+        external_links JSONB NOT NULL DEFAULT '[]'::jsonb,
+        lead_owner TEXT NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // 4. Content Publications Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS content_publications (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        hotel TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        publish_date TEXT NOT NULL,
+        status TEXT NOT NULL,
+        responsible TEXT NOT NULL,
+        asset_url TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
 
@@ -104,6 +151,8 @@ export async function ensureTables(): Promise<boolean> {
 
 // Convert DB row to HotelDeal interface
 export function mapRowToDeal(row: any): HotelDeal {
+  const totalValue = Number(row.total_value) || 0;
+  const depositAmount = Number(row.deposit_amount) || 0;
   return {
     id: row.id,
     code: row.code,
@@ -114,8 +163,12 @@ export function mapRowToDeal(row: any): HotelDeal {
     selectedSpaces: typeof row.selected_spaces === 'string' ? JSON.parse(row.selected_spaces) : (row.selected_spaces || []),
     requestedRooms: typeof row.requested_rooms === 'string' ? JSON.parse(row.requested_rooms) : (row.requested_rooms || []),
     stage: row.stage,
-    totalValue: Number(row.total_value) || 0,
+    totalValue,
     currency: row.currency || 'MXN',
+    depositAmount,
+    paymentStatus: row.payment_status || 'pendiente',
+    balanceDue: Math.max(0, totalValue - depositAmount),
+    paymentDueDate: row.payment_due_date || undefined,
     roomNights: Number(row.room_nights) || 0,
     attendeesCount: Number(row.attendees_count) || 0,
     checkInDate: row.check_in_date,
@@ -143,6 +196,7 @@ export function mapRowToMarketingTask(row: any): MarketingTask {
     dueDate: row.due_date,
     description: row.description || '',
     assetUrl: row.asset_url || undefined,
+    checklist: typeof row.checklist === 'string' ? JSON.parse(row.checklist) : (row.checklist || []),
     createdAt: row.created_at
   };
 }

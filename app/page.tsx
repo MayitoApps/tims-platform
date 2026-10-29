@@ -37,6 +37,12 @@ export default function Home() {
   const [briefs, setBriefs] = useState<CreativeBrief[]>(INITIAL_BRIEFS);
   const [deals, setDeals] = useState<HotelDeal[]>(INITIAL_DEALS);
   const [marketingTasks, setMarketingTasks] = useState<MarketingTask[]>(INITIAL_MARKETING_TASKS);
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+
+  const handleSelectUpcomingDeal = (deal: HotelDeal) => {
+    setActiveSection('commercial');
+    setSelectedDealId(deal.id);
+  };
 
   // Live Toast Notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -582,6 +588,8 @@ export default function Home() {
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         onLogout={handleLogout}
+        deals={deals}
+        onSelectDeal={handleSelectUpcomingDeal}
       />
 
       {/* Section Content */}
@@ -611,6 +619,8 @@ export default function Home() {
           <CommercialSection
             deals={deals}
             currentUser={currentUser}
+            selectedDealId={selectedDealId}
+            onClearSelectedDealId={() => setSelectedDealId(null)}
             onAddDeal={handleAddDeal}
             onUpdateDeal={handleUpdateDeal}
             onDeleteDeal={handleDeleteDeal}
