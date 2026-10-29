@@ -7,3 +7,4 @@ export async function GET(request: NextRequest) {
   const protocol = host.includes('localhost') ? 'http' : 'https';
   return NextResponse.redirect(`${protocol}://${host}`);
 }
+

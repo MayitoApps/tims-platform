@@ -70,3 +70,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${baseUrl}?auth_error=internal_error`);
   }
 }
+

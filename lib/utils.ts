@@ -1,9 +1,9 @@
-import { CampaignStatus, LeadStage, ExternalPlatform } from './types';
+import { MarketingCampaignStatus, HotelDealStage, DealCategory } from './types';
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+export function formatCurrency(amount: number, currency: 'MXN' | 'USD' = 'USD'): string {
+  return new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
     maximumFractionDigits: 0
   }).format(amount);
 }
@@ -20,58 +20,141 @@ export function formatDate(dateString: string): string {
   }).format(date);
 }
 
-export function getCampaignStatusBadge(status: CampaignStatus): { label: string; bg: string; text: string; dot: string } {
+// -------------------------------------------------------------
+// COLORES PARA MARKETING & COMUNICACIÓN (Vibrantes & Profesionales)
+// -------------------------------------------------------------
+export function getMarketingStatusBadge(status: MarketingCampaignStatus): {
+  label: string;
+  bg: string;
+  text: string;
+  border: string;
+  dot: string;
+} {
   switch (status) {
-    case 'ideation':
-      return { label: 'Ideación', bg: 'bg-[#F2F1ED]', text: 'text-[#615F59]', dot: 'bg-[#9C988D]' };
-    case 'in_production':
-      return { label: 'En Producción', bg: 'bg-[#EDF2F7]', text: 'text-[#2D4A6B]', dot: 'bg-[#4A729D]' };
-    case 'review':
-      return { label: 'En Revisión', bg: 'bg-[#FBF4E6]', text: 'text-[#845E1B]', dot: 'bg-[#C29538]' };
-    case 'ready':
-      return { label: 'Listo', bg: 'bg-[#EBF5EE]', text: 'text-[#1E5631]', dot: 'bg-[#3A945B]' };
-    case 'active':
-      return { label: 'Activa en Pauta', bg: 'bg-[#EBF7F5]', text: 'text-[#13505B]', dot: 'bg-[#1E8A9D]' };
-    case 'completed':
-      return { label: 'Finalizada', bg: 'bg-[#F4F4F5]', text: 'text-[#52525B]', dot: 'bg-[#A1A1AA]' };
+    case 'planificacion':
+      return {
+        label: 'Planificación',
+        bg: 'bg-indigo-50/80',
+        text: 'text-indigo-700',
+        border: 'border-indigo-200',
+        dot: 'bg-indigo-500'
+      };
+    case 'en_produccion':
+      return {
+        label: 'En Producción',
+        bg: 'bg-blue-50/80',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        dot: 'bg-blue-500'
+      };
+    case 'revision':
+      return {
+        label: 'En Revisión',
+        bg: 'bg-amber-50/80',
+        text: 'text-amber-700',
+        border: 'border-amber-200',
+        dot: 'bg-amber-500'
+      };
+    case 'activa':
+      return {
+        label: 'Activa en Pauta',
+        bg: 'bg-emerald-50/80',
+        text: 'text-emerald-700',
+        border: 'border-emerald-200',
+        dot: 'bg-emerald-500'
+      };
+    case 'finalizada':
+      return {
+        label: 'Finalizada',
+        bg: 'bg-slate-100',
+        text: 'text-slate-600',
+        border: 'border-slate-200',
+        dot: 'bg-slate-400'
+      };
     default:
-      return { label: status, bg: 'bg-stone-100', text: 'text-stone-700', dot: 'bg-stone-400' };
+      return {
+        label: status,
+        bg: 'bg-gray-100',
+        text: 'text-gray-700',
+        border: 'border-gray-200',
+        dot: 'bg-gray-400'
+      };
   }
 }
 
-export function getLeadStageBadge(stage: LeadStage): { label: string; bg: string; text: string; dot: string } {
+// -------------------------------------------------------------
+// COLORES PARA COMERCIALIZACIÓN HOTELERA (Lujo & Ventas)
+// -------------------------------------------------------------
+export function getHotelDealStageBadge(stage: HotelDealStage): {
+  label: string;
+  bg: string;
+  text: string;
+  border: string;
+  dot: string;
+} {
   switch (stage) {
-    case 'prospect':
-      return { label: 'Prospecto Nuevo', bg: 'bg-[#F5F4F0]', text: 'text-[#636159]', dot: 'bg-[#A19D91]' };
-    case 'mql_qualified':
-      return { label: 'Calificado por Mkt', bg: 'bg-[#F3EFF8]', text: 'text-[#563875]', dot: 'bg-[#8E5EB8]' };
-    case 'contacted':
-      return { label: 'Contactado / Demo', bg: 'bg-[#EDF2F7]', text: 'text-[#24466B]', dot: 'bg-[#407BB8]' };
-    case 'proposal_sent':
-      return { label: 'Propuesta Enviada', bg: 'bg-[#FDF6E2]', text: 'text-[#7D5B0E]', dot: 'bg-[#CFA329]' };
-    case 'negotiation':
-      return { label: 'En Negociación', bg: 'bg-[#FEF0E6]', text: 'text-[#94400E]', dot: 'bg-[#DE6F28]' };
-    case 'won':
-      return { label: 'Cerrado Ganado', bg: 'bg-[#EBF5EE]', text: 'text-[#1B522F]', dot: 'bg-[#2E9455]' };
-    case 'lost':
-      return { label: 'Perdido', bg: 'bg-[#FDF0ED]', text: 'text-[#8F2D17]', dot: 'bg-[#C9472A]' };
+    case 'rfp_recibido':
+      return {
+        label: 'RFP / Solicitud Recibida',
+        bg: 'bg-purple-50',
+        text: 'text-purple-700',
+        border: 'border-purple-200',
+        dot: 'bg-purple-600'
+      };
+    case 'propuesta_enviada':
+      return {
+        label: 'Cotización Enviada',
+        bg: 'bg-blue-50',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        dot: 'bg-blue-600'
+      };
+    case 'negociacion':
+      return {
+        label: 'En Negociación',
+        bg: 'bg-amber-50',
+        text: 'text-amber-800',
+        border: 'border-amber-300',
+        dot: 'bg-amber-500'
+      };
+    case 'contratado':
+      return {
+        label: 'Contrato Firmado (Ganado)',
+        bg: 'bg-emerald-50',
+        text: 'text-emerald-800',
+        border: 'border-emerald-300',
+        dot: 'bg-emerald-600'
+      };
+    case 'perdido':
+      return {
+        label: 'No Concretado',
+        bg: 'bg-rose-50',
+        text: 'text-rose-700',
+        border: 'border-rose-200',
+        dot: 'bg-rose-500'
+      };
     default:
-      return { label: stage, bg: 'bg-stone-100', text: 'text-stone-700', dot: 'bg-stone-400' };
+      return {
+        label: stage,
+        bg: 'bg-stone-100',
+        text: 'text-stone-700',
+        border: 'border-stone-200',
+        dot: 'bg-stone-400'
+      };
   }
 }
 
-export function getPlatformBadge(platform: ExternalPlatform): { label: string; border: string; text: string } {
-  switch (platform) {
-    case 'figma':
-      return { label: 'Figma', border: 'border-[#E6D4E7]', text: 'text-[#70297B]' };
-    case 'drive':
-      return { label: 'Drive', border: 'border-[#D2E7D6]', text: 'text-[#1F6E2E]' };
-    case 'canva':
-      return { label: 'Canva', border: 'border-[#CCE8F5]', text: 'text-[#0B6294]' };
-    case 'dropbox':
-      return { label: 'Dropbox', border: 'border-[#D4E2F5]', text: 'text-[#15468A]' };
+export function getDealCategoryLabel(category: DealCategory): { label: string; badge: string } {
+  switch (category) {
+    case 'grupos_convenciones':
+      return { label: 'Grupos & Convenciones (MICE)', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+    case 'bodas_sociales':
+      return { label: 'Bodas & Eventos Sociales', badge: 'bg-rose-50 text-rose-700 border-rose-200' };
+    case 'cuentas_empresariales':
+      return { label: 'Convenio Corporativo', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
+    case 'agencias_viaje':
+      return { label: 'Agencia / Mayorista', badge: 'bg-teal-50 text-teal-700 border-teal-200' };
     default:
-      return { label: 'Enlace', border: 'border-stone-200', text: 'text-stone-600' };
+      return { label: category, badge: 'bg-stone-100 text-stone-700 border-stone-200' };
   }
 }
-

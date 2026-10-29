@@ -1,49 +1,43 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AuthGate } from '@/components/AuthGate';
 import { Navbar } from '@/components/Navbar';
-import { ViewTabs, ActiveView } from '@/components/ViewTabs';
-import { CampaignTable } from '@/components/CampaignTable';
-import { PipelineKanban } from '@/components/PipelineKanban';
-import { EditorialCalendar } from '@/components/EditorialCalendar';
-import { BriefEditor } from '@/components/BriefEditor';
-import { SalesEnablementHub } from '@/components/SalesEnablementHub';
-import { ExecutiveDashboard } from '@/components/ExecutiveDashboard';
+import { MarketingSection } from '@/components/marketing/MarketingSection';
+import { CommercialSection } from '@/components/commercial/CommercialSection';
 
 import {
   INITIAL_CAMPAIGNS,
-  INITIAL_LEADS,
-  INITIAL_ASSETS,
-  INITIAL_BRIEF,
-  TEAM_MEMBERS
+  INITIAL_PUBLICATIONS,
+  INITIAL_BRIEFS,
+  INITIAL_DEALS,
+  INITIAL_FACTSHEETS
 } from '@/lib/initial-data';
-import { Campaign, SalesLead, SalesAsset, BriefDoc, CampaignStatus, LeadStage, UserProfile } from '@/lib/types';
+
+import {
+  UserProfile,
+  MarketingCampaign,
+  ContentPublication,
+  CreativeBrief,
+  HotelDeal,
+  HotelFactsheet,
+  MarketingCampaignStatus,
+  HotelDealStage
+} from '@/lib/types';
 
 export default function Home() {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(TEAM_MEMBERS.elena);
-  const [activeWorkspace, setActiveWorkspace] = useState<'all' | 'marketing' | 'sales'>('all');
-  const [activeView, setActiveView] = useState<ActiveView>('tablas');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [activeSection, setActiveSection] = useState<'marketing' | 'commercial'>('marketing');
 
-  // Fetch real Google Auth session
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.user) {
-          setCurrentUser(data.user);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // Real data state (Clean slate: starts empty as requested)
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>(INITIAL_CAMPAIGNS);
+  const [publications, setPublications] = useState<ContentPublication[]>(INITIAL_PUBLICATIONS);
+  const [briefs, setBriefs] = useState<CreativeBrief[]>(INITIAL_BRIEFS);
+  const [deals, setDeals] = useState<HotelDeal[]>(INITIAL_DEALS);
+  const [factsheets, setFactsheets] = useState<HotelFactsheet[]>(INITIAL_FACTSHEETS);
 
-  // Domain state
-  const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
-  const [leads, setLeads] = useState<SalesLead[]>(INITIAL_LEADS);
-  const [assets, setAssets] = useState<SalesAsset[]>(INITIAL_ASSETS);
-  const [brief, setBrief] = useState<BriefDoc>(INITIAL_BRIEF);
-
-  // Notification toast
+  // Live Toast Notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -51,198 +45,182 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Switch workspace behavior
-  const handleWorkspaceChange = (ws: 'all' | 'marketing' | 'sales') => {
-    setActiveWorkspace(ws);
-    if (ws === 'marketing' && (activeView === 'pipeline' || activeView === 'enablement')) {
-      setActiveView('tablas');
-    } else if (ws === 'sales' && (activeView === 'tablas' || activeView === 'briefs')) {
-      setActiveView('pipeline');
-    }
+  // Check Google Auth session on mount
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user) {
+          setCurrentUser(data.user);
+          // Set section based on user role
+          if (data.user.role === 'sales') {
+            setActiveSection('commercial');
+          } else {
+            setActiveSection('marketing');
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setIsLoadingAuth(false);
+      });
+  }, []);
+
+  const handleLogout = async () => {
+    setCurrentUser(null);
+    try {
+      await fetch('/api/auth/logout');
+    } catch {}
+    window.location.href = '/';
   };
 
-  // Campaign Handlers
-  const handleUpdateCampaignStatus = (campaignId: string, newStatus: CampaignStatus) => {
-    setCampaigns((prev) =>
-      prev.map((c) => (c.id === campaignId ? { ...c, status: newStatus } : c))
-    );
-    showToast('Estado de campaña actualizado en tiempo real');
-  };
-
+  // -----------------------------------------------------------------
+  // MARKETING ACTIONS
+  // -----------------------------------------------------------------
   const handleAddCampaign = (
-    newCamp: Omit<Campaign, 'id' | 'code' | 'tasksCount' | 'completedTasksCount' | 'leadsGenerated'>
+    newC: Omit<MarketingCampaign, 'id' | 'code' | 'spent'>
   ) => {
-    const nextCode = `CMP-0${campaigns.length + 1}`;
-    const created: Campaign = {
-      ...newCamp,
+    const nextCode = `MKT-${101 + campaigns.length}`;
+    const created: MarketingCampaign = {
+      ...newC,
       id: `cmp-${Date.now()}`,
       code: nextCode,
-      tasksCount: 1,
-      completedTasksCount: 0,
-      leadsGenerated: 0
+      spent: 0
     };
     setCampaigns((prev) => [created, ...prev]);
     showToast(`Campaña ${nextCode} registrada en base de datos`);
   };
 
-  // Lead Handlers
-  const handleUpdateLeadStage = (leadId: string, newStage: LeadStage) => {
-    setLeads((prev) =>
-      prev.map((l) => (l.id === leadId ? { ...l, stage: newStage } : l))
+  const handleUpdateCampaignStatus = (id: string, status: MarketingCampaignStatus) => {
+    setCampaigns((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status } : c))
     );
-    showToast('Etapa de prospecto actualizada en el pipeline');
+    showToast('Estado de campaña actualizado en tiempo real');
   };
 
-  const handleAddLead = (newLead: Omit<SalesLead, 'id' | 'code'>) => {
-    const nextCode = `LD-${100 + leads.length + 1}`;
-    const created: SalesLead = {
-      ...newLead,
-      id: `led-${Date.now()}`,
-      code: nextCode
+  const handleAddPublication = (newP: Omit<ContentPublication, 'id'>) => {
+    const created: ContentPublication = {
+      ...newP,
+      id: `pub-${Date.now()}`
     };
-    setLeads((prev) => [created, ...prev]);
-    showToast(`Prospecto ${nextCode} asignado al pipeline de Ventas`);
+    setPublications((prev) => [created, ...prev]);
+    showToast('Publicación programada en el calendario de PR');
   };
 
-  // Asset Request from Sales to Marketing
-  const handleRequestMaterial = (title: string, category: string, description: string) => {
-    const newAsset: SalesAsset = {
-      id: `ast-${Date.now()}`,
-      title,
-      category: category as any,
-      platform: 'drive',
-      url: 'https://drive.google.com/drive/folders/solicitudes-ventas',
-      description: `[Solicitado por Comercial]: ${description}`,
-      updatedAt: new Date().toISOString().split('T')[0],
-      version: 'v0.1 Draft',
-      author: 'Equipo Comercial (En Diseño por Mkt)'
+  const handleAddBrief = (newB: Omit<CreativeBrief, 'id' | 'date'>) => {
+    const created: CreativeBrief = {
+      ...newB,
+      id: `brf-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0]
     };
-    setAssets((prev) => [newAsset, ...prev]);
-    showToast('Solicitud enviada a Marketing: Se creó el activo en revisión');
+    setBriefs((prev) => [created, ...prev]);
+    showToast('Brief creativo archivado en la biblioteca');
   };
 
-  // Save brief
-  const handleSaveBrief = (updatedBrief: BriefDoc) => {
-    setBrief(updatedBrief);
-    showToast('Brief de estrategia sincronizado');
+  // -----------------------------------------------------------------
+  // COMERCIALIZACIÓN HOTELERA ACTIONS
+  // -----------------------------------------------------------------
+  const handleAddDeal = (newD: Omit<HotelDeal, 'id' | 'code' | 'createdAt'>) => {
+    const nextCode = `RFP-${501 + deals.length}`;
+    const created: HotelDeal = {
+      ...newD,
+      id: `deal-${Date.now()}`,
+      code: nextCode,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setDeals((prev) => [created, ...prev]);
+    showToast(`Cotización ${nextCode} ingresada al pipeline de ventas`);
   };
 
-  // Filtered lists based on search
-  const filteredCampaigns = useMemo(() => {
-    if (!searchQuery.trim()) return campaigns;
-    const q = searchQuery.toLowerCase();
-    return campaigns.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.description.toLowerCase().includes(q) ||
-        c.code.toLowerCase().includes(q)
+  const handleUpdateDealStage = (id: string, stage: HotelDealStage) => {
+    setDeals((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, stage } : d))
     );
-  }, [campaigns, searchQuery]);
+    showToast('Etapa de negociación actualizada en tiempo real');
+  };
 
-  const filteredLeads = useMemo(() => {
-    if (!searchQuery.trim()) return leads;
-    const q = searchQuery.toLowerCase();
-    return leads.filter(
-      (l) =>
-        l.contactName.toLowerCase().includes(q) ||
-        l.company.toLowerCase().includes(q) ||
-        l.code.toLowerCase().includes(q)
+  const handleAddFactsheet = (newF: Omit<HotelFactsheet, 'id' | 'updatedAt'>) => {
+    const created: HotelFactsheet = {
+      ...newF,
+      id: `fs-${Date.now()}`,
+      updatedAt: new Date().toISOString().split('T')[0]
+    };
+    setFactsheets((prev) => [created, ...prev]);
+    showToast('Factsheet oficial publicado para el equipo de ventas');
+  };
+
+  // Loading state
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-stone-400 font-mono tracking-wider uppercase">Cargando Portal TIMS...</span>
+        </div>
+      </div>
     );
-  }, [leads, searchQuery]);
+  }
 
-  const filteredAssets = useMemo(() => {
-    if (!searchQuery.trim()) return assets;
-    const q = searchQuery.toLowerCase();
-    return assets.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) ||
-        a.description.toLowerCase().includes(q)
-    );
-  }, [assets, searchQuery]);
+  // AUTH GATE: Si no está autenticado, solo ve la pantalla de acceso
+  if (!currentUser) {
+    return <AuthGate onDemoLogin={(profile) => setCurrentUser(profile)} />;
+  }
 
+  // USUARIO AUTENTICADO: Acceso completo a la plataforma
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 flex flex-col selection:bg-stone-200">
-      {/* Realtime Toast Notification */}
+    <div className="min-h-screen bg-stone-50/60 text-slate-900 flex flex-col font-sans selection:bg-amber-100 selection:text-amber-900">
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-stone-900 text-stone-100 text-xs px-4 py-2.5 rounded-md shadow-lg border border-stone-700 flex items-center gap-2.5 transition-all">
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-2.5 animate-bounce">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span>{toastMessage}</span>
+          <span className="font-medium">{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Bar */}
+      {/* Top Navigation */}
       <Navbar
         currentUser={currentUser}
-        activeWorkspace={activeWorkspace}
-        onWorkspaceChange={handleWorkspaceChange}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        onLogout={handleLogout}
       />
 
-      {/* Navigation Sub-Tabs */}
-      <ViewTabs
-        activeView={activeView}
-        onViewChange={setActiveView}
-        campaignsCount={campaigns.length}
-        leadsCount={leads.length}
-        assetsCount={assets.length}
-      />
-
-      {/* Main Content Workspace */}
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-6 py-6">
-        {activeView === 'tablas' && (
-          <CampaignTable
-            campaigns={filteredCampaigns}
-            onUpdateStatus={handleUpdateCampaignStatus}
-            onAddCampaign={handleAddCampaign}
-          />
-        )}
-
-        {activeView === 'pipeline' && (
-          <PipelineKanban
-            leads={filteredLeads}
-            onUpdateLeadStage={handleUpdateLeadStage}
-            onAddLead={handleAddLead}
-          />
-        )}
-
-        {activeView === 'calendario' && (
-          <EditorialCalendar campaigns={campaigns} leads={leads} />
-        )}
-
-        {activeView === 'briefs' && (
-          <BriefEditor
-            brief={brief}
+      {/* Section Content */}
+      <main className="flex-1 max-w-[1720px] w-full mx-auto p-4 sm:p-8">
+        {activeSection === 'marketing' ? (
+          <MarketingSection
             campaigns={campaigns}
-            onSaveBrief={handleSaveBrief}
+            publications={publications}
+            briefs={briefs}
+            onAddCampaign={handleAddCampaign}
+            onUpdateCampaignStatus={handleUpdateCampaignStatus}
+            onAddPublication={handleAddPublication}
+            onAddBrief={handleAddBrief}
           />
-        )}
-
-        {activeView === 'enablement' && (
-          <SalesEnablementHub
-            assets={filteredAssets}
-            onRequestMaterial={handleRequestMaterial}
+        ) : (
+          <CommercialSection
+            deals={deals}
+            factsheets={factsheets}
+            onAddDeal={handleAddDeal}
+            onUpdateDealStage={handleUpdateDealStage}
+            onAddFactsheet={handleAddFactsheet}
           />
-        )}
-
-        {activeView === 'dashboard' && (
-          <ExecutiveDashboard campaigns={campaigns} leads={leads} />
         )}
       </main>
 
-      {/* Editorial Footer */}
-      <footer className="hairline-t bg-[#faf9f6] py-5 px-6 text-stone-600 text-xs">
-        <div className="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 font-sans">
-          <div className="flex items-center gap-2">
-            <span className="font-editorial text-stone-800 font-semibold text-sm">TIMS</span>
-            <span>· Plataforma Editorial de Gestión Integrada para Marketing y Ventas</span>
+      {/* Clean Footer */}
+      <footer className="border-t border-stone-200 bg-white py-4 px-6 text-xs text-stone-500">
+        <div className="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 font-medium">
+            <span className="font-editorial text-slate-900 font-bold text-sm">TIMS</span>
+            <span>· Sistema Operativo de Hospitalidad, Marketing & Comercialización</span>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-stone-600">
-            <span>Conexión Vercel & Supabase Realtime</span>
+          <div className="flex items-center gap-4 text-[11px] text-stone-400">
+            <span>Grupo Hotelero 2026</span>
             <span>·</span>
-            <span>Google Workspace OAuth</span>
+            <span>Neon Postgres Realtime</span>
             <span>·</span>
-            <span>Edición 2026</span>
+            <span>Google Workspace Auth</span>
           </div>
         </div>
       </footer>
