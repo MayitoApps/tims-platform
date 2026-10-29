@@ -12,6 +12,8 @@ interface SharedCalendarProps {
   publications?: ContentPublication[];
   onAddDealClick?: () => void;
   onAddCampaignClick?: () => void;
+  onEditDealClick?: (deal: HotelDeal) => void;
+  onDeleteDealClick?: (deal: HotelDeal) => void;
 }
 
 interface CalendarItem {
@@ -38,7 +40,9 @@ export function SharedCalendar({
   campaigns = [],
   publications = [],
   onAddDealClick,
-  onAddCampaignClick
+  onAddCampaignClick,
+  onEditDealClick,
+  onDeleteDealClick
 }: SharedCalendarProps) {
   // Navigation State (Starts at today's real date)
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -539,7 +543,33 @@ export function SharedCalendar({
               </div>
             )}
 
-            <div className="flex justify-end pt-2">
+            <div className="flex items-center justify-between pt-3 border-t border-stone-200">
+              <div className="flex items-center gap-2">
+                {activeItemModal.type === 'deal' && onEditDealClick && (
+                  <button
+                    onClick={() => {
+                      const d = deals.find((x) => x.id === activeItemModal.id);
+                      setActiveItemModal(null);
+                      if (d) onEditDealClick(d);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <span>✏️ Editar Evento</span>
+                  </button>
+                )}
+                {activeItemModal.type === 'deal' && onDeleteDealClick && (
+                  <button
+                    onClick={() => {
+                      const d = deals.find((x) => x.id === activeItemModal.id);
+                      setActiveItemModal(null);
+                      if (d) onDeleteDealClick(d);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 shadow-2xs"
+                  >
+                    <span>🗑️ Eliminar</span>
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setActiveItemModal(null)}
                 className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"

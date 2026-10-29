@@ -46,14 +46,28 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Check Google Auth session on mount
+  // Check Google Auth session on mount & Sync with Database
   useEffect(() => {
+    // 1. Initial hydration from local storage for instant render
+    try {
+      const cachedDeals = localStorage.getItem('tims_deals');
+      if (cachedDeals) {
+        const parsed = JSON.parse(cachedDeals);
+        if (Array.isArray(parsed) && parsed.length > 0) setDeals(parsed);
+      }
+      const cachedTasks = localStorage.getItem('tims_mkt_tasks');
+      if (cachedTasks) {
+        const parsed = JSON.parse(cachedTasks);
+        if (Array.isArray(parsed) && parsed.length > 0) setMarketingTasks(parsed);
+      }
+    } catch {}
+
+    // 2. Fetch authenticated session
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
         if (data?.user) {
           setCurrentUser(data.user);
-          // Set section based on user role
           if (data.user.role === 'sales') {
             setActiveSection('commercial');
           } else {
@@ -65,6 +79,32 @@ export default function Home() {
       .finally(() => {
         setIsLoadingAuth(false);
       });
+
+    // 3. Sync Deals from Postgres Database
+    fetch('/api/deals')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.deals && Array.isArray(data.deals) && data.deals.length > 0) {
+          setDeals(data.deals);
+          try {
+            localStorage.setItem('tims_deals', JSON.stringify(data.deals));
+          } catch {}
+        }
+      })
+      .catch((err) => console.error('Error fetching deals from DB:', err));
+
+    // 4. Sync Marketing Tasks from Postgres Database
+    fetch('/api/marketing-tasks')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
+          setMarketingTasks(data.tasks);
+          try {
+            localStorage.setItem('tims_mkt_tasks', JSON.stringify(data.tasks));
+          } catch {}
+        }
+      })
+      .catch((err) => console.error('Error fetching marketing tasks from DB:', err));
   }, []);
 
   const handleLogout = async () => {
@@ -76,7 +116,7 @@ export default function Home() {
   };
 
   // -----------------------------------------------------------------
-  // MARKETING ACTIONS
+  // MARKETING ACTIONS (WITH DB PERSISTENCE)
   // -----------------------------------------------------------------
   const handleAddCampaign = (
     newC: Omit<MarketingCampaign, 'id' | 'code' | 'spent'>
@@ -118,7 +158,7 @@ export default function Home() {
     showToast('Brief creativo archivado en la biblioteca');
   };
 
-  const handleAddMarketingTask = (newTask: Omit<MarketingTask, 'id' | 'code' | 'createdAt'>) => {
+  const handleAddMarketingTask = async (newTask: Omit<MarketingTask, 'id' | 'code' | 'createdAt'>) => {
     const nextCode = `REQ-${String(marketingTasks.length + 1).padStart(2, '0')}`;
     const created: MarketingTask = {
       ...newTask,
@@ -126,21 +166,83 @@ export default function Home() {
       code: nextCode,
       createdAt: new Date().toISOString().split('T')[0]
     };
-    setMarketingTasks((prev) => [created, ...prev]);
-    showToast(`Requerimiento de marketing ${nextCode} registrado en el tablero`);
+    const nextList = [created, ...marketingTasks];
+    setMarketingTasks(nextList);
+    try {
+      localStorage.setItem('tims_mkt_tasks', JSON.stringify(nextList));
+    } catch {}
+    showToast(`Requerimiento ${nextCode} guardado en Postgres`);
+
+    try {
+      await fetch('/api/marketing-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(created)
+      });
+    } catch (err) {
+      console.error('Error persisting marketing task:', err);
+    }
   };
 
-  const handleUpdateMarketingTaskStage = (id: string, stage: MarketingTaskStage) => {
-    setMarketingTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, stage } : t))
-    );
-    showToast('Fase de requerimiento actualizada en el tablero');
+  const handleUpdateMarketingTask = async (updatedTask: MarketingTask) => {
+    const nextList = marketingTasks.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+    setMarketingTasks(nextList);
+    try {
+      localStorage.setItem('tims_mkt_tasks', JSON.stringify(nextList));
+    } catch {}
+    showToast(`Requerimiento ${updatedTask.code} actualizado en base de datos`);
+
+    try {
+      await fetch(`/api/marketing-tasks/${updatedTask.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTask)
+      });
+    } catch (err) {
+      console.error('Error updating task in DB:', err);
+    }
+  };
+
+  const handleDeleteMarketingTask = async (taskId: string) => {
+    const nextList = marketingTasks.filter((t) => t.id !== taskId);
+    setMarketingTasks(nextList);
+    try {
+      localStorage.setItem('tims_mkt_tasks', JSON.stringify(nextList));
+    } catch {}
+    showToast('Requerimiento eliminado de la base de datos');
+
+    try {
+      await fetch(`/api/marketing-tasks/${taskId}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Error deleting task in DB:', err);
+    }
+  };
+
+  const handleUpdateMarketingTaskStage = async (id: string, stage: MarketingTaskStage) => {
+    const nextList = marketingTasks.map((t) => (t.id === id ? { ...t, stage } : t));
+    setMarketingTasks(nextList);
+    try {
+      localStorage.setItem('tims_mkt_tasks', JSON.stringify(nextList));
+    } catch {}
+    showToast('Fase actualizada y sincronizada en Postgres');
+
+    try {
+      await fetch(`/api/marketing-tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage })
+      });
+    } catch (err) {
+      console.error('Error updating task stage in DB:', err);
+    }
   };
 
   // -----------------------------------------------------------------
-  // COMERCIALIZACIÓN HOTELERA ACTIONS
+  // COMERCIALIZACIÓN HOTELERA ACTIONS (WITH DB PERSISTENCE)
   // -----------------------------------------------------------------
-  const handleAddDeal = (newD: Omit<HotelDeal, 'id' | 'code' | 'createdAt'>) => {
+  const handleAddDeal = async (newD: Omit<HotelDeal, 'id' | 'code' | 'createdAt'>) => {
     const nextCode = `RFP-${501 + deals.length}`;
     const created: HotelDeal = {
       ...newD,
@@ -148,15 +250,77 @@ export default function Home() {
       code: nextCode,
       createdAt: new Date().toISOString().split('T')[0]
     };
-    setDeals((prev) => [created, ...prev]);
-    showToast(`Cotización ${nextCode} ingresada al pipeline de ventas`);
+    const nextList = [created, ...deals];
+    setDeals(nextList);
+    try {
+      localStorage.setItem('tims_deals', JSON.stringify(nextList));
+    } catch {}
+    showToast(`Cotización ${nextCode} guardada en Postgres`);
+
+    try {
+      await fetch('/api/deals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(created)
+      });
+    } catch (err) {
+      console.error('Error saving deal to DB:', err);
+    }
   };
 
-  const handleUpdateDealStage = (id: string, stage: HotelDealStage) => {
-    setDeals((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, stage } : d))
-    );
-    showToast('Etapa de negociación actualizada en tiempo real');
+  const handleUpdateDeal = async (updatedDeal: HotelDeal) => {
+    const nextList = deals.map((d) => (d.id === updatedDeal.id ? updatedDeal : d));
+    setDeals(nextList);
+    try {
+      localStorage.setItem('tims_deals', JSON.stringify(nextList));
+    } catch {}
+    showToast(`Evento ${updatedDeal.code} actualizado en Postgres`);
+
+    try {
+      await fetch(`/api/deals/${updatedDeal.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedDeal)
+      });
+    } catch (err) {
+      console.error('Error updating deal in DB:', err);
+    }
+  };
+
+  const handleDeleteDeal = async (dealId: string) => {
+    const nextList = deals.filter((d) => d.id !== dealId);
+    setDeals(nextList);
+    try {
+      localStorage.setItem('tims_deals', JSON.stringify(nextList));
+    } catch {}
+    showToast('Evento eliminado de la base de datos');
+
+    try {
+      await fetch(`/api/deals/${dealId}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Error deleting deal from DB:', err);
+    }
+  };
+
+  const handleUpdateDealStage = async (id: string, stage: HotelDealStage) => {
+    const nextList = deals.map((d) => (d.id === id ? { ...d, stage } : d));
+    setDeals(nextList);
+    try {
+      localStorage.setItem('tims_deals', JSON.stringify(nextList));
+    } catch {}
+    showToast('Etapa de negociación guardada en Postgres');
+
+    try {
+      await fetch(`/api/deals/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage })
+      });
+    } catch (err) {
+      console.error('Error updating deal stage in DB:', err);
+    }
   };
 
   // Loading state
@@ -208,6 +372,8 @@ export default function Home() {
             onAddPublication={handleAddPublication}
             onAddBrief={handleAddBrief}
             onAddMarketingTask={handleAddMarketingTask}
+            onUpdateMarketingTask={handleUpdateMarketingTask}
+            onDeleteMarketingTask={handleDeleteMarketingTask}
             onUpdateMarketingTaskStage={handleUpdateMarketingTaskStage}
           />
         ) : (
@@ -215,6 +381,8 @@ export default function Home() {
             deals={deals}
             currentUser={currentUser}
             onAddDeal={handleAddDeal}
+            onUpdateDeal={handleUpdateDeal}
+            onDeleteDeal={handleDeleteDeal}
             onUpdateDealStage={handleUpdateDealStage}
           />
         )}

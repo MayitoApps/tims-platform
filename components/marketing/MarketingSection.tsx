@@ -1,7 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MarketingCampaign, ContentPublication, CreativeBrief, MarketingCampaignStatus } from '@/lib/types';
+import {
+  MarketingCampaign,
+  ContentPublication,
+  CreativeBrief,
+  MarketingCampaignStatus,
+  MarketingTask,
+  MarketingTaskStage,
+  MarketingTaskCategory
+} from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
@@ -10,28 +18,70 @@ interface MarketingSectionProps {
   campaigns: MarketingCampaign[];
   publications: ContentPublication[];
   briefs: CreativeBrief[];
+  marketingTasks?: MarketingTask[];
   onAddCampaign: (campaign: Omit<MarketingCampaign, 'id' | 'code' | 'spent'>) => void;
   onUpdateCampaignStatus: (id: string, status: MarketingCampaignStatus) => void;
   onAddPublication: (pub: Omit<ContentPublication, 'id'>) => void;
   onAddBrief: (brief: Omit<CreativeBrief, 'id' | 'date'>) => void;
+  onAddMarketingTask: (task: Omit<MarketingTask, 'id' | 'code' | 'createdAt'>) => void;
+  onUpdateMarketingTask?: (task: MarketingTask) => void;
+  onDeleteMarketingTask?: (id: string) => void;
+  onUpdateMarketingTaskStage: (id: string, stage: MarketingTaskStage) => void;
 }
+
+const MARKETING_STAGES: { id: MarketingTaskStage; title: string; colorDot: string }[] = [
+  { id: 'backlog', title: 'Solicitudes / Briefing', colorDot: 'bg-stone-500' },
+  { id: 'en_produccion', title: 'En Producción & Diseño', colorDot: 'bg-amber-500' },
+  { id: 'revision', title: 'Revisión & Feedback', colorDot: 'bg-indigo-500' },
+  { id: 'aprobado', title: 'Listo / Publicado', colorDot: 'bg-emerald-600' }
+];
+
+const MARKETING_CATEGORIES: { id: MarketingTaskCategory; label: string; icon: string; badge: string }[] = [
+  { id: 'diseno_grafico', label: 'Diseño Gráfico', icon: '🎨', badge: 'bg-purple-50 text-purple-800 border-purple-200' },
+  { id: 'produccion_video', label: 'Producción de Video', icon: '🎬', badge: 'bg-rose-50 text-rose-800 border-rose-200' },
+  { id: 'cambios_web', label: 'Cambios en Web', icon: '💻', badge: 'bg-blue-50 text-blue-800 border-blue-200' },
+  { id: 'notas_digitales', label: 'Notas Digitales & Blog', icon: '📰', badge: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  { id: 'pauta_publicidad', label: 'Pauta & Anuncios', icon: '📣', badge: 'bg-amber-50 text-amber-800 border-amber-200' },
+  { id: 'fotografia', label: 'Fotografía & Shootings', icon: '📸', badge: 'bg-teal-50 text-teal-800 border-teal-200' }
+];
 
 export function MarketingSection({
   campaigns,
   publications,
   briefs,
+  marketingTasks = [],
   onAddCampaign,
   onUpdateCampaignStatus,
   onAddPublication,
-  onAddBrief
+  onAddBrief,
+  onAddMarketingTask,
+  onUpdateMarketingTask,
+  onDeleteMarketingTask,
+  onUpdateMarketingTaskStage
 }: MarketingSectionProps) {
-  const [subView, setSubView] = useState<'campanas' | 'calendario' | 'contenido' | 'briefs'>('campanas');
+  const [subView, setSubView] = useState<'tablero' | 'campanas' | 'calendario' | 'contenido' | 'briefs'>('tablero');
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'all' | MarketingTaskCategory>('all');
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<MarketingTaskStage | null>(null);
+  const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
 
   // Modals
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
   const [isPubModalOpen, setIsPubModalOpen] = useState(false);
   const [isBriefModalOpen, setIsBriefModalOpen] = useState(false);
+
+  // Form states - Marketing Task
+  const [tTitle, setTTitle] = useState('');
+  const [tHotel, setTHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [tCategory, setTCategory] = useState<MarketingTaskCategory>('diseno_grafico');
+  const [tPriority, setTPriority] = useState<'alta' | 'media' | 'urgente'>('alta');
+  const [tRequestedBy, setTRequestedBy] = useState('');
+  const [tAssignedTo, setTAssignedTo] = useState('');
+  const [tDueDate, setTDueDate] = useState('2026-11-15');
+  const [tDesc, setTDesc] = useState('');
+  const [tAssetUrl, setTAssetUrl] = useState('');
 
   // Form states - Campaign
   const [cTitle, setCTitle] = useState('');
@@ -39,16 +89,16 @@ export function MarketingSection({
   const [cSelectedSpaces, setCSelectedSpaces] = useState<string[]>([]);
   const [cType, setCType] = useState<MarketingCampaign['type']>('temporada');
   const [cBudget, setCBudget] = useState('45000');
-  const [cStart, setCStart] = useState('2026-04-01');
-  const [cEnd, setCEnd] = useState('2026-05-31');
-  const [cChannels, setCChannels] = useState('Instagram Ads, TikTok, Prensa Estilo de Vida');
+  const [cStart, setCStart] = useState('2026-10-20');
+  const [cEnd, setCEnd] = useState('2026-12-31');
+  const [cChannels, setCChannels] = useState('Instagram Ads, Meta Ads, Google Ads');
   const [cDesc, setCDesc] = useState('');
 
   // Form states - Publication
   const [pTitle, setPTitle] = useState('');
   const [pHotel, setPHotel] = useState(HOTEL_PROPERTIES[0]);
   const [pChannel, setPChannel] = useState<ContentPublication['channel']>('instagram');
-  const [pDate, setPDate] = useState('2026-04-15');
+  const [pDate, setPDate] = useState('2026-11-10');
   const [pResponsible, setPResponsible] = useState('Equipo Creativo');
 
   // Form states - Brief
@@ -140,6 +190,46 @@ export function MarketingSection({
     setIsBriefModalOpen(false);
   };
 
+  const filteredTasks = marketingTasks.filter((t) => {
+    if (selectedHotelFilter !== 'all' && t.hotelTarget !== selectedHotelFilter) return false;
+    if (selectedCategoryFilter !== 'all' && t.category !== selectedCategoryFilter) return false;
+    return true;
+  });
+
+  const handleCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tTitle.trim()) return;
+
+    onAddMarketingTask({
+      title: tTitle,
+      hotelTarget: tHotel,
+      category: tCategory,
+      stage: 'backlog',
+      priority: tPriority,
+      requestedBy: tRequestedBy || 'Gerencia de Hotel',
+      assignedTo: tAssignedTo || 'Equipo Creativo',
+      dueDate: tDueDate,
+      description: tDesc || 'Requerimiento de marketing y contenidos.',
+      assetUrl: tAssetUrl || undefined
+    });
+
+    setTTitle('');
+    setTDesc('');
+    setTAssetUrl('');
+    setTRequestedBy('');
+    setTAssignedTo('');
+    setIsTaskModalOpen(false);
+  };
+
+  const moveTaskStage = (task: MarketingTask, direction: 'prev' | 'next') => {
+    const idx = MARKETING_STAGES.findIndex((s) => s.id === task.stage);
+    if (direction === 'prev' && idx > 0) {
+      onUpdateMarketingTaskStage(task.id, MARKETING_STAGES[idx - 1].id);
+    } else if (direction === 'next' && idx < MARKETING_STAGES.length - 1) {
+      onUpdateMarketingTaskStage(task.id, MARKETING_STAGES[idx + 1].id);
+    }
+  };
+
   return (
     <div className="space-y-6 font-sans">
       {/* Marketing Header with Vibrant Gradient & Navigation */}
@@ -160,6 +250,16 @@ export function MarketingSection({
 
           {/* Quick Sub-View Selector */}
           <div className="flex flex-wrap items-center gap-1.5 bg-black/25 backdrop-blur-md p-1.5 rounded-xl text-xs font-semibold">
+            <button
+              onClick={() => setSubView('tablero')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                subView === 'tablero'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              📋 Tablero de Requerimientos (${marketingTasks.length})
+            </button>
             <button
               onClick={() => setSubView('campanas')}
               className={`px-3 py-1.5 rounded-lg transition-all ${

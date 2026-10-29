@@ -10,6 +10,8 @@ interface CommercialSectionProps {
   deals: HotelDeal[];
   currentUser?: UserProfile | null;
   onAddDeal: (deal: Omit<HotelDeal, 'id' | 'code' | 'createdAt'>) => void;
+  onUpdateDeal: (deal: HotelDeal) => void;
+  onDeleteDeal: (dealId: string) => void;
   onUpdateDealStage: (id: string, stage: HotelDealStage) => void;
 }
 
@@ -25,6 +27,8 @@ export function CommercialSection({
   deals,
   currentUser,
   onAddDeal,
+  onUpdateDeal,
+  onDeleteDeal,
   onUpdateDealStage
 }: CommercialSectionProps) {
   const [subView, setSubView] = useState<'pipeline' | 'calendario' | 'tabla' | 'reporte'>('pipeline');
@@ -33,9 +37,33 @@ export function CommercialSection({
   const [dragOverStage, setDragOverStage] = useState<HotelDealStage | null>(null);
   const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
 
-  // Modal
+  // Modal - Create
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
   const [conflictError, setConflictError] = useState<string | null>(null);
+
+  // Modal - Edit & Delete
+  const [editingDeal, setEditingDeal] = useState<HotelDeal | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editConflictError, setEditConflictError] = useState<string | null>(null);
+  const [dealToDelete, setDealToDelete] = useState<HotelDeal | null>(null);
+
+  // Edit form states
+  const [editClientName, setEditClientName] = useState('');
+  const [editCompany, setEditCompany] = useState('');
+  const [editHotel, setEditHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [editSelectedSpaces, setEditSelectedSpaces] = useState<string[]>([]);
+  const [editRoomQuantities, setEditRoomQuantities] = useState<Record<string, number>>({});
+  const [editCategory, setEditCategory] = useState<DealCategory>('bodas_sociales');
+  const [editStage, setEditStage] = useState<HotelDealStage>('rfp_recibido');
+  const [editTotalValue, setEditTotalValue] = useState('350000');
+  const [editCurrency, setEditCurrency] = useState<'MXN' | 'USD'>('MXN');
+  const [editRoomNights, setEditRoomNights] = useState('24');
+  const [editAttendees, setEditAttendees] = useState('120');
+  const [editCheckIn, setEditCheckIn] = useState('2026-05-15');
+  const [editCheckOut, setEditCheckOut] = useState('2026-05-17');
+  const [editNotes, setEditNotes] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
 
   // Form states - Deal
   const [clientName, setClientName] = useState('');
@@ -113,6 +141,145 @@ export function CommercialSection({
   const totalRoomNights = filteredDeals
     .filter((d) => d.stage !== 'perdido')
     .reduce((acc, d) => acc + d.roomNights, 0);
+
+  // EDIT MODAL HANDLERS
+  const openEditModal = (deal: HotelDeal) => {
+    setEditingDeal(deal);
+    setEditClientName(deal.clientName);
+    setEditCompany(deal.companyOrAgency);
+    setEditHotel(deal.hotelName);
+    setEditSelectedSpaces(deal.selectedSpaces || []);
+    setEditCategory(deal.category);
+    setEditStage(deal.stage);
+    setEditTotalValue(String(deal.totalValue));
+    setEditCurrency(deal.currency);
+    setEditRoomNights(String(deal.roomNights));
+    setEditAttendees(String(deal.attendeesCount || 0));
+    setEditCheckIn(deal.checkInDate);
+    setEditCheckOut(deal.checkOutDate);
+    setEditNotes(deal.notes || '');
+    setEditEmail(deal.contactEmail || '');
+    setEditPhone(deal.contactPhone || '');
+    setEditConflictError(null);
+
+    const roomMap: Record<string, number> = {};
+    if (deal.requestedRooms) {
+      deal.requestedRooms.forEach((r) => {
+        roomMap[r.roomTypeName] = r.count;
+      });
+    }
+    setEditRoomQuantities(roomMap);
+    setIsEditModalOpen(true);
+  };
+
+  const handleToggleEditSpace = (spaceName: string) => {
+    setEditConflictError(null);
+    setEditSelectedSpaces((prev) =>
+      prev.includes(spaceName) ? prev.filter((s) => s !== spaceName) : [...prev, spaceName]
+    );
+  };
+
+  const handleEditRoomQtyChange = (roomName: string, deltaOrVal: number | string) => {
+    setEditRoomQuantities((prev) => {
+      const current = prev[roomName] || 0;
+      let nextVal = 0;
+      if (typeof deltaOrVal === 'number') {
+        nextVal = Math.max(0, current + deltaOrVal);
+      } else {
+        nextVal = Math.max(0, parseInt(deltaOrVal) || 0);
+      }
+      const updated = { ...prev, [roomName]: nextVal };
+      const totalRooms = Object.values(updated).reduce((acc, count) => acc + count, 0);
+      const nights = getStayNights(editCheckIn, editCheckOut);
+      if (totalRooms > 0) {
+        setEditRoomNights(String(totalRooms * nights));
+      }
+      return updated;
+    });
+  };
+
+  const handleEditHotelChange = (newHotel: string) => {
+    setEditHotel(newHotel);
+    setEditSelectedSpaces([]);
+    setEditRoomQuantities({});
+    setEditConflictError(null);
+  };
+
+  const handleSaveEditDeal = (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditConflictError(null);
+
+    if (!editingDeal) return;
+    if (!editClientName.trim()) return;
+
+    // Strict overlap check against OTHER deals (exclude current editing deal)
+    if (editStage === 'contratado' || editStage === 'negociacion') {
+      const targetSpaces = editSelectedSpaces.length > 0
+        ? editSelectedSpaces
+        : (HOTEL_SPACES[editHotel] || []).map((s) => s.name);
+
+      const newIn = new Date(editCheckIn).getTime();
+      const newOut = new Date(editCheckOut).getTime();
+
+      for (const d of deals) {
+        if (d.id === editingDeal.id) continue; // Exclude self
+        if (d.hotelName !== editHotel) continue;
+        if (d.stage === 'perdido') continue;
+
+        const dIn = new Date(d.checkInDate).getTime();
+        const dOut = new Date(d.checkOutDate).getTime();
+
+        const datesOverlap = newIn <= dOut && newOut >= dIn;
+
+        if (datesOverlap) {
+          const conflictingSpaces = (d.selectedSpaces || []).filter((sp) =>
+            targetSpaces.includes(sp)
+          );
+
+          if (conflictingSpaces.length > 0) {
+            setEditConflictError(
+              'Conflicto de Fechas: El espacio ' + conflictingSpaces.join(', ') + ' ya está reservado por ' + d.companyOrAgency + ' (' + d.code + ') del ' + d.checkInDate + ' al ' + d.checkOutDate + '. Elige otras fechas o espacios para continuar.'
+            );
+            return;
+          }
+        }
+      }
+    }
+
+    const requestedRoomsBreakdown = Object.entries(editRoomQuantities)
+      .filter(([_, count]) => count > 0)
+      .map(([roomTypeName, count]) => ({ roomTypeName, count }));
+
+    const updated: HotelDeal = {
+      ...editingDeal,
+      clientName: editClientName,
+      companyOrAgency: editCompany || editClientName,
+      hotelName: editHotel,
+      selectedSpaces: editSelectedSpaces,
+      requestedRooms: requestedRoomsBreakdown,
+      category: editCategory,
+      stage: editStage,
+      totalValue: parseFloat(editTotalValue) || editingDeal.totalValue,
+      currency: editCurrency,
+      roomNights: parseInt(editRoomNights) || 0,
+      attendeesCount: parseInt(editAttendees) || 0,
+      checkInDate: editCheckIn,
+      checkOutDate: editCheckOut,
+      notes: editNotes,
+      contactEmail: editEmail,
+      contactPhone: editPhone
+    };
+
+    onUpdateDeal(updated);
+    setIsEditModalOpen(false);
+    setEditingDeal(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!dealToDelete) return;
+    onDeleteDeal(dealToDelete.id);
+    setDealToDelete(null);
+  };
 
   // VALIDACIÓN ESTRICTA DE CONFLICTO DE FECHAS Y ESPACIOS
   const handleCreateDeal = (e: React.FormEvent) => {
@@ -292,6 +459,8 @@ export function CommercialSection({
             setConflictError(null);
             setIsDealModalOpen(true);
           }}
+          onEditDealClick={openEditModal}
+          onDeleteDealClick={(d) => setDealToDelete(d)}
         />
       )}
 
@@ -484,9 +653,34 @@ export function CommercialSection({
                           </div>
 
                           <div className="flex items-center justify-between pt-1.5 border-t border-stone-100 text-[10px]">
-                            <span className="text-stone-500 font-medium truncate" title={deal.assignedRep}>
-                              👤 {deal.assignedRep.split(' ')[0]}
-                            </span>
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="text-stone-500 font-medium truncate" title={deal.assignedRep}>
+                                👤 {deal.assignedRep.split(' ')[0]}
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditModal(deal);
+                                  }}
+                                  title="Editar Evento"
+                                  className="px-1.5 py-0.5 rounded-md bg-stone-100 hover:bg-emerald-100 text-stone-700 hover:text-emerald-900 border border-stone-200 font-semibold"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDealToDelete(deal);
+                                  }}
+                                  title="Eliminar Evento"
+                                  className="px-1.5 py-0.5 rounded-md bg-stone-100 hover:bg-rose-100 text-stone-700 hover:text-rose-800 border border-stone-200"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+
                             <div className="flex items-center gap-1 shrink-0">
                               {stageIdx > 0 && (
                                 <button
@@ -534,6 +728,7 @@ export function CommercialSection({
                   <th className="py-3 px-4">Room Nights</th>
                   <th className="py-3 px-4">Fechas</th>
                   <th className="py-3 px-4">Ejecutivo</th>
+                  <th className="py-3 px-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -584,6 +779,23 @@ export function CommercialSection({
                         {formatDate(deal.checkInDate)} al {formatDate(deal.checkOutDate)}
                       </td>
                       <td className="py-3 px-4 text-stone-600">{deal.assignedRep}</td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditModal(deal)}
+                            className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                          >
+                            <span>✏️</span> Editar
+                          </button>
+                          <button
+                            onClick={() => setDealToDelete(deal)}
+                            className="p-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors text-xs"
+                            title="Eliminar Evento"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -941,6 +1153,403 @@ export function CommercialSection({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL: EDITAR EVENTO / COTIZACIÓN */}
+      {isEditModalOpen && editingDeal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-2xl p-6 sm:p-8 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    {editingDeal.code}
+                  </span>
+                  <h3 className="font-editorial text-2xl font-bold text-stone-900">
+                    Editar Evento / Cotización
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Modifica fechas, espacios, habitaciones o condiciones comerciales. Se sincronizará en la base de datos.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingDeal(null);
+                }}
+                className="text-stone-400 hover:text-stone-600 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Error por Traslape de Espacio */}
+            {editConflictError && (
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-800 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-rose-900">
+                  <span>🚫</span> Conflicto de Calendario Detectado
+                </div>
+                <p className="leading-relaxed">{editConflictError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditDeal} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Empresa / Nombre del Evento</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCompany}
+                    onChange={(e) => setEditCompany(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Nombre del Contacto Principal</label>
+                  <input
+                    type="text"
+                    required
+                    value={editClientName}
+                    onChange={(e) => setEditClientName(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel Destino</label>
+                  <select
+                    value={editHotel}
+                    onChange={(e) => handleEditHotelChange(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    {HOTEL_PROPERTIES.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Etapa Comercial</label>
+                  <select
+                    value={editStage}
+                    onChange={(e) => setEditStage(e.target.value as HotelDealStage)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold"
+                  >
+                    {STAGES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Tipo de Evento</label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value as DealCategory)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    <option value="bodas_sociales">Bodas & Sociales</option>
+                    <option value="grupos_convenciones">Grupos & MICE</option>
+                    <option value="cuentas_empresariales">Convenios Empresariales</option>
+                    <option value="agencias_viaje">Agencias & Mayoristas</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* SELECCIÓN DE ESPACIOS */}
+              <div className="space-y-2 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-stone-800 uppercase tracking-wider">
+                    Espacios del Hotel a Reservar:
+                  </label>
+                  <span className="text-[10px] text-stone-500">
+                    {editSelectedSpaces.length} seleccionados
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto">
+                  {(HOTEL_SPACES[editHotel] || []).map((space) => {
+                    const isSelected = editSelectedSpaces.includes(space.name);
+                    return (
+                      <div
+                        key={space.id}
+                        onClick={() => handleToggleEditSpace(space.name)}
+                        className={'p-1.5 rounded-lg border text-[11px] cursor-pointer flex items-center gap-1.5 transition-colors ' + (
+                          isSelected
+                            ? 'bg-emerald-100 border-emerald-400 text-emerald-900 font-bold'
+                            : 'bg-white border-stone-200 text-stone-700 hover:border-stone-300'
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="accent-emerald-600 rounded"
+                        />
+                        <span className="truncate" title={space.description}>
+                          {space.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* HABITACIONES REQUERIDAS */}
+              <div className="space-y-2 bg-amber-50/50 p-3 rounded-xl border border-amber-200/80">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🛏️</span> Habitaciones por Tipo ({editHotel}):
+                  </label>
+                  <span className="text-[11px] font-mono font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
+                    Total: {Object.values(editRoomQuantities).reduce((a, b) => a + b, 0)} habitaciones
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pt-1">
+                  {(HOTEL_ROOM_TYPES[editHotel] || []).map((room) => {
+                    const count = editRoomQuantities[room.name] || 0;
+                    return (
+                      <div
+                        key={room.id}
+                        className="bg-white p-2 rounded-xl border border-amber-200/70 flex items-center justify-between gap-2 shadow-2xs"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-stone-900 text-[11px] truncate">{room.name}</p>
+                          <p className="text-[9px] text-stone-500 truncate">{room.capacity}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleEditRoomQtyChange(room.name, -1)}
+                            className="w-6 h-6 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold flex items-center justify-center text-xs"
+                          >
+                            -
+                          </button>
+                          <span className="w-6 text-center font-mono font-bold text-xs text-stone-900">
+                            {count}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleEditRoomQtyChange(room.name, 1)}
+                            className="w-6 h-6 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center justify-center text-xs"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Fechas de Check-In y Check-Out */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Fecha Check-In (Llegada)</label>
+                  <input
+                    type="date"
+                    required
+                    value={editCheckIn}
+                    onChange={(e) => {
+                      const newIn = e.target.value;
+                      setEditCheckIn(newIn);
+                      setEditConflictError(null);
+                      const totalRooms = Object.values(editRoomQuantities).reduce((acc, c) => acc + c, 0);
+                      if (totalRooms > 0) {
+                        const nights = getStayNights(newIn, editCheckOut);
+                        setEditRoomNights(String(totalRooms * nights));
+                      }
+                    }}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Fecha Check-Out (Salida)</label>
+                  <input
+                    type="date"
+                    required
+                    value={editCheckOut}
+                    onChange={(e) => {
+                      const newOut = e.target.value;
+                      setEditCheckOut(newOut);
+                      setEditConflictError(null);
+                      const totalRooms = Object.values(editRoomQuantities).reduce((acc, c) => acc + c, 0);
+                      if (totalRooms > 0) {
+                        const nights = getStayNights(editCheckIn, newOut);
+                        setEditRoomNights(String(totalRooms * nights));
+                      }
+                    }}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Valores Comerciales */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Valor Total</label>
+                  <input
+                    type="number"
+                    value={editTotalValue}
+                    onChange={(e) => setEditTotalValue(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Moneda</label>
+                  <select
+                    value={editCurrency}
+                    onChange={(e) => setEditCurrency(e.target.value as any)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    <option value="MXN">MXN ($)</option>
+                    <option value="USD">USD ($)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Room Nights</label>
+                  <input
+                    type="number"
+                    value={editRoomNights}
+                    onChange={(e) => setEditRoomNights(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Asistentes</label>
+                  <input
+                    type="number"
+                    value={editAttendees}
+                    onChange={(e) => setEditAttendees(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+              </div>
+
+              {/* Contacto */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Email del Cliente</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Teléfono</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Notas / Requerimientos</label>
+                <textarea
+                  rows={2}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDel = editingDeal;
+                    setIsEditModalOpen(false);
+                    setEditingDeal(null);
+                    if (toDel) setDealToDelete(toDel);
+                  }}
+                  className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <span>🗑️ Eliminar este Evento</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditModalOpen(false);
+                      setEditingDeal(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-xs"
+                  >
+                    Guardar Cambios
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMACIÓN DE ELIMINACIÓN */}
+      {dealToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-editorial text-xl font-bold text-stone-900">
+                  ¿Eliminar este Evento?
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Esta acción liberará las fechas en el calendario y se sincronizará con la base de datos.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs space-y-1">
+              <div className="font-bold text-stone-900">
+                {dealToDelete.code} · {dealToDelete.companyOrAgency}
+              </div>
+              <div className="text-stone-600">
+                🏨 <strong>{dealToDelete.hotelName}</strong> ({dealToDelete.checkInDate} al {dealToDelete.checkOutDate})
+              </div>
+              {dealToDelete.selectedSpaces && dealToDelete.selectedSpaces.length > 0 && (
+                <div className="text-[11px] text-stone-500 pt-0.5">
+                  Espacios: {dealToDelete.selectedSpaces.join(', ')}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setDealToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs"
+              >
+                Eliminar Definitivamente
+              </button>
+            </div>
           </div>
         </div>
       )}

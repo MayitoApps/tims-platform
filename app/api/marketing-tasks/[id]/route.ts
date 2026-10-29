@@ -1,0 +1,83 @@
+import { NextResponse } from 'next/server';
+import { getDb, ensureTables } from '@/lib/db';
+import { MarketingTask } from '@/lib/types';
+
+export const dynamic = 'force-dynamic';
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const updates: Partial<MarketingTask> = await request.json();
+    const sql = getDb();
+
+    if (!sql) {
+      return NextResponse.json({ success: true, source: 'local', id, updates });
+    }
+
+    await ensureTables();
+
+    if (Object.keys(updates).length === 1 && updates.stage) {
+      await sql`
+        UPDATE marketing_tasks
+        SET stage = ${updates.stage}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id};
+      `;
+    } else {
+      await sql`
+        UPDATE marketing_tasks
+        SET
+          title = COALESCE(${updates.title}, title),
+          hotel_target = COALESCE(${updates.hotelTarget}, hotel_target),
+          category = COALESCE(${updates.category}, category),
+          stage = COALESCE(${updates.stage}, stage),
+          priority = COALESCE(${updates.priority}, priority),
+          requested_by = COALESCE(${updates.requestedBy}, requested_by),
+          assigned_to = COALESCE(${updates.assignedTo}, assigned_to),
+          due_date = COALESCE(${updates.dueDate}, due_date),
+          description = COALESCE(${updates.description}, description),
+          asset_url = COALESCE(${updates.assetUrl}, asset_url),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id};
+      `;
+    }
+
+    return NextResponse.json({ success: true, source: 'postgres', id });
+  } catch (error) {
+    console.error('Error updating task in DB:', error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const sql = getDb();
+
+    if (!sql) {
+      return NextResponse.json({ success: true, source: 'local', id });
+    }
+
+    await ensureTables();
+    await sql`
+      DELETE FROM marketing_tasks
+      WHERE id = ${id};
+    `;
+
+    return NextResponse.json({ success: true, source: 'postgres', id });
+  } catch (error) {
+    console.error('Error deleting marketing task from DB:', error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
