@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
 import { HotelDeal } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
 
 export async function PUT(
   request: Request,

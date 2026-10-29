@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
 import { MarketingTask } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
 
 export async function PUT(
   request: Request,
@@ -81,3 +80,4 @@ export async function DELETE(
     );
   }
 }
+

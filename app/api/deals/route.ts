@@ -3,7 +3,6 @@ import { getDb, ensureTables, mapRowToDeal } from '@/lib/db';
 import { INITIAL_DEALS } from '@/lib/initial-data';
 import { HotelDeal } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const sql = getDb();

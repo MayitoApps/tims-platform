@@ -3,7 +3,6 @@ import { getDb, ensureTables, mapRowToMarketingTask } from '@/lib/db';
 import { INITIAL_MARKETING_TASKS } from '@/lib/initial-data';
 import { MarketingTask } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const sql = getDb();
@@ -79,3 +78,4 @@ export async function POST(request: Request) {
     );
   }
 }
+
