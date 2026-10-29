@@ -163,7 +163,7 @@ export default function Home() {
 
   // AUTH GATE: Si no está autenticado, solo ve la pantalla de acceso
   if (!currentUser) {
-    return <AuthGate onDemoLogin={(profile) => setCurrentUser(profile)} />;
+    return <AuthGate />;
   }
 
   // USUARIO AUTENTICADO: Acceso completo a la plataforma

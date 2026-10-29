@@ -1,23 +1,8 @@
 'use client';
 
 import React from 'react';
-import { UserProfile } from '@/lib/types';
 
-interface AuthGateProps {
-  onDemoLogin: (profile: UserProfile) => void;
-}
-
-export function AuthGate({ onDemoLogin }: AuthGateProps) {
-  const handleQuickDemo = (role: 'marketing' | 'sales') => {
-    onDemoLogin({
-      id: 'usr-demo-' + role,
-      name: role === 'marketing' ? 'Dirección de Marketing' : 'Gerencia Comercial',
-      email: role === 'marketing' ? 'marketing@grupohoteles.com' : 'comercial@grupohoteles.com',
-      role,
-      initials: role === 'marketing' ? 'MK' : 'GC'
-    });
-  };
-
+export function AuthGate() {
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-stone-950 text-white flex flex-col justify-between p-6 sm:p-12 relative overflow-hidden font-sans">
       {/* Decorative background glow with rich hospitality colors */}
@@ -82,32 +67,8 @@ export function AuthGate({ onDemoLogin }: AuthGateProps) {
                   d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                 />
               </svg>
-              <span>Continuar con Google Workspace</span>
+              <span>Continuar con Google</span>
             </a>
-
-            <div className="flex items-center gap-3 pt-2">
-              <div className="h-px bg-white/10 flex-1" />
-              <span className="text-[11px] text-stone-500 uppercase font-mono">o modo exploratorio</span>
-              <div className="h-px bg-white/10 flex-1" />
-            </div>
-
-            {/* Quick Demo Access for review */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('marketing')}
-                className="py-2.5 px-3 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 text-xs font-medium transition-colors text-center"
-              >
-                Entrar a Marketing
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('sales')}
-                className="py-2.5 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200 text-xs font-medium transition-colors text-center"
-              >
-                Entrar a Comercial
-              </button>
-            </div>
           </div>
 
           <div className="pt-2 text-center border-t border-white/5">
