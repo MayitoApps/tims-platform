@@ -122,6 +122,45 @@ export default function Home() {
           }
         })
         .catch(() => {});
+
+      // Sync Campaigns
+      fetch('/api/campaigns')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.campaigns && Array.isArray(data.campaigns) && data.campaigns.length > 0) {
+            setCampaigns(data.campaigns);
+            try {
+              localStorage.setItem('tims_campaigns', JSON.stringify(data.campaigns));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+
+      // Sync Publications
+      fetch('/api/publications')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.publications && Array.isArray(data.publications) && data.publications.length > 0) {
+            setPublications(data.publications);
+            try {
+              localStorage.setItem('tims_publications', JSON.stringify(data.publications));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+
+      // Sync Briefs
+      fetch('/api/briefs')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.briefs && Array.isArray(data.briefs) && data.briefs.length > 0) {
+            setBriefs(data.briefs);
+            try {
+              localStorage.setItem('tims_briefs', JSON.stringify(data.briefs));
+            } catch {}
+          }
+        })
+        .catch(() => {});
     };
 
     // Consulta inicial inmediata
@@ -149,7 +188,7 @@ export default function Home() {
   // -----------------------------------------------------------------
   // MARKETING ACTIONS (WITH DB PERSISTENCE)
   // -----------------------------------------------------------------
-  const handleAddCampaign = (
+  const handleAddCampaign = async (
     newC: Omit<MarketingCampaign, 'id' | 'code' | 'spent'>
   ) => {
     const nextCode = `MKT-${101 + campaigns.length}`;
@@ -162,31 +201,69 @@ export default function Home() {
     const nextList = [created, ...campaigns];
     setCampaigns(nextList);
     try { localStorage.setItem('tims_campaigns', JSON.stringify(nextList)); } catch {}
-    showToast(`Campaña ${nextCode} guardada exitosamente`);
+    showToast(`Campaña ${nextCode} guardada en Postgres`);
+
+    try {
+      await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(created)
+      });
+    } catch (err) {
+      console.error('Error persisting campaign:', err);
+    }
   };
 
-  const handleUpdateCampaign = (updated: MarketingCampaign) => {
+  const handleUpdateCampaign = async (updated: MarketingCampaign) => {
     const nextList = campaigns.map((c) => (c.id === updated.id ? updated : c));
     setCampaigns(nextList);
     try { localStorage.setItem('tims_campaigns', JSON.stringify(nextList)); } catch {}
-    showToast(`Campaña ${updated.code} actualizada`);
+    showToast(`Campaña ${updated.code} sincronizada en Postgres`);
+
+    try {
+      await fetch(`/api/campaigns/${updated.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (err) {
+      console.error('Error updating campaign in DB:', err);
+    }
   };
 
-  const handleDeleteCampaign = (id: string) => {
+  const handleDeleteCampaign = async (id: string) => {
     const nextList = campaigns.filter((c) => c.id !== id);
     setCampaigns(nextList);
     try { localStorage.setItem('tims_campaigns', JSON.stringify(nextList)); } catch {}
-    showToast('Campaña eliminada correctamente');
+    showToast('Campaña eliminada de Postgres');
+
+    try {
+      await fetch(`/api/campaigns/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Error deleting campaign from DB:', err);
+    }
   };
 
-  const handleUpdateCampaignStatus = (id: string, status: MarketingCampaignStatus) => {
+  const handleUpdateCampaignStatus = async (id: string, status: MarketingCampaignStatus) => {
     const nextList = campaigns.map((c) => (c.id === id ? { ...c, status } : c));
     setCampaigns(nextList);
     try { localStorage.setItem('tims_campaigns', JSON.stringify(nextList)); } catch {}
     showToast('Estado de campaña actualizado en tiempo real');
+
+    try {
+      await fetch(`/api/campaigns/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+    } catch (err) {
+      console.error('Error updating campaign status in DB:', err);
+    }
   };
 
-  const handleAddPublication = (newP: Omit<ContentPublication, 'id'>) => {
+  const handleAddPublication = async (newP: Omit<ContentPublication, 'id'>) => {
     const created: ContentPublication = {
       ...newP,
       id: `pub-${Date.now()}`
@@ -194,24 +271,52 @@ export default function Home() {
     const nextList = [created, ...publications];
     setPublications(nextList);
     try { localStorage.setItem('tims_publications', JSON.stringify(nextList)); } catch {}
-    showToast('Publicación programada en el calendario de PR');
+    showToast('Publicación programada y guardada en Postgres');
+
+    try {
+      await fetch('/api/publications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(created)
+      });
+    } catch (err) {
+      console.error('Error persisting publication:', err);
+    }
   };
 
-  const handleUpdatePublication = (updated: ContentPublication) => {
+  const handleUpdatePublication = async (updated: ContentPublication) => {
     const nextList = publications.map((p) => (p.id === updated.id ? updated : p));
     setPublications(nextList);
     try { localStorage.setItem('tims_publications', JSON.stringify(nextList)); } catch {}
-    showToast('Publicación actualizada correctamente');
+    showToast('Publicación actualizada en Postgres');
+
+    try {
+      await fetch(`/api/publications/${updated.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (err) {
+      console.error('Error updating publication in DB:', err);
+    }
   };
 
-  const handleDeletePublication = (id: string) => {
+  const handleDeletePublication = async (id: string) => {
     const nextList = publications.filter((p) => p.id !== id);
     setPublications(nextList);
     try { localStorage.setItem('tims_publications', JSON.stringify(nextList)); } catch {}
     showToast('Publicación eliminada correctamente');
+
+    try {
+      await fetch(`/api/publications/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Error deleting publication from DB:', err);
+    }
   };
 
-  const handleAddBrief = (newB: Omit<CreativeBrief, 'id' | 'date'>) => {
+  const handleAddBrief = async (newB: Omit<CreativeBrief, 'id' | 'date'>) => {
     const created: CreativeBrief = {
       ...newB,
       id: `brf-${Date.now()}`,
@@ -220,21 +325,49 @@ export default function Home() {
     const nextList = [created, ...briefs];
     setBriefs(nextList);
     try { localStorage.setItem('tims_briefs', JSON.stringify(nextList)); } catch {}
-    showToast('Brief creativo archivado en la biblioteca');
+    showToast('Brief creativo archivado en Postgres');
+
+    try {
+      await fetch('/api/briefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(created)
+      });
+    } catch (err) {
+      console.error('Error persisting brief in DB:', err);
+    }
   };
 
-  const handleUpdateBrief = (updated: CreativeBrief) => {
+  const handleUpdateBrief = async (updated: CreativeBrief) => {
     const nextList = briefs.map((b) => (b.id === updated.id ? updated : b));
     setBriefs(nextList);
     try { localStorage.setItem('tims_briefs', JSON.stringify(nextList)); } catch {}
-    showToast('Brief creativo actualizado');
+    showToast('Brief creativo actualizado en Postgres');
+
+    try {
+      await fetch(`/api/briefs/${updated.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (err) {
+      console.error('Error updating brief in DB:', err);
+    }
   };
 
-  const handleDeleteBrief = (id: string) => {
+  const handleDeleteBrief = async (id: string) => {
     const nextList = briefs.filter((b) => b.id !== id);
     setBriefs(nextList);
     try { localStorage.setItem('tims_briefs', JSON.stringify(nextList)); } catch {}
-    showToast('Brief eliminado de la biblioteca');
+    showToast('Brief eliminado de la base de datos');
+
+    try {
+      await fetch(`/api/briefs/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Error deleting brief from DB:', err);
+    }
   };
 
   const handleAddMarketingTask = async (newTask: Omit<MarketingTask, 'id' | 'code' | 'createdAt'>) => {

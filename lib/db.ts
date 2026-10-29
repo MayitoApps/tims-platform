@@ -1,6 +1,6 @@
 import { neon, NeonQueryFunction } from '@neondatabase/serverless';
-import { HotelDeal, MarketingTask } from './types';
-import { INITIAL_DEALS, INITIAL_MARKETING_TASKS } from './initial-data';
+import { HotelDeal, MarketingTask, MarketingCampaign, ContentPublication, CreativeBrief } from './types';
+import { INITIAL_DEALS, INITIAL_MARKETING_TASKS, INITIAL_CAMPAIGNS, INITIAL_PUBLICATIONS, INITIAL_BRIEFS } from './initial-data';
 
 // Helper to get neon SQL client
 export function getDb(): NeonQueryFunction<false, false> | null {
@@ -122,6 +122,111 @@ export async function ensureTables(): Promise<boolean> {
       }
     }
 
+    // 3. Marketing Campaigns Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS marketing_campaigns (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL,
+        title TEXT NOT NULL,
+        hotel_target TEXT NOT NULL,
+        type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        budget NUMERIC NOT NULL,
+        spent NUMERIC NOT NULL DEFAULT 0,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        channels JSONB NOT NULL DEFAULT '[]'::jsonb,
+        external_links JSONB NOT NULL DEFAULT '[]'::jsonb,
+        lead_owner TEXT NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // 4. Content Publications Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS content_publications (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        hotel TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        publish_date TEXT NOT NULL,
+        status TEXT NOT NULL,
+        responsible TEXT NOT NULL,
+        asset_url TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // 5. Creative Briefs Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS creative_briefs (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        hotel_target TEXT NOT NULL,
+        category TEXT NOT NULL,
+        objective TEXT NOT NULL,
+        target_audience TEXT NOT NULL,
+        key_message TEXT NOT NULL,
+        deliverables JSONB NOT NULL DEFAULT '[]'::jsonb,
+        author TEXT NOT NULL,
+        date TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // Seed campaigns if table is empty
+    const cmpRows = await sql`SELECT COUNT(*)::int as count FROM marketing_campaigns;`;
+    if (((cmpRows[0] as { count: number })?.count || 0) === 0 && INITIAL_CAMPAIGNS.length > 0) {
+      for (const c of INITIAL_CAMPAIGNS) {
+        await sql`
+          INSERT INTO marketing_campaigns (
+            id, code, title, hotel_target, type, status, budget, spent,
+            start_date, end_date, channels, external_links, lead_owner, description
+          ) VALUES (
+            ${c.id}, ${c.code}, ${c.title}, ${c.hotelTarget}, ${c.type}, ${c.status},
+            ${c.budget}, ${c.spent || 0}, ${c.startDate}, ${c.endDate},
+            ${JSON.stringify(c.channels || [])}::jsonb,
+            ${JSON.stringify(c.externalLinks || [])}::jsonb,
+            ${c.leadOwner}, ${c.description || ''}
+          ) ON CONFLICT (id) DO NOTHING;
+        `;
+      }
+    }
+
+    // Seed publications if table is empty
+    const pubRows = await sql`SELECT COUNT(*)::int as count FROM content_publications;`;
+    if (((pubRows[0] as { count: number })?.count || 0) === 0 && INITIAL_PUBLICATIONS.length > 0) {
+      for (const p of INITIAL_PUBLICATIONS) {
+        await sql`
+          INSERT INTO content_publications (
+            id, title, hotel, channel, publish_date, status, responsible, asset_url
+          ) VALUES (
+            ${p.id}, ${p.title}, ${p.hotel}, ${p.channel}, ${p.publishDate},
+            ${p.status}, ${p.responsible}, ${p.assetUrl || null}
+          ) ON CONFLICT (id) DO NOTHING;
+        `;
+      }
+    }
+
+    // Seed briefs if table is empty
+    const briefRows = await sql`SELECT COUNT(*)::int as count FROM creative_briefs;`;
+    if (((briefRows[0] as { count: number })?.count || 0) === 0 && INITIAL_BRIEFS.length > 0) {
+      for (const b of INITIAL_BRIEFS) {
+        await sql`
+          INSERT INTO creative_briefs (
+            id, title, hotel_target, category, objective, target_audience,
+            key_message, deliverables, author, date
+          ) VALUES (
+            ${b.id}, ${b.title}, ${b.hotelTarget}, ${b.category}, ${b.objective},
+            ${b.targetAudience}, ${b.keyMessage},
+            ${JSON.stringify(b.deliverables || [])}::jsonb,
+            ${b.author}, ${b.date}
+          ) ON CONFLICT (id) DO NOTHING;
+        `;
+      }
+    }
+
     tablesInitialized = true;
     return true;
   } catch (error) {
@@ -172,5 +277,55 @@ export function mapRowToMarketingTask(row: any): MarketingTask {
     description: row.description || '',
     assetUrl: row.asset_url || undefined,
     createdAt: row.created_at
+  };
+}
+
+// Convert DB row to MarketingCampaign interface
+export function mapRowToCampaign(row: any): MarketingCampaign {
+  return {
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    hotelTarget: row.hotel_target,
+    type: row.type,
+    status: row.status,
+    budget: Number(row.budget) || 0,
+    spent: Number(row.spent) || 0,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    channels: typeof row.channels === 'string' ? JSON.parse(row.channels) : (row.channels || []),
+    externalLinks: typeof row.external_links === 'string' ? JSON.parse(row.external_links) : (row.external_links || []),
+    leadOwner: row.lead_owner,
+    description: row.description || ''
+  };
+}
+
+// Convert DB row to ContentPublication interface
+export function mapRowToPublication(row: any): ContentPublication {
+  return {
+    id: row.id,
+    title: row.title,
+    hotel: row.hotel,
+    channel: row.channel,
+    publishDate: row.publish_date,
+    status: row.status,
+    responsible: row.responsible,
+    assetUrl: row.asset_url || undefined
+  };
+}
+
+// Convert DB row to CreativeBrief interface
+export function mapRowToBrief(row: any): CreativeBrief {
+  return {
+    id: row.id,
+    title: row.title,
+    hotelTarget: row.hotel_target,
+    category: row.category,
+    objective: row.objective,
+    targetAudience: row.target_audience,
+    keyMessage: row.key_message,
+    deliverables: typeof row.deliverables === 'string' ? JSON.parse(row.deliverables) : (row.deliverables || []),
+    author: row.author,
+    date: row.date
   };
 }
