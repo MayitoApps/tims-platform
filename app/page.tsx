@@ -192,6 +192,7 @@ export default function Home() {
             campaigns={campaigns}
             publications={publications}
             briefs={briefs}
+            deals={deals}
             onAddCampaign={handleAddCampaign}
             onUpdateCampaignStatus={handleUpdateCampaignStatus}
             onAddPublication={handleAddPublication}
@@ -200,6 +201,8 @@ export default function Home() {
         ) : (
           <CommercialSection
             deals={deals}
+            campaigns={campaigns}
+            publications={publications}
             factsheets={factsheets}
             onAddDeal={handleAddDeal}
             onUpdateDealStage={handleUpdateDealStage}

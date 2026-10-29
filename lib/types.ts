@@ -10,6 +10,16 @@ export interface UserProfile {
 }
 
 // -------------------------------------------------------------
+// CATÁLOGO DE ESPACIOS POR HOTEL
+// -------------------------------------------------------------
+export interface HotelSpaceInfo {
+  id: string;
+  name: string;
+  description: string;
+  type: 'salon' | 'jardin' | 'hospedaje' | 'restaurante' | 'terraza' | 'bienestar';
+}
+
+// -------------------------------------------------------------
 // SECCIÓN 1: MARKETING & COMUNICACIÓN
 // -------------------------------------------------------------
 export type MarketingCampaignStatus = 'planificacion' | 'en_produccion' | 'revision' | 'activa' | 'finalizada';
@@ -25,7 +35,7 @@ export interface MarketingCampaign {
   id: string;
   code: string;
   title: string;
-  hotelTarget: string; // Hotel específico o 'Todos los Hoteles'
+  hotelTarget: string;
   type: 'temporada' | 'marca' | 'redes_sociales' | 'relaciones_publicas' | 'influencers' | 'gastronomia';
   status: MarketingCampaignStatus;
   budget: number;
@@ -36,6 +46,7 @@ export interface MarketingCampaign {
   externalLinks: ExternalLink[];
   leadOwner: string;
   description: string;
+  selectedSpaces?: string[];
 }
 
 export interface ContentPublication {
@@ -60,6 +71,7 @@ export interface CreativeBrief {
   deliverables: string[];
   author: string;
   date: string;
+  spacesTarget?: string[];
 }
 
 // -------------------------------------------------------------
@@ -84,6 +96,7 @@ export interface HotelDeal {
   clientName: string;
   companyOrAgency: string;
   hotelName: string;
+  selectedSpaces: string[]; // Espacios seleccionados del hotel
   category: DealCategory;
   stage: HotelDealStage;
   totalValue: number; // Monto total en moneda
