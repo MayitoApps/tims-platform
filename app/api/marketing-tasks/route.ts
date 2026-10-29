@@ -48,13 +48,18 @@ export async function POST(request: Request) {
     await sql`
       INSERT INTO marketing_tasks (
         id, code, title, hotel_target, category, stage, priority,
-        requested_by, assigned_to, due_date, description, asset_url, checklist, created_at
+        requested_by, assigned_to, due_date, description, asset_url, checklist,
+        comments, format, hotel_targets, assigned_email, created_at
       ) VALUES (
         ${task.id}, ${task.code}, ${task.title}, ${task.hotelTarget},
         ${task.category}, ${task.stage}, ${task.priority},
         ${task.requestedBy}, ${task.assignedTo}, ${task.dueDate},
         ${task.description || ''}, ${task.assetUrl || null},
         ${JSON.stringify(task.checklist || [])}::jsonb,
+        ${JSON.stringify(task.comments || [])}::jsonb,
+        ${task.format || null},
+        ${JSON.stringify(task.hotelTargets || [])}::jsonb,
+        ${task.assignedEmail || null},
         ${task.createdAt}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -69,6 +74,10 @@ export async function POST(request: Request) {
         description = EXCLUDED.description,
         asset_url = EXCLUDED.asset_url,
         checklist = EXCLUDED.checklist,
+        comments = EXCLUDED.comments,
+        format = EXCLUDED.format,
+        hotel_targets = EXCLUDED.hotel_targets,
+        assigned_email = EXCLUDED.assigned_email,
         updated_at = CURRENT_TIMESTAMP;
     `;
 

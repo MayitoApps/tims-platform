@@ -9,7 +9,12 @@ import {
   MarketingTask,
   MarketingTaskStage,
   MarketingTaskCategory,
-  TaskChecklistItem
+  TaskChecklistItem,
+  TaskComment,
+  UserProfile,
+  ADMIN_EMAILS,
+  DESIGN_RESPONSIBLES,
+  REQUIREMENT_FORMATS
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge } from '@/lib/utils';
@@ -20,6 +25,7 @@ interface MarketingSectionProps {
   publications: ContentPublication[];
   briefs: CreativeBrief[];
   marketingTasks?: MarketingTask[];
+  currentUser?: UserProfile | null;
   onAddCampaign: (campaign: Omit<MarketingCampaign, 'id' | 'code' | 'spent'>) => void;
   onUpdateCampaign?: (campaign: MarketingCampaign) => void;
   onDeleteCampaign?: (id: string) => void;
@@ -37,7 +43,7 @@ interface MarketingSectionProps {
 }
 
 const MARKETING_STAGES: { id: MarketingTaskStage; title: string; colorDot: string }[] = [
-  { id: 'backlog', title: 'Solicitudes / Briefing', colorDot: 'bg-stone-500' },
+  { id: 'backlog', title: 'Solicitudes', colorDot: 'bg-stone-500' },
   { id: 'en_produccion', title: 'En Producción & Diseño', colorDot: 'bg-amber-500' },
   { id: 'revision', title: 'Revisión & Feedback', colorDot: 'bg-indigo-500' },
   { id: 'aprobado', title: 'Listo / Publicado', colorDot: 'bg-emerald-600' }
@@ -57,6 +63,7 @@ export function MarketingSection({
   publications,
   briefs,
   marketingTasks = [],
+  currentUser = null,
   onAddCampaign,
   onUpdateCampaign,
   onDeleteCampaign,
@@ -72,12 +79,22 @@ export function MarketingSection({
   onDeleteMarketingTask,
   onUpdateMarketingTaskStage
 }: MarketingSectionProps) {
-  const [subView, setSubView] = useState<'tablero' | 'campanas' | 'calendario' | 'contenido' | 'briefs'>('tablero');
+  const [subView, setSubView] = useState<'tablero' | 'campanas' | 'calendario' | 'briefs'>('tablero');
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'all' | MarketingTaskCategory>('all');
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<MarketingTaskStage | null>(null);
   const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
+
+  // Current user admin check (Strictly: expansioncomercia.gohb@gmail.com and marketinggrupoorganico@gmail.com)
+  const currentUserEmail = (currentUser?.email || '').toLowerCase().trim();
+  const isCurrentUserAdmin = ADMIN_EMAILS.some((adm) => adm.toLowerCase() === currentUserEmail);
+
+  // Tabs inside view modals (Detalles vs Comentarios)
+  const [taskModalTab, setTaskModalTab] = useState<'detalles' | 'comentarios'>('detalles');
+  const [taskCommentText, setTaskCommentText] = useState('');
+  const [campaignModalTab, setCampaignModalTab] = useState<'detalles' | 'comentarios'>('detalles');
+  const [campaignCommentText, setCampaignCommentText] = useState('');
 
   // Modals - Creation
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -85,18 +102,20 @@ export function MarketingSection({
   const [isPubModalOpen, setIsPubModalOpen] = useState(false);
   const [isBriefModalOpen, setIsBriefModalOpen] = useState(false);
 
-  // Modals - Edit & Delete States (Tasks)
+  // Modals - Edit States (Tasks) - NOTE: task deletion is disabled by business requirement
   const [editingTask, setEditingTask] = useState<MarketingTask | null>(null);
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
-  const [taskToDelete, setTaskToDelete] = useState<MarketingTask | null>(null);
 
   const [editTTitle, setEditTTitle] = useState('');
-  const [editTHotel, setEditTHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [editTFormat, setEditTFormat] = useState<string>('Historia');
+  const [editTCustomFormat, setEditTCustomFormat] = useState('');
+  const [editTHotelTargets, setEditTHotelTargets] = useState<string[]>([HOTEL_PROPERTIES[0]]);
   const [editTCategory, setEditTCategory] = useState<MarketingTaskCategory>('diseno_grafico');
   const [editTPriority, setEditTPriority] = useState<'alta' | 'media' | 'urgente'>('alta');
   const [editTStage, setEditTStage] = useState<MarketingTaskStage>('backlog');
   const [editTRequestedBy, setEditTRequestedBy] = useState('');
-  const [editTAssignedTo, setEditTAssignedTo] = useState('');
+  const [editTAssignedTo, setEditTAssignedTo] = useState(DESIGN_RESPONSIBLES[0].name);
+  const [editTAssignedEmail, setEditTAssignedEmail] = useState(DESIGN_RESPONSIBLES[0].email);
   const [editTDueDate, setEditTDueDate] = useState('2026-11-15');
   const [editTDesc, setEditTDesc] = useState('');
   const [editTAssetUrl, setEditTAssetUrl] = useState('');
@@ -149,13 +168,16 @@ export function MarketingSection({
   const [viewingPub, setViewingPub] = useState<ContentPublication | null>(null);
   const [viewingBrief, setViewingBrief] = useState<CreativeBrief | null>(null);
 
-  // Form states - Marketing Task
+  // Form states - Marketing Task (Requerimiento)
   const [tTitle, setTTitle] = useState('');
-  const [tHotel, setTHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [tFormat, setTFormat] = useState<string>('Historia');
+  const [tCustomFormat, setTCustomFormat] = useState('');
+  const [tHotelTargets, setTHotelTargets] = useState<string[]>([HOTEL_PROPERTIES[0]]);
   const [tCategory, setTCategory] = useState<MarketingTaskCategory>('diseno_grafico');
-  const [tPriority, setTPriority] = useState<'alta' | 'media' | 'urgente'>('alta');
+  const [tPriority, setTPriority] = useState<'alta' | 'media' | 'urgente'>('media');
   const [tRequestedBy, setTRequestedBy] = useState('');
-  const [tAssignedTo, setTAssignedTo] = useState('');
+  const [tAssignedTo, setTAssignedTo] = useState(DESIGN_RESPONSIBLES[0].name);
+  const [tAssignedEmail, setTAssignedEmail] = useState(DESIGN_RESPONSIBLES[0].email);
   const [tDueDate, setTDueDate] = useState('2026-11-15');
   const [tDesc, setTDesc] = useState('');
   const [tAssetUrl, setTAssetUrl] = useState('');
@@ -260,34 +282,47 @@ export function MarketingSection({
   };
 
   const filteredTasks = marketingTasks.filter((t) => {
-    if (selectedHotelFilter !== 'all' && t.hotelTarget !== selectedHotelFilter) return false;
+    if (selectedHotelFilter !== 'all') {
+      const targets = t.hotelTargets && t.hotelTargets.length > 0 ? t.hotelTargets : [t.hotelTarget];
+      if (!targets.includes(selectedHotelFilter)) return false;
+    }
     if (selectedCategoryFilter !== 'all' && t.category !== selectedCategoryFilter) return false;
     return true;
   });
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tTitle.trim()) return;
+    const formatValue = tFormat === 'Otro' && tCustomFormat.trim() ? tCustomFormat.trim() : tFormat;
+    const finalTitle = tTitle.trim() || `${formatValue} - ${(tHotelTargets[0] || 'Hotel')}`;
+    const mainHotel = tHotelTargets[0] || HOTEL_PROPERTIES[0];
 
     onAddMarketingTask({
-      title: tTitle,
-      hotelTarget: tHotel,
-      category: tCategory,
-      stage: 'backlog',
+      title: finalTitle,
+      format: formatValue,
+      hotelTarget: mainHotel,
+      hotelTargets: tHotelTargets.length > 0 ? tHotelTargets : [mainHotel],
+      category: formatValue.toLowerCase().includes('web') ? 'cambios_web' : 'diseno_grafico',
+      stage: 'backlog', // Automáticamente a la columna "Solicitudes"
       priority: tPriority,
-      requestedBy: tRequestedBy || 'Gerencia de Hotel',
-      assignedTo: tAssignedTo || 'Equipo Creativo',
+      requestedBy: tRequestedBy || currentUser?.name || 'Dirección / Gerencia',
+      assignedTo: tAssignedTo,
+      assignedEmail: tAssignedEmail,
       dueDate: tDueDate,
-      description: tDesc || 'Requerimiento de marketing y contenidos.',
+      description: tDesc || 'Requerimiento de diseño / marketing.',
       assetUrl: tAssetUrl || undefined,
-      checklist: tChecklist
+      checklist: tChecklist,
+      comments: []
     });
 
     setTTitle('');
+    setTFormat('Historia');
+    setTCustomFormat('');
+    setTHotelTargets([HOTEL_PROPERTIES[0]]);
+    setTAssignedTo(DESIGN_RESPONSIBLES[0].name);
+    setTAssignedEmail(DESIGN_RESPONSIBLES[0].email);
     setTDesc('');
     setTAssetUrl('');
     setTRequestedBy('');
-    setTAssignedTo('');
     setTChecklist([]);
     setNewChecklistText('');
     setIsTaskModalOpen(false);
@@ -315,16 +350,21 @@ export function MarketingSection({
     }
   };
 
-  // --- Handlers: Marketing Task Edit/Delete ---
+  // --- Handlers: Marketing Task Edit (Requerimientos) ---
   const openEditTaskModal = (task: MarketingTask) => {
     setEditingTask(task);
     setEditTTitle(task.title);
-    setEditTHotel(task.hotelTarget);
+    setEditTFormat(task.format || 'Historia');
+    setEditTCustomFormat(
+      task.format && !REQUIREMENT_FORMATS.includes(task.format as any) ? task.format : ''
+    );
+    setEditTHotelTargets(task.hotelTargets && task.hotelTargets.length > 0 ? task.hotelTargets : [task.hotelTarget]);
     setEditTCategory(task.category);
     setEditTPriority(task.priority);
     setEditTStage(task.stage);
     setEditTRequestedBy(task.requestedBy);
-    setEditTAssignedTo(task.assignedTo);
+    setEditTAssignedTo(task.assignedTo || DESIGN_RESPONSIBLES[0].name);
+    setEditTAssignedEmail(task.assignedEmail || DESIGN_RESPONSIBLES[0].email);
     setEditTDueDate(task.dueDate);
     setEditTDesc(task.description || '');
     setEditTAssetUrl(task.assetUrl || '');
@@ -335,17 +375,24 @@ export function MarketingSection({
 
   const handleSaveEditTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTask || !editTTitle.trim()) return;
+    if (!editingTask) return;
+
+    const formatValue = editTFormat === 'Otro' && editTCustomFormat.trim() ? editTCustomFormat.trim() : editTFormat;
+    const finalTitle = editTTitle.trim() || editingTask.title;
+    const mainHotel = editTHotelTargets[0] || editingTask.hotelTarget;
 
     const updated: MarketingTask = {
       ...editingTask,
-      title: editTTitle,
-      hotelTarget: editTHotel,
+      title: finalTitle,
+      format: formatValue,
+      hotelTarget: mainHotel,
+      hotelTargets: editTHotelTargets.length > 0 ? editTHotelTargets : [mainHotel],
       category: editTCategory,
       priority: editTPriority,
       stage: editTStage,
-      requestedBy: editTRequestedBy || 'Gerencia',
-      assignedTo: editTAssignedTo || 'Equipo Creativo',
+      requestedBy: editTRequestedBy || editingTask.requestedBy,
+      assignedTo: editTAssignedTo,
+      assignedEmail: editTAssignedEmail,
       dueDate: editTDueDate,
       description: editTDesc,
       assetUrl: editTAssetUrl || undefined,
@@ -355,16 +402,103 @@ export function MarketingSection({
     if (onUpdateMarketingTask) {
       onUpdateMarketingTask(updated);
     }
+    if (viewingTask && viewingTask.id === updated.id) {
+      setViewingTask(updated);
+    }
     setIsEditTaskModalOpen(false);
     setEditingTask(null);
   };
 
-  const handleConfirmDeleteTask = () => {
-    if (!taskToDelete) return;
-    if (onDeleteMarketingTask) {
-      onDeleteMarketingTask(taskToDelete.id);
+  // --- Handlers: Task Comments (Administrators Only Deletion) ---
+  const handleAddTaskComment = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!taskCommentText.trim() || !viewingTask) return;
+
+    const newComment: TaskComment = {
+      id: `comm-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      authorName: currentUser?.name || 'Administrador',
+      authorEmail: currentUser?.email || (isCurrentUserAdmin ? ADMIN_EMAILS[0] : 'admin@tims.com'),
+      authorAvatar: currentUser?.avatar,
+      text: taskCommentText.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedComments = [...(viewingTask.comments || []), newComment];
+    const updatedTask: MarketingTask = {
+      ...viewingTask,
+      comments: updatedComments
+    };
+
+    setViewingTask(updatedTask);
+    setTaskCommentText('');
+    if (onUpdateMarketingTask) {
+      onUpdateMarketingTask(updatedTask);
     }
-    setTaskToDelete(null);
+  };
+
+  const handleDeleteTaskComment = (commentId: string) => {
+    if (!isCurrentUserAdmin) {
+      alert('Solo los administradores autorizados pueden eliminar comentarios.');
+      return;
+    }
+    if (!viewingTask) return;
+
+    const updatedComments = (viewingTask.comments || []).filter((c) => c.id !== commentId);
+    const updatedTask: MarketingTask = {
+      ...viewingTask,
+      comments: updatedComments
+    };
+
+    setViewingTask(updatedTask);
+    if (onUpdateMarketingTask) {
+      onUpdateMarketingTask(updatedTask);
+    }
+  };
+
+  // --- Handlers: Campaign Comments (Administrators Only Deletion) ---
+  const handleAddCampaignComment = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!campaignCommentText.trim() || !viewingCampaign) return;
+
+    const newComment: TaskComment = {
+      id: `comm-c-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      authorName: currentUser?.name || 'Administrador',
+      authorEmail: currentUser?.email || (isCurrentUserAdmin ? ADMIN_EMAILS[0] : 'admin@tims.com'),
+      authorAvatar: currentUser?.avatar,
+      text: campaignCommentText.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    const updatedComments = [...(viewingCampaign.comments || []), newComment];
+    const updatedCampaign: MarketingCampaign = {
+      ...viewingCampaign,
+      comments: updatedComments
+    };
+
+    setViewingCampaign(updatedCampaign);
+    setCampaignCommentText('');
+    if (onUpdateCampaign) {
+      onUpdateCampaign(updatedCampaign);
+    }
+  };
+
+  const handleDeleteCampaignComment = (commentId: string) => {
+    if (!isCurrentUserAdmin) {
+      alert('Solo los administradores autorizados pueden eliminar comentarios.');
+      return;
+    }
+    if (!viewingCampaign) return;
+
+    const updatedComments = (viewingCampaign.comments || []).filter((c) => c.id !== commentId);
+    const updatedCampaign: MarketingCampaign = {
+      ...viewingCampaign,
+      comments: updatedComments
+    };
+
+    setViewingCampaign(updatedCampaign);
+    if (onUpdateCampaign) {
+      onUpdateCampaign(updatedCampaign);
+    }
   };
 
   // --- Handlers: Campaign Edit/Delete ---
@@ -522,17 +656,17 @@ export function MarketingSection({
           <div className="flex flex-wrap items-center gap-1.5 bg-black/25 backdrop-blur-md p-1.5 rounded-xl text-xs font-semibold">
             <button
               onClick={() => setSubView('tablero')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 subView === 'tablero'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
               }`}
             >
-              📋 Tablero de Requerimientos (${marketingTasks.length})
+              📋 Requerimientos ({marketingTasks.length})
             </button>
             <button
               onClick={() => setSubView('campanas')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 subView === 'campanas'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -542,7 +676,7 @@ export function MarketingSection({
             </button>
             <button
               onClick={() => setSubView('calendario')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 subView === 'calendario'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -551,18 +685,8 @@ export function MarketingSection({
               📅 Calendario en Tiempo Real
             </button>
             <button
-              onClick={() => setSubView('contenido')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                subView === 'contenido'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              Contenido & PR ({publications.length})
-            </button>
-            <button
               onClick={() => setSubView('briefs')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 subView === 'briefs'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -584,7 +708,7 @@ export function MarketingSection({
             <select
               value={selectedHotelFilter}
               onChange={(e) => setSelectedHotelFilter(e.target.value)}
-              className="text-xs bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5 text-stone-800 font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none"
+              className="text-xs bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5 text-stone-800 font-semibold focus:ring-2 focus:ring-purple-500 focus:outline-none"
             >
               <option value="all">Todas las 6 Propiedades</option>
               {HOTEL_PROPERTIES.map((h) => (
@@ -596,28 +720,28 @@ export function MarketingSection({
           </div>
 
           <div>
-            {subView === 'campanas' && (
+            {subView === 'tablero' && (
               <button
-                onClick={() => setIsCampaignModalOpen(true)}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2"
+                onClick={() => setIsTaskModalOpen(true)}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>+ Nueva Campaña Hotelera</span>
+                <span>+ Nuevo Requerimiento</span>
               </button>
             )}
 
-            {subView === 'contenido' && (
+            {subView === 'campanas' && (
               <button
-                onClick={() => setIsPubModalOpen(true)}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2"
+                onClick={() => setIsCampaignModalOpen(true)}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>+ Programar Publicación / PR</span>
+                <span>+ Nueva Campaña Hotelera</span>
               </button>
             )}
 
             {subView === 'briefs' && (
               <button
                 onClick={() => setIsBriefModalOpen(true)}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>+ Redactar Nuevo Brief</span>
               </button>
@@ -705,19 +829,22 @@ export function MarketingSection({
                     ) : (
                       stageTasks.map((task) => {
                         const isDragging = draggedTaskId === task.id;
-                        const catMeta = MARKETING_CATEGORIES.find((c) => c.id === task.category);
                         const priorityClass =
                           task.priority === 'urgente'
                             ? 'bg-rose-50 text-rose-700 border-rose-200'
                             : task.priority === 'alta'
                             ? 'bg-amber-50 text-amber-800 border-amber-200'
                             : 'bg-blue-50 text-blue-700 border-blue-200';
+                        const hotelList = task.hotelTargets && task.hotelTargets.length > 0 ? task.hotelTargets : [task.hotelTarget];
 
                         return (
                           <div
                             key={task.id}
                             draggable={true}
-                            onClick={() => setViewingTask(task)}
+                            onClick={() => {
+                              setViewingTask(task);
+                              setTaskModalTab('detalles');
+                            }}
                             onDragStart={(e) => {
                               setDraggedTaskId(task.id);
                               e.dataTransfer.setData('text/plain', task.id);
@@ -733,18 +860,14 @@ export function MarketingSection({
                                 : 'border-stone-200/90 shadow-2xs hover:border-purple-400 hover:ring-1 hover:ring-purple-300/40'
                             }`}
                           >
-                            {/* Fila 1: Código + Categoría + Prioridad */}
+                            {/* Fila 1: Código + Formato + Prioridad */}
                             <div className="flex items-center justify-between gap-1 text-[10px]">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className="font-mono font-bold text-stone-500 text-[9px] bg-stone-100 px-1 py-0.2 rounded shrink-0">
                                   {task.code}
                                 </span>
-                                <span
-                                  className={`px-1.5 py-0.2 rounded font-semibold text-[9px] border truncate ${
-                                    catMeta?.badge || 'bg-stone-100 text-stone-700'
-                                  }`}
-                                >
-                                  {catMeta?.icon} {catMeta?.label}
+                                <span className="px-1.5 py-0.2 rounded-full font-bold text-[9px] bg-purple-50 text-purple-800 border border-purple-200 truncate">
+                                  🎨 {task.format || 'Diseño'}
                                 </span>
                               </div>
                               <span className={`px-1.5 py-0.2 rounded font-bold text-[8px] uppercase tracking-wider shrink-0 border ${priorityClass}`}>
@@ -752,92 +875,74 @@ export function MarketingSection({
                               </span>
                             </div>
 
-                            {/* Fila 2: Título del Requerimiento & Hotel */}
+                            {/* Fila 2: Título del Requerimiento */}
                             <div className="min-w-0 leading-tight">
-                              <h5 className="font-semibold text-stone-900 text-xs truncate" title={task.title}>
+                              <h5 className="font-bold text-stone-900 text-xs line-clamp-2" title={task.title}>
                                 {task.title}
                               </h5>
-                              <p className="text-[10px] text-rose-700 font-bold truncate">
-                                🏨 {task.hotelTarget.replace('Hotel Boutique ', '').replace('Hacienda ', '')}
-                              </p>
                             </div>
 
-                            {/* Fila 3: Responsable + Fecha Límite + Checklist Pill */}
-                            <div className="flex items-center justify-between gap-1 text-[10px] text-stone-600 bg-stone-50/80 px-2 py-1 rounded-md border border-stone-100">
-                              <span className="truncate max-w-[110px] text-[9px]">
-                                👤 <strong className="text-stone-700">{task.assignedTo.split(' ')[0]}</strong>
-                              </span>
+                            {/* Fila 3: Hoteles (Pills) */}
+                            <div className="flex flex-wrap gap-1">
+                              {hotelList.slice(0, 2).map((h, idx) => (
+                                <span
+                                  key={idx}
+                                  className="text-[9px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded truncate max-w-[130px]"
+                                >
+                                  🏨 {h.replace('Hotel Boutique ', '').replace('Hacienda ', '')}
+                                </span>
+                              ))}
+                              {hotelList.length > 2 && (
+                                <span className="text-[9px] font-bold text-stone-600 bg-stone-100 px-1.5 py-0.2 rounded">
+                                  +{hotelList.length - 2}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Fila 4: Diseñador responsable + Comentarios + Fecha + Flechas */}
+                            <div className="flex items-center justify-between pt-1 border-t border-stone-100 text-[10px]">
+                              <div className="flex items-center gap-1 min-w-0" title={task.assignedEmail || task.assignedTo}>
+                                <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[8px] font-bold shrink-0">
+                                  {task.assignedTo ? task.assignedTo.split(' ').map((n: string) => n[0]).join('').slice(0, 2) : '🎨'}
+                                </span>
+                                <span className="truncate max-w-[80px] text-[9px] font-semibold text-stone-700">
+                                  {task.assignedTo ? task.assignedTo.split(' ')[0] : 'Diseño'}
+                                </span>
+                              </div>
 
                               <div className="flex items-center gap-1.5 shrink-0">
-                                {task.checklist && task.checklist.length > 0 && (
-                                  <span
-                                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
-                                      task.checklist.every((i) => i.completed)
-                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                        : 'bg-purple-50 text-purple-900 border-purple-200'
-                                    }`}
-                                    title="Entregables completados"
-                                  >
-                                    ☑️ {task.checklist.filter((i) => i.completed).length}/{task.checklist.length}
+                                {task.comments && task.comments.length > 0 && (
+                                  <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded-full flex items-center gap-0.5">
+                                    💬 {task.comments.length}
                                   </span>
                                 )}
                                 <span className="text-[9px] text-stone-500 font-medium">
                                   📅 {formatDate(task.dueDate)}
                                 </span>
-                              </div>
-                            </div>
-
-                            {/* Fila 4: Recurso (si existe) + Acciones Rápidas */}
-                            <div className="flex items-center justify-between pt-1 border-t border-stone-100 text-[10px]">
-                              <div>
-                                {task.assetUrl ? (
-                                  <a
-                                    href={task.assetUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-indigo-600 hover:text-indigo-800 font-bold text-[9px] underline flex items-center gap-0.5"
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveTaskStage(task, 'prev');
+                                    }}
+                                    disabled={col.id === 'backlog'}
+                                    className="w-4 h-4 flex items-center justify-center rounded border border-stone-200 text-stone-600 hover:bg-stone-50 disabled:opacity-20 disabled:pointer-events-none text-[9px] font-bold cursor-pointer"
+                                    title="Fase anterior"
                                   >
-                                    <span>🔗 Archivo ↗</span>
-                                  </a>
-                                ) : (
-                                  <span className="text-[9px] text-stone-400">Sin archivo</span>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEditTaskModal(task);
-                                  }}
-                                  title="Editar"
-                                  className="px-1 py-0.5 rounded text-stone-500 hover:text-stone-800 hover:bg-stone-100 text-[10px]"
-                                >
-                                  ✏️
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    moveTaskStage(task, 'prev');
-                                  }}
-                                  disabled={col.id === 'backlog'}
-                                  className="w-4 h-4 flex items-center justify-center rounded border border-stone-200 text-stone-600 hover:bg-stone-50 disabled:opacity-20 disabled:pointer-events-none text-[9px] font-bold"
-                                  title="Fase anterior"
-                                >
-                                  ◀
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    moveTaskStage(task, 'next');
-                                  }}
-                                  disabled={col.id === 'aprobado'}
-                                  className="w-4 h-4 flex items-center justify-center rounded bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-20 disabled:pointer-events-none text-[9px] font-bold"
-                                  title="Avanzar de fase"
-                                >
-                                  ▶
-                                </button>
+                                    ◀
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      moveTaskStage(task, 'next');
+                                    }}
+                                    disabled={col.id === 'aprobado'}
+                                    className="w-4 h-4 flex items-center justify-center rounded bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-20 disabled:pointer-events-none text-[9px] font-bold cursor-pointer"
+                                    title="Avanzar de fase"
+                                  >
+                                    ▶
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -993,59 +1098,7 @@ export function MarketingSection({
         </div>
       )}
 
-      {/* SUB-VIEW 2: CONTENIDOS & PR */}
-      {subView === 'contenido' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {publications.map((pub) => (
-            <div
-              key={pub.id}
-              onClick={() => setViewingPub(pub)}
-              className="bg-white border border-stone-200 rounded-2xl p-5 shadow-xs space-y-3 cursor-pointer hover:shadow-md hover:border-indigo-300 hover:ring-2 hover:ring-indigo-200/50 transition-all"
-            >
-              <div className="flex items-center justify-between text-xs">
-                <span className="uppercase text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-sm bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  {pub.channel}
-                </span>
-                <span className="font-mono text-stone-500 text-[11px] font-semibold">{formatDate(pub.publishDate)}</span>
-              </div>
-              <div>
-                <h4 className="font-bold text-stone-900 text-sm">{pub.title}</h4>
-                <p className="text-xs text-rose-600 font-bold mt-0.5">{pub.hotel}</p>
-              </div>
-              {/* Botón de apertura en grande */}
-              <div className="flex items-center justify-between pt-1 text-[10px] text-indigo-700 font-semibold border-t border-stone-100">
-                <span className="flex items-center gap-1 hover:underline">👁️ Ver publicación en grande</span>
-                <span className="text-stone-400 text-[9px]">Clic para ampliar</span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs pt-1 border-t border-stone-100 text-stone-600">
-                <div className="flex items-center gap-2">
-                  <span>Resp: {pub.responsible}</span>
-                  <span className="capitalize font-bold text-emerald-700">{pub.status}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openEditPubModal(pub)}
-                    className="p-1 rounded-md bg-stone-100 hover:bg-indigo-100 text-stone-700 hover:text-indigo-900 text-xs font-semibold border border-stone-200"
-                    title="Editar Publicación"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => setPubToDelete(pub)}
-                    className="p-1 rounded-md bg-stone-100 hover:bg-rose-100 text-stone-700 hover:text-rose-800 text-xs border border-stone-200"
-                    title="Eliminar Publicación"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* SUB-VIEW 3: BRIEFS CREATIVOS */}
+      {/* SUB-VIEW: BRIEFS CREATIVOS */}
       {subView === 'briefs' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {briefs.map((brf) => (
@@ -1389,127 +1442,223 @@ export function MarketingSection({
           </div>
         </div>
       )}
-      {/* MODAL: NUEVO REQUERIMIENTO DE MARKETING (DISEÑO, VIDEO, WEB, NOTAS) */}
+      {/* MODAL: NUEVO REQUERIMIENTO DE MARKETING */}
       {isTaskModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-lg p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-xl p-6 sm:p-8 space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-stone-200 pb-3">
               <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-200 mb-1">
+                  <span>✨</span> Fase Inicial: Solicitudes
+                </div>
                 <h3 className="font-editorial text-2xl font-bold text-stone-900">
-                  Dar de Alta Requerimiento de Marketing
+                  Nuevo Requerimiento de Marketing
                 </h3>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Solicitud para diseño gráfico, videos, notas digitales, cambios web o pauta publicitaria.
+                  El requerimiento se agregará automáticamente al tablero en la fase de Solicitudes.
                 </p>
               </div>
               <button
                 onClick={() => setIsTaskModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600 text-lg"
+                className="text-stone-400 hover:text-stone-600 text-lg cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleCreateTask} className="space-y-4 text-xs">
+              {/* Formato del Requerimiento */}
               <div>
-                <label className="block text-stone-700 font-bold mb-1">
-                  Título del Requerimiento / Pieza
+                <label className="block text-stone-800 font-bold mb-1.5 flex items-center gap-1">
+                  <span>🎨</span> Formato de la Pieza / Solicitud:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {REQUIREMENT_FORMATS.map((fmt) => (
+                    <button
+                      key={fmt}
+                      type="button"
+                      onClick={() => setTFormat(fmt)}
+                      className={`p-2 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
+                        tFormat === fmt
+                          ? 'bg-purple-800 text-white border-purple-900 shadow-2xs ring-2 ring-purple-300'
+                          : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                      }`}
+                    >
+                      {fmt}
+                    </button>
+                  ))}
+                </div>
+                {tFormat === 'Otro' && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Escribe el formato personalizado (ej. Stand publicitario, gafetes...)"
+                    value={tCustomFormat}
+                    onChange={(e) => setTCustomFormat(e.target.value)}
+                    className="w-full mt-2 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  />
+                )}
+              </div>
+
+              {/* Título o Resumen */}
+              <div>
+                <label className="block text-stone-800 font-bold mb-1">
+                  Título / Concepto del Requerimiento:
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="ej. Menús Impresos & QR Restaurante Orgánico Valle de Bravo"
+                  placeholder="ej. Menú QR & Flyer Promocional Temporada de Cava"
                   value={tTitle}
                   onChange={(e) => setTTitle(e.target.value)}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-slate-900 focus:outline-none"
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-purple-600 focus:outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Hotel Destino</label>
-                  <select
-                    value={tHotel}
-                    onChange={(e) => setTHotel(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
-                  >
-                    {HOTEL_PROPERTIES.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
+              {/* Selección de Hoteles (Multi-select) */}
+              <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-stone-800 font-bold text-xs flex items-center gap-1.5">
+                    <span>🏨</span> Hoteles Involucrados ({tHotelTargets.length} seleccionados):
+                  </label>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setTHotelTargets([...HOTEL_PROPERTIES])}
+                      className="text-purple-700 hover:text-purple-900 font-semibold cursor-pointer underline"
+                    >
+                      Todos
+                    </button>
+                    <span className="text-stone-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setTHotelTargets([HOTEL_PROPERTIES[0]])}
+                      className="text-stone-500 hover:text-stone-700 font-semibold cursor-pointer underline"
+                    >
+                      Solo 1
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Tipo de Entregable</label>
-                  <select
-                    value={tCategory}
-                    onChange={(e) => setTCategory(e.target.value as MarketingTaskCategory)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
-                  >
-                    {MARKETING_CATEGORIES.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.icon} {cat.label}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {HOTEL_PROPERTIES.map((hotel) => {
+                    const isSelected = tHotelTargets.includes(hotel);
+                    return (
+                      <button
+                        key={hotel}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            if (tHotelTargets.length > 1) {
+                              setTHotelTargets(tHotelTargets.filter((h) => h !== hotel));
+                            }
+                          } else {
+                            setTHotelTargets([...tHotelTargets, hotel]);
+                          }
+                        }}
+                        className={`p-2 rounded-xl border text-left text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                          isSelected
+                            ? 'bg-purple-100/70 border-purple-400 text-purple-950 font-bold shadow-2xs'
+                            : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-100 font-medium'
+                        }`}
+                      >
+                        <span className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-bold border ${
+                          isSelected ? 'bg-purple-700 text-white border-purple-700' : 'border-stone-300 bg-white'
+                        }`}>
+                          {isSelected ? '✓' : ''}
+                        </span>
+                        <span className="truncate">{hotel}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* Responsable del Diseño (2 perfiles exactos) */}
+              <div>
+                <label className="block text-stone-800 font-bold mb-1.5 flex items-center gap-1">
+                  <span>👤</span> Responsable del Diseño:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {DESIGN_RESPONSIBLES.map((resp) => {
+                    const isSelected = tAssignedEmail === resp.email;
+                    return (
+                      <div
+                        key={resp.email}
+                        onClick={() => {
+                          setTAssignedTo(resp.name);
+                          setTAssignedEmail(resp.email);
+                        }}
+                        className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
+                          isSelected
+                            ? 'bg-purple-50/90 border-purple-600 ring-2 ring-purple-300 shadow-xs'
+                            : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          isSelected ? 'bg-purple-800 text-white' : 'bg-stone-300 text-stone-700'
+                        }`}>
+                          {resp.initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-stone-900 text-xs">{resp.name}</div>
+                          <div className="text-[10px] text-stone-500 font-mono truncate">{resp.email}</div>
+                          <div className="text-[9px] text-purple-700 font-semibold">{resp.role}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Fecha de Entrega y Prioridad */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-700 font-bold mb-1">Nivel de Prioridad</label>
-                  <select
-                    value={tPriority}
-                    onChange={(e) => setTPriority(e.target.value as any)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold"
-                  >
-                    <option value="media">Media (Habitual)</option>
-                    <option value="alta">Alta (Campaña Próxima)</option>
-                    <option value="urgente">Urgente (Lanzamiento Inmediato)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Fecha Límite de Entrega</label>
+                  <label className="block text-stone-700 font-bold mb-1">
+                    📅 Fecha de Entrega Requerida:
+                  </label>
                   <input
                     type="date"
                     required
                     value={tDueDate}
                     onChange={(e) => setTDueDate(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Solicitado por</label>
-                  <input
-                    type="text"
-                    placeholder="ej. Gerente de Alimentos & Bebidas"
-                    value={tRequestedBy}
-                    onChange={(e) => setTRequestedBy(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-purple-600 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-stone-700 font-bold mb-1">Asignado a</label>
-                  <input
-                    type="text"
-                    placeholder="ej. Diseñador Senior / Editor de Video"
-                    value={tAssignedTo}
-                    onChange={(e) => setTAssignedTo(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
+                  <label className="block text-stone-700 font-bold mb-1">Prioridad:</label>
+                  <select
+                    value={tPriority}
+                    onChange={(e) => setTPriority(e.target.value as any)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  >
+                    <option value="media">Media (Normal)</option>
+                    <option value="alta">Alta (Prioritario)</option>
+                    <option value="urgente">Urgente (Lanzamiento Inmediato)</option>
+                  </select>
                 </div>
               </div>
 
+              {/* Campo de texto: Requerimiento de dicha solicitud */}
+              <div>
+                <label className="block text-stone-800 font-bold mb-1">
+                  📝 Requerimiento & Especificaciones de la Solicitud:
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Detalla aquí qué se necesita: medidas, copies o textos que debe llevar, colores, logotipo, objetivo visual, enlaces o instrucciones especiales..."
+                  value={tDesc}
+                  onChange={(e) => setTDesc(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 resize-none focus:ring-2 focus:ring-purple-600 focus:outline-none leading-relaxed"
+                />
+              </div>
+
+              {/* Enlace opcional a recursos */}
               <div>
                 <label className="block text-stone-700 font-bold mb-1">
-                  Enlace a Recursos / Figma / Drive (Opcional)
+                  🔗 Enlace a Recursos / Figma / Drive (Opcional):
                 </label>
                 <input
                   type="url"
@@ -1520,109 +1669,31 @@ export function MarketingSection({
                 />
               </div>
 
-              <div>
-                <label className="block text-stone-700 font-bold mb-1">
-                  Descripción & Especificaciones
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Dimensiones, formatos requeridos, copies, paleta de colores o instrucciones específicas..."
-                  value={tDesc}
-                  onChange={(e) => setTDesc(e.target.value)}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
-                />
-              </div>
-
-              {/* Checklist de Entregables */}
-              <div className="bg-purple-50/50 border border-purple-200/80 rounded-2xl p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-purple-950 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                    <span>☑️</span> Checklist de Entregables ({tChecklist.length})
-                  </label>
-                  <span className="text-[10px] text-purple-700">Subtareas del requerimiento</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newChecklistText}
-                    onChange={(e) => setNewChecklistText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (newChecklistText.trim()) {
-                          setTChecklist([
-                            ...tChecklist,
-                            { id: `chk-${Date.now()}-${Math.random()}`, text: newChecklistText.trim(), completed: false }
-                          ]);
-                          setNewChecklistText('');
-                        }
-                      }
-                    }}
-                    placeholder="ej. Formato Reel 9:16, Story vertical, Banner Web..."
-                    className="flex-1 border border-stone-300 rounded-xl px-3 py-1.5 text-xs text-stone-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (newChecklistText.trim()) {
-                        setTChecklist([
-                          ...tChecklist,
-                          { id: `chk-${Date.now()}-${Math.random()}`, text: newChecklistText.trim(), completed: false }
-                        ]);
-                        setNewChecklistText('');
-                      }
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs cursor-pointer shrink-0 shadow-2xs"
-                  >
-                    + Añadir
-                  </button>
-                </div>
-
-                {tChecklist.length > 0 && (
-                  <div className="space-y-1 pt-1 max-h-36 overflow-y-auto">
-                    {tChecklist.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-white border border-purple-100 text-xs"
-                      >
-                        <span className="text-stone-800 font-medium">{item.text}</span>
-                        <button
-                          type="button"
-                          onClick={() => setTChecklist(tChecklist.filter((i) => i.id !== item.id))}
-                          className="text-stone-400 hover:text-rose-600 font-bold px-1.5 cursor-pointer"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
+              {/* Botones de acción */}
               <div className="flex justify-end gap-2 pt-3 border-t border-stone-200">
                 <button
                   type="button"
                   onClick={() => setIsTaskModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
+                  className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold shadow-xs"
+                  className="px-5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Guardar Requerimiento
+                  <span>✓</span> Guardar en Solicitudes
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
       {/* MODAL: EDITAR REQUERIMIENTO DE MARKETING */}
       {isEditTaskModalOpen && editingTask && (
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-lg p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-xl p-6 sm:p-8 space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-stone-200 pb-3">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-bold text-purple-800 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
@@ -1637,7 +1708,7 @@ export function MarketingSection({
                   setIsEditTaskModalOpen(false);
                   setEditingTask(null);
                 }}
-                className="text-stone-400 hover:text-stone-600 text-lg"
+                className="text-stone-400 hover:text-stone-600 text-lg cursor-pointer"
               >
                 ✕
               </button>
@@ -1645,7 +1716,7 @@ export function MarketingSection({
 
             <form onSubmit={handleSaveEditTask} className="space-y-4 text-xs">
               <div>
-                <label className="block text-stone-700 font-bold mb-1">Título del Requerimiento</label>
+                <label className="block text-stone-700 font-bold mb-1">Título / Resumen</label>
                 <input
                   type="text"
                   required
@@ -1655,33 +1726,111 @@ export function MarketingSection({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Hotel Destino</label>
-                  <select
-                    value={editTHotel}
-                    onChange={(e) => setEditTHotel(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
-                  >
-                    {HOTEL_PROPERTIES.map((h) => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
+              {/* Formato */}
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Formato de la Pieza</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {REQUIREMENT_FORMATS.map((fmt) => (
+                    <button
+                      key={fmt}
+                      type="button"
+                      onClick={() => setEditTFormat(fmt)}
+                      className={`p-2 rounded-xl text-xs font-semibold border text-center transition-all cursor-pointer ${
+                        editTFormat === fmt
+                          ? 'bg-purple-800 text-white border-purple-900 shadow-2xs'
+                          : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                      }`}
+                    >
+                      {fmt}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Tipo de Entregable</label>
-                  <select
-                    value={editTCategory}
-                    onChange={(e) => setEditTCategory(e.target.value as MarketingTaskCategory)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
-                  >
-                    {MARKETING_CATEGORIES.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>
-                    ))}
-                  </select>
+                {editTFormat === 'Otro' && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Escribe el formato personalizado"
+                    value={editTCustomFormat}
+                    onChange={(e) => setEditTCustomFormat(e.target.value)}
+                    className="w-full mt-2 border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                )}
+              </div>
+
+              {/* Hoteles */}
+              <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200 space-y-2">
+                <label className="text-stone-800 font-bold text-xs flex items-center justify-between">
+                  <span>🏨 Hoteles Involucrados ({editTHotelTargets.length}):</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {HOTEL_PROPERTIES.map((hotel) => {
+                    const isSelected = editTHotelTargets.includes(hotel);
+                    return (
+                      <button
+                        key={hotel}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            if (editTHotelTargets.length > 1) {
+                              setEditTHotelTargets(editTHotelTargets.filter((h) => h !== hotel));
+                            }
+                          } else {
+                            setEditTHotelTargets([...editTHotelTargets, hotel]);
+                          }
+                        }}
+                        className={`p-1.5 rounded-xl border text-left text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                          isSelected
+                            ? 'bg-purple-100/70 border-purple-400 text-purple-950 font-bold'
+                            : 'bg-white border-stone-200 text-stone-600'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border ${
+                          isSelected ? 'bg-purple-700 text-white border-purple-700' : 'border-stone-300 bg-white'
+                        }`}>
+                          {isSelected ? '✓' : ''}
+                        </span>
+                        <span className="truncate">{hotel}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* Responsable de Diseño */}
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Responsable del Diseño</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {DESIGN_RESPONSIBLES.map((resp) => {
+                    const isSelected = editTAssignedEmail === resp.email;
+                    return (
+                      <div
+                        key={resp.email}
+                        onClick={() => {
+                          setEditTAssignedTo(resp.name);
+                          setEditTAssignedEmail(resp.email);
+                        }}
+                        className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
+                          isSelected
+                            ? 'bg-purple-50 border-purple-600 ring-2 ring-purple-300'
+                            : 'bg-stone-50 border-stone-200'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          isSelected ? 'bg-purple-800 text-white' : 'bg-stone-300 text-stone-700'
+                        }`}>
+                          {resp.initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-stone-900 text-xs">{resp.name}</div>
+                          <div className="text-[10px] text-stone-500 font-mono truncate">{resp.email}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Fase y Prioridad */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-stone-700 font-bold mb-1">Fase / Estatus</label>
@@ -1702,42 +1851,33 @@ export function MarketingSection({
                     onChange={(e) => setEditTPriority(e.target.value as any)}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold"
                   >
-                    <option value="media">Media (Habitual)</option>
-                    <option value="alta">Alta (Campaña Próxima)</option>
-                    <option value="urgente">Urgente (Inmediato)</option>
+                    <option value="media">Media</option>
+                    <option value="alta">Alta</option>
+                    <option value="urgente">Urgente</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Fecha Límite</label>
-                  <input
-                    type="date"
-                    required
-                    value={editTDueDate}
-                    onChange={(e) => setEditTDueDate(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Asignado a</label>
-                  <input
-                    type="text"
-                    value={editTAssignedTo}
-                    onChange={(e) => setEditTAssignedTo(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
-                </div>
+              {/* Fecha Límite */}
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Fecha Límite de Entrega</label>
+                <input
+                  type="date"
+                  required
+                  value={editTDueDate}
+                  onChange={(e) => setEditTDueDate(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                />
               </div>
 
+              {/* Requerimiento */}
               <div>
-                <label className="block text-stone-700 font-bold mb-1">Solicitado por</label>
-                <input
-                  type="text"
-                  value={editTRequestedBy}
-                  onChange={(e) => setEditTRequestedBy(e.target.value)}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                <label className="block text-stone-700 font-bold mb-1">Requerimiento & Especificaciones</label>
+                <textarea
+                  rows={4}
+                  value={editTDesc}
+                  onChange={(e) => setEditTDesc(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none leading-relaxed"
                 />
               </div>
 
@@ -1752,23 +1892,12 @@ export function MarketingSection({
                 />
               </div>
 
-              <div>
-                <label className="block text-stone-700 font-bold mb-1">Descripción & Especificaciones</label>
-                <textarea
-                  rows={3}
-                  value={editTDesc}
-                  onChange={(e) => setEditTDesc(e.target.value)}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
-                />
-              </div>
-
-              {/* Checklist de Entregables */}
-              <div className="bg-purple-50/60 p-3.5 rounded-2xl border border-purple-200/70 space-y-2.5">
+              {/* Checklist */}
+              <div className="bg-purple-50/60 p-3 rounded-2xl border border-purple-200/70 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-purple-950 font-bold text-xs uppercase tracking-wider">
-                    ☑️ Checklist de Entregables ({editTChecklist.filter(i => i.completed).length}/{editTChecklist.length})
+                    ☑️ Sub-entregables ({editTChecklist.filter(i => i.completed).length}/{editTChecklist.length})
                   </label>
-                  <span className="text-[11px] text-purple-700">Sub-ítems a completar</span>
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -1787,7 +1916,7 @@ export function MarketingSection({
                         }
                       }
                     }}
-                    placeholder="Ej. Copy en inglés, Export 1080x1920, Aprobación..."
+                    placeholder="Añadir sub-ítem..."
                     className="flex-1 border border-purple-300 rounded-xl px-3 py-1.5 text-xs text-stone-900 bg-white"
                   />
                   <button
@@ -1801,18 +1930,18 @@ export function MarketingSection({
                         setNewEditChecklistText('');
                       }
                     }}
-                    className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs cursor-pointer shrink-0 shadow-2xs"
+                    className="px-3 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs cursor-pointer shrink-0"
                   >
                     + Añadir
                   </button>
                 </div>
 
                 {editTChecklist.length > 0 && (
-                  <div className="space-y-1 pt-1 max-h-36 overflow-y-auto">
+                  <div className="space-y-1 pt-1 max-h-32 overflow-y-auto">
                     {editTChecklist.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-white border border-purple-100 text-xs"
+                        className="flex items-center justify-between p-1.5 rounded-lg bg-white border border-purple-100 text-xs"
                       >
                         <label className="flex items-center gap-2 cursor-pointer flex-1">
                           <input
@@ -1821,16 +1950,16 @@ export function MarketingSection({
                             onChange={() => {
                               setEditTChecklist(editTChecklist.map(i => i.id === item.id ? { ...i, completed: !i.completed } : i));
                             }}
-                            className="rounded border-stone-300 text-purple-700 focus:ring-purple-500"
+                            className="rounded border-stone-300 text-purple-700"
                           />
-                          <span className={`${item.completed ? 'line-through text-stone-400' : 'text-stone-800 font-medium'}`}>
+                          <span className={item.completed ? 'line-through text-stone-400' : 'text-stone-800'}>
                             {item.text}
                           </span>
                         </label>
                         <button
                           type="button"
                           onClick={() => setEditTChecklist(editTChecklist.filter((i) => i.id !== item.id))}
-                          className="text-stone-400 hover:text-rose-600 font-bold px-1.5 cursor-pointer"
+                          className="text-stone-400 hover:text-rose-600 font-bold px-1 cursor-pointer"
                         >
                           ✕
                         </button>
@@ -1840,86 +1969,26 @@ export function MarketingSection({
                 )}
               </div>
 
-              <div className="flex justify-between items-center pt-3 border-t border-stone-200">
+              {/* Footer: NOTE - No delete button per user instructions */}
+              <div className="flex justify-end items-center gap-2 pt-3 border-t border-stone-200">
                 <button
                   type="button"
                   onClick={() => {
-                    const toDel = editingTask;
                     setIsEditTaskModalOpen(false);
                     setEditingTask(null);
-                    if (toDel) setTaskToDelete(toDel);
                   }}
-                  className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold cursor-pointer"
                 >
-                  <span>🗑️ Eliminar</span>
+                  Cancelar
                 </button>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditTaskModalOpen(false);
-                      setEditingTask(null);
-                    }}
-                    className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-semibold shadow-xs"
-                  >
-                    Guardar Cambios
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-semibold shadow-xs cursor-pointer"
+                >
+                  Guardar Cambios
+                </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: CONFIRMACIÓN DE ELIMINACIÓN DE TASK */}
-      {taskToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center gap-3 text-rose-600">
-              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-xl shrink-0">
-                ⚠️
-              </div>
-              <div>
-                <h3 className="font-editorial text-xl font-bold text-stone-900">
-                  ¿Eliminar este Requerimiento?
-                </h3>
-                <p className="text-xs text-stone-500">
-                  Esta acción se sincronizará con la base de datos de marketing.
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs space-y-1">
-              <div className="font-bold text-stone-900">
-                {taskToDelete.code} · {taskToDelete.title}
-              </div>
-              <div className="text-stone-600">
-                🏨 <strong>{taskToDelete.hotelTarget}</strong> · Resp: {taskToDelete.assignedTo}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
-              <button
-                type="button"
-                onClick={() => setTaskToDelete(null)}
-                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold text-xs"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDeleteTask}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs"
-              >
-                Eliminar Definitivamente
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -2462,22 +2531,17 @@ export function MarketingSection({
       {/* ========================================================================= */}
       {viewingTask && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-2xl p-6 sm:p-8 space-y-6 max-h-[92vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-2xl p-6 sm:p-8 space-y-5 max-h-[92vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-stone-200 pb-4">
+            <div className="flex items-start justify-between border-b border-stone-200 pb-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-xs font-bold bg-stone-100 text-stone-700 px-2 py-0.5 rounded-md border border-stone-200">
                     {viewingTask.code}
                   </span>
-                  {(() => {
-                    const cat = MARKETING_CATEGORIES.find((c) => c.id === viewingTask.category);
-                    return (
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${cat?.badge || 'bg-stone-100 text-stone-700'}`}>
-                        {cat?.icon} {cat?.label}
-                      </span>
-                    );
-                  })()}
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border bg-purple-50 text-purple-800 border-purple-200">
+                    🎨 {viewingTask.format || 'Diseño'}
+                  </span>
                   <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-sm border ${
                     viewingTask.priority === 'urgente'
                       ? 'bg-rose-50 text-rose-700 border-rose-200'
@@ -2491,195 +2555,351 @@ export function MarketingSection({
                 <h3 className="font-editorial text-2xl sm:text-3xl font-extrabold text-stone-900 leading-tight">
                   {viewingTask.title}
                 </h3>
-                <p className="text-xs font-bold text-rose-700 flex items-center gap-1">
-                  <span>🏨</span> {viewingTask.hotelTarget}
-                </p>
               </div>
 
               <button
                 onClick={() => setViewingTask(null)}
-                className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center text-lg font-bold transition-colors shrink-0"
+                className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center text-lg font-bold transition-colors shrink-0 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {/* Fases / Tracker de Flujo Creativo */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-stone-800 uppercase tracking-wider">
-                  Fase de Producción:
+            {/* Pestañas: Detalles vs Comentarios */}
+            <div className="flex border-b border-stone-200 gap-1">
+              <button
+                type="button"
+                onClick={() => setTaskModalTab('detalles')}
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                  taskModalTab === 'detalles'
+                    ? 'border-purple-600 text-purple-800 bg-purple-50/50 rounded-t-xl'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                📋 Requerimiento & Detalles
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskModalTab('comentarios')}
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  taskModalTab === 'comentarios'
+                    ? 'border-purple-600 text-purple-800 bg-purple-50/50 rounded-t-xl'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                <span>💬 Comentarios</span>
+                <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold ${
+                  (viewingTask.comments || []).length > 0
+                    ? 'bg-purple-700 text-white'
+                    : 'bg-stone-200 text-stone-600'
+                }`}>
+                  {(viewingTask.comments || []).length}
                 </span>
-                <span className="text-stone-500">Mueve a cualquier fase con un clic:</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {MARKETING_STAGES.map((s) => {
-                  const isCurrent = viewingTask.stage === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        onUpdateMarketingTaskStage(viewingTask.id, s.id);
-                        setViewingTask({ ...viewingTask, stage: s.id });
-                      }}
-                      className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
-                        isCurrent
-                          ? 'bg-purple-800 text-white border-purple-900 shadow-xs'
-                          : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${s.colorDot}`} />
-                      <span className="truncate">{s.title}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              </button>
             </div>
 
-            {/* Quick Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-stone-500 block">Fecha de Entrega</span>
-                <div className="font-bold text-stone-900 text-sm">📅 {formatDate(viewingTask.dueDate)}</div>
-              </div>
+            {/* CONTENIDO TAB 1: DETALLES */}
+            {taskModalTab === 'detalles' && (
+              <div className="space-y-5">
+                {/* Fases / Tracker de Flujo Creativo */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-stone-800 uppercase tracking-wider text-[11px]">
+                      Fase Actual de Producción:
+                    </span>
+                    <span className="text-stone-500 text-[11px]">Clic para mover de fase:</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {MARKETING_STAGES.map((s) => {
+                      const isCurrent = viewingTask.stage === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            onUpdateMarketingTaskStage(viewingTask.id, s.id);
+                            setViewingTask({ ...viewingTask, stage: s.id });
+                          }}
+                          className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
+                            isCurrent
+                              ? 'bg-purple-800 text-white border-purple-900 shadow-xs ring-2 ring-purple-300'
+                              : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${s.colorDot}`} />
+                          <span className="truncate">{s.title}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-stone-500 block">Responsable Asignado</span>
-                <div className="font-bold text-stone-900 text-sm truncate">👤 {viewingTask.assignedTo}</div>
-              </div>
-
-              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-0.5 col-span-2 sm:col-span-1">
-                <span className="text-[10px] uppercase font-bold text-stone-500 block">Solicitado Por</span>
-                <div className="font-bold text-stone-900 text-sm truncate">🏢 {viewingTask.requestedBy}</div>
-              </div>
-            </div>
-
-            {/* Descripción Técnica Completa */}
-            <div className="space-y-1.5">
-              <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
-                Descripción Completa & Especificaciones Técnicas:
-              </h4>
-              <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 text-stone-800 text-xs leading-relaxed whitespace-pre-wrap">
-                {viewingTask.description || 'Sin descripción detallada.'}
-              </div>
-            </div>
-
-            {/* Checklist de Entregables Interactivo */}
-            <div className="space-y-2.5 bg-stone-50 p-4 rounded-2xl border border-stone-200">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <span>☑️</span> Checklist de Entregables
-                </h4>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-stone-200 text-stone-800">
-                  {viewingTask.checklist && viewingTask.checklist.length > 0
-                    ? `${viewingTask.checklist.filter(i => i.completed).length} de ${viewingTask.checklist.length} completados`
-                    : 'Sin entregables'}
-                </span>
-              </div>
-
-              {viewingTask.checklist && viewingTask.checklist.length > 0 ? (
-                <div className="space-y-1.5 pt-1">
-                  {viewingTask.checklist.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleToggleChecklistItem(viewingTask, item.id)}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                        item.completed
-                          ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                          : 'bg-white border-stone-200 hover:border-purple-300 text-stone-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold ${
-                          item.completed
-                            ? 'bg-emerald-600 border-emerald-600 text-white'
-                            : 'border-stone-400 bg-white text-transparent'
-                        }`}>
-                          ✓
-                        </span>
-                        <span className={`text-xs ${item.completed ? 'line-through text-stone-500' : 'font-medium'}`}>
-                          {item.text}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-stone-400 uppercase tracking-wider font-semibold">
-                        {item.completed ? 'Completado' : 'Pendiente'}
+                {/* Hoteles Involucrados */}
+                <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold text-stone-500 block">
+                    🏨 Hoteles de la Solicitud
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(viewingTask.hotelTargets && viewingTask.hotelTargets.length > 0
+                      ? viewingTask.hotelTargets
+                      : [viewingTask.hotelTarget]
+                    ).map((h, i) => (
+                      <span
+                        key={i}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-800 font-bold text-xs shadow-2xs flex items-center gap-1"
+                      >
+                        <span>🏨</span> {h}
                       </span>
-                    </button>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <p className="text-xs text-stone-500 italic py-1">
-                  No hay entregables específicos definidos para este requerimiento. Puedes agregarlos haciendo clic en Editar Requerimiento.
-                </p>
-              )}
-            </div>
 
-            {/* Recurso / Enlace si existe */}
-            {viewingTask.assetUrl && (
-              <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
-                <div>
-                  <span className="font-bold text-indigo-950 block">Carpeta de Archivos / Enlace del Entregable</span>
-                  <span className="text-indigo-800 text-[11px] truncate block max-w-sm">{viewingTask.assetUrl}</span>
+                {/* Quick Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-stone-500 block">
+                      Responsable del Diseño
+                    </span>
+                    <div className="font-bold text-stone-900 text-sm flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-purple-700 text-white flex items-center justify-center text-[10px] font-bold">
+                        {viewingTask.assignedTo ? viewingTask.assignedTo.split(' ').map((n: string) => n[0]).join('').slice(0, 2) : '🎨'}
+                      </span>
+                      <span>{viewingTask.assignedTo}</span>
+                    </div>
+                    {viewingTask.assignedEmail && (
+                      <span className="text-[10px] font-mono text-stone-500 block">
+                        ✉️ {viewingTask.assignedEmail}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-stone-500 block">
+                      Fecha de Entrega Requerida
+                    </span>
+                    <div className="font-bold text-stone-900 text-sm">
+                      📅 {formatDate(viewingTask.dueDate)}
+                    </div>
+                    <span className="text-[10px] text-stone-500 block">
+                      Solicitado por: <strong>{viewingTask.requestedBy}</strong>
+                    </span>
+                  </div>
                 </div>
-                <a
-                  href={viewingTask.assetUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 shadow-xs"
-                >
-                  Abrir Recurso ↗
-                </a>
+
+                {/* Descripción / Requerimiento Completo */}
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
+                    Requerimiento & Especificaciones Técnicas:
+                  </h4>
+                  <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 text-stone-800 text-xs leading-relaxed whitespace-pre-wrap font-sans">
+                    {viewingTask.description || 'Sin descripción detallada.'}
+                  </div>
+                </div>
+
+                {/* Recurso / Enlace si existe */}
+                {viewingTask.assetUrl && (
+                  <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs">
+                    <div>
+                      <span className="font-bold text-indigo-950 block">Carpeta de Archivos / Enlace del Entregable</span>
+                      <span className="text-indigo-800 text-[11px] truncate block max-w-sm">{viewingTask.assetUrl}</span>
+                    </div>
+                    <a
+                      href={viewingTask.assetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 shadow-xs"
+                    >
+                      Abrir Recurso ↗
+                    </a>
+                  </div>
+                )}
+
+                {/* Checklist de Entregables */}
+                {viewingTask.checklist && viewingTask.checklist.length > 0 && (
+                  <div className="space-y-2 bg-stone-50 p-4 rounded-2xl border border-stone-200">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <span>☑️</span> Checklist de Entregables
+                      </h4>
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-stone-200 text-stone-800">
+                        {viewingTask.checklist.filter(i => i.completed).length} de {viewingTask.checklist.length} completados
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      {viewingTask.checklist.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleToggleChecklistItem(viewingTask, item.id)}
+                          className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                            item.completed
+                              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                              : 'bg-white border-stone-200 hover:border-purple-300 text-stone-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold ${
+                              item.completed
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'border-stone-400 bg-white text-transparent'
+                            }`}>
+                              ✓
+                            </span>
+                            <span className={`text-xs ${item.completed ? 'line-through text-stone-500' : 'font-medium'}`}>
+                              {item.text}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-stone-400 uppercase tracking-wider font-semibold">
+                            {item.completed ? 'Completado' : 'Pendiente'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer: NOTE - No delete button per user instructions */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const t = viewingTask;
+                      setViewingTask(null);
+                      openEditTaskModal(t);
+                    }}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-300 text-purple-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <span>✏️</span> Editar Requerimiento
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewingTask(null)}
+                    className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Footer / Acciones */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-stone-200">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = viewingTask;
-                    setViewingTask(null);
-                    openEditTaskModal(t);
-                  }}
-                  className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-300 text-purple-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                >
-                  <span>✏️</span> Editar Requerimiento
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const t = viewingTask;
-                    setViewingTask(null);
-                    setTaskToDelete(t);
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold transition-all flex items-center justify-center gap-1"
-                >
-                  <span>🗑️</span> Eliminar
-                </button>
-              </div>
+            {/* CONTENIDO TAB 2: COMENTARIOS */}
+            {taskModalTab === 'comentarios' && (
+              <div className="space-y-4">
+                <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3.5 text-xs text-purple-900 flex items-start gap-2.5">
+                  <span className="text-base shrink-0">💬</span>
+                  <div className="leading-relaxed">
+                    <strong>Canal de Retroalimentación de la Solicitud:</strong> Los administradores pueden comunicarse directamente con el responsable ({viewingTask.assignedTo}) para revisiones y ajustes. Solo los administradores pueden eliminar comentarios.
+                  </div>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => setViewingTask(null)}
-                className="w-full sm:w-auto px-6 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold"
-              >
-                Cerrar
-              </button>
-            </div>
+                {/* Formulario para agregar comentario */}
+                <form onSubmit={handleAddTaskComment} className="space-y-2">
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Escribe un comentario, retroalimentación o indicaciones para el diseñador..."
+                    value={taskCommentText}
+                    onChange={(e) => setTaskCommentText(e.target.value)}
+                    className="w-full border border-stone-300 rounded-2xl p-3 text-xs text-stone-900 focus:ring-2 focus:ring-purple-600 focus:outline-none resize-none leading-relaxed"
+                  />
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-stone-500">
+                      Publicando como: <strong>{currentUser?.name || 'Administrador'}</strong> ({currentUser?.email || (isCurrentUserAdmin ? ADMIN_EMAILS[0] : 'admin')})
+                    </span>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>💬</span> Publicar Comentario
+                    </button>
+                  </div>
+                </form>
+
+                {/* Lista de comentarios */}
+                <div className="space-y-3 pt-2">
+                  <h4 className="font-bold text-stone-800 text-xs uppercase tracking-wider">
+                    Historial de Comentarios ({(viewingTask.comments || []).length})
+                  </h4>
+
+                  {(!viewingTask.comments || viewingTask.comments.length === 0) ? (
+                    <div className="text-center py-8 bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-stone-400 text-xs">
+                      No hay comentarios en este requerimiento todavía. Escribe el primero arriba.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                      {viewingTask.comments.map((comm) => {
+                        const isAuthorAdmin = ADMIN_EMAILS.some(
+                          (adm) => adm.toLowerCase() === (comm.authorEmail || '').toLowerCase().trim()
+                        );
+
+                        return (
+                          <div
+                            key={comm.id}
+                            className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-bold">
+                                  {comm.authorName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                                </div>
+                                <span className="font-bold text-stone-900">{comm.authorName}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                                  isAuthorAdmin
+                                    ? 'bg-amber-100 text-amber-900 font-bold border border-amber-300'
+                                    : 'bg-stone-200 text-stone-700'
+                                }`}>
+                                  {comm.authorEmail}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-stone-400 text-[10px]">
+                                <span>{formatDate(comm.createdAt.split('T')[0])}</span>
+                                {isCurrentUserAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteTaskComment(comm.id)}
+                                    className="p-1 text-stone-400 hover:text-rose-600 rounded cursor-pointer transition-colors"
+                                    title="Eliminar comentario (Solo Administradores)"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-stone-800 whitespace-pre-wrap pl-8 leading-relaxed">
+                              {comm.text}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-3 border-t border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => setViewingTask(null)}
+                    className="px-6 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
-
       {/* ========================================================================= */}
       {/* MODAL 2: VER CAMPAÑA COMPLETA EN GRANDE                                   */}
       {/* ========================================================================= */}
       {viewingCampaign && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-3xl p-6 sm:p-8 space-y-6 max-h-[92vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-3xl p-6 sm:p-8 space-y-5 max-h-[92vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-stone-200 pb-4">
+            <div className="flex items-start justify-between border-b border-stone-200 pb-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-xs font-bold bg-stone-100 text-stone-700 px-2 py-0.5 rounded-md border border-stone-200">
@@ -2707,161 +2927,306 @@ export function MarketingSection({
 
               <button
                 onClick={() => setViewingCampaign(null)}
-                className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center text-lg font-bold transition-colors shrink-0"
+                className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center text-lg font-bold transition-colors shrink-0 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {/* Metric Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-rose-800 tracking-wider block">
-                  Presupuesto Total
+            {/* Pestañas: Detalles vs Comentarios */}
+            <div className="flex border-b border-stone-200 gap-1">
+              <button
+                type="button"
+                onClick={() => setCampaignModalTab('detalles')}
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                  campaignModalTab === 'detalles'
+                    ? 'border-rose-600 text-rose-800 bg-rose-50/50 rounded-t-xl'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                📊 Información de Campaña
+              </button>
+              <button
+                type="button"
+                onClick={() => setCampaignModalTab('comentarios')}
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  campaignModalTab === 'comentarios'
+                    ? 'border-rose-600 text-rose-800 bg-rose-50/50 rounded-t-xl'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                <span>💬 Comentarios</span>
+                <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold ${
+                  (viewingCampaign.comments || []).length > 0
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-stone-200 text-stone-600'
+                }`}>
+                  {(viewingCampaign.comments || []).length}
                 </span>
-                <div className="font-mono text-lg font-extrabold text-rose-950">
-                  {formatCurrency(viewingCampaign.budget, 'MXN')}
-                </div>
-                <span className="text-[10px] text-rose-700">Asignado</span>
-              </div>
-
-              <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
-                  Inversión Ejercida
-                </span>
-                <div className="font-mono text-lg font-extrabold text-emerald-950">
-                  {formatCurrency(viewingCampaign.spent || 0, 'MXN')}
-                </div>
-                <span className="text-[10px] text-emerald-700">Gastado actual</span>
-              </div>
-
-              <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">
-                  Fecha de Inicio
-                </span>
-                <div className="font-bold text-blue-950 text-sm mt-0.5">
-                  📅 {formatDate(viewingCampaign.startDate)}
-                </div>
-                <span className="text-[10px] text-blue-700">Lanzamiento</span>
-              </div>
-
-              <div className="bg-purple-50/80 border border-purple-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-purple-800 tracking-wider block">
-                  Fecha de Cierre
-                </span>
-                <div className="font-bold text-purple-950 text-sm mt-0.5">
-                  🏁 {formatDate(viewingCampaign.endDate)}
-                </div>
-                <span className="text-[10px] text-purple-700">Término de pauta</span>
-              </div>
+              </button>
             </div>
 
-            {/* Alcance de la Campaña (Hotel o Todo el Grupo) */}
-            <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-lg shrink-0">
-                  🏨
-                </span>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-stone-500 block">Alcance Hotelero</span>
-                  <span className="font-bold text-stone-900 text-sm">
-                    {viewingCampaign.hotelTarget}
+            {/* CONTENIDO TAB 1: DETALLES DE CAMPAÑA */}
+            {campaignModalTab === 'detalles' && (
+              <div className="space-y-5">
+                {/* Metric Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-3.5 space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-rose-800 tracking-wider block">
+                      Presupuesto Total
+                    </span>
+                    <div className="font-mono text-lg font-extrabold text-rose-950">
+                      {formatCurrency(viewingCampaign.budget, 'MXN')}
+                    </div>
+                    <span className="text-[10px] text-rose-700">Asignado</span>
+                  </div>
+
+                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                      Inversión Ejercida
+                    </span>
+                    <div className="font-mono text-lg font-extrabold text-emerald-950">
+                      {formatCurrency(viewingCampaign.spent || 0, 'MXN')}
+                    </div>
+                    <span className="text-[10px] text-emerald-700">Gastado actual</span>
+                  </div>
+
+                  <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-3.5 space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">
+                      Fecha de Inicio
+                    </span>
+                    <div className="font-bold text-blue-950 text-sm mt-0.5">
+                      📅 {formatDate(viewingCampaign.startDate)}
+                    </div>
+                    <span className="text-[10px] text-blue-700">Lanzamiento</span>
+                  </div>
+
+                  <div className="bg-purple-50/80 border border-purple-200 rounded-2xl p-3.5 space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-purple-800 tracking-wider block">
+                      Fecha de Cierre
+                    </span>
+                    <div className="font-bold text-purple-950 text-sm mt-0.5">
+                      🏁 {formatDate(viewingCampaign.endDate)}
+                    </div>
+                    <span className="text-[10px] text-purple-700">Término de pauta</span>
+                  </div>
+                </div>
+
+                {/* Alcance de la Campaña (Hotel o Todo el Grupo) */}
+                <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <span className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-lg shrink-0">
+                      🏨
+                    </span>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-stone-500 block">Alcance Hotelero</span>
+                      <span className="font-bold text-stone-900 text-sm">
+                        {viewingCampaign.hotelTarget}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold border self-start sm:self-auto ${
+                    viewingCampaign.hotelTarget.includes('Todos')
+                      ? 'bg-purple-50 text-purple-800 border-purple-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                  }`}>
+                    {viewingCampaign.hotelTarget.includes('Todos') ? '🌟 Cobertura Grupo Completo' : '📍 Hotel Específico'}
                   </span>
                 </div>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-[11px] font-bold border self-start sm:self-auto ${
-                viewingCampaign.hotelTarget.includes('Todos')
-                  ? 'bg-purple-50 text-purple-800 border-purple-200'
-                  : 'bg-rose-50 text-rose-800 border-rose-200'
-              }`}>
-                {viewingCampaign.hotelTarget.includes('Todos') ? '🌟 Cobertura Grupo Completo' : '📍 Hotel Específico'}
-              </span>
-            </div>
 
-            {/* Canales de Difusión */}
-            <div className="space-y-2">
-              <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
-                Canales de Difusión & Medios:
-              </h4>
-              <div className="flex flex-wrap gap-1.5">
-                {viewingCampaign.channels.map((ch, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-800 font-semibold text-xs"
-                  >
-                    📣 {ch}
-                  </span>
-                ))}
-              </div>
-            </div>
+                {/* Canales de Difusión */}
+                <div className="space-y-2">
+                  <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
+                    Canales de Difusión & Medios:
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {viewingCampaign.channels.map((ch, idx) => (
+                      <span
+                        key={idx}
+                        className="px-3 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-800 font-semibold text-xs"
+                      >
+                        📣 {ch}
+                      </span>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Concepto y Objetivos */}
-            <div className="space-y-1.5">
-              <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
-                Concepto Creativo & Objetivos Comerciales:
-              </h4>
-              <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 text-stone-800 text-xs leading-relaxed whitespace-pre-wrap">
-                {viewingCampaign.description || 'Sin descripción detallada.'}
-              </div>
-            </div>
+                {/* Concepto y Objetivos */}
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
+                    Concepto Creativo & Objetivos Comerciales:
+                  </h4>
+                  <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 text-stone-800 text-xs leading-relaxed whitespace-pre-wrap">
+                    {viewingCampaign.description || 'Sin descripción detallada.'}
+                  </div>
+                </div>
 
-            {/* Enlaces Externos */}
-            {viewingCampaign.externalLinks && viewingCampaign.externalLinks.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
-                  Carpetas y Enlaces Externos:
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {viewingCampaign.externalLinks.map((lnk) => (
-                    <a
-                      key={lnk.id}
-                      href={lnk.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-1.5 rounded-xl bg-white border border-stone-300 text-stone-800 hover:bg-stone-50 font-bold text-xs flex items-center gap-1.5 shadow-2xs"
+                {/* Enlaces Externos */}
+                {viewingCampaign.externalLinks && viewingCampaign.externalLinks.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
+                      Carpetas y Enlaces Externos:
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {viewingCampaign.externalLinks.map((lnk) => (
+                        <a
+                          key={lnk.id}
+                          href={lnk.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3.5 py-1.5 rounded-xl bg-white border border-stone-300 text-stone-800 hover:bg-stone-50 font-bold text-xs flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <span>🔗</span> {lnk.title} ↗
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer / Acciones */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-stone-200">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const c = viewingCampaign;
+                        setViewingCampaign(null);
+                        openEditCampaignModal(c);
+                      }}
+                      className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
                     >
-                      <span>🔗</span> {lnk.title} ↗
-                    </a>
-                  ))}
+                      <span>✏️</span> Editar Campaña
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const c = viewingCampaign;
+                        setViewingCampaign(null);
+                        setCampaignToDelete(c);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-rose-50 hover:text-rose-700 border border-stone-200 text-stone-600 text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <span>🗑️</span> Eliminar
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewingCampaign(null)}
+                    className="w-full sm:w-auto px-6 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Footer / Acciones */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-stone-200">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const c = viewingCampaign;
-                    setViewingCampaign(null);
-                    openEditCampaignModal(c);
-                  }}
-                  className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                >
-                  <span>✏️</span> Editar Campaña
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const c = viewingCampaign;
-                    setViewingCampaign(null);
-                    setCampaignToDelete(c);
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-rose-50 hover:text-rose-700 border border-stone-200 text-stone-600 text-xs font-bold transition-all flex items-center justify-center gap-1"
-                >
-                  <span>🗑️</span> Eliminar
-                </button>
-              </div>
+            {/* CONTENIDO TAB 2: COMENTARIOS DE CAMPAÑA */}
+            {campaignModalTab === 'comentarios' && (
+              <div className="space-y-4">
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-xs text-rose-900 flex items-start gap-2.5">
+                  <span className="text-base shrink-0">💬</span>
+                  <div className="leading-relaxed">
+                    <strong>Canal de Comentarios de Campaña:</strong> Espacio de retroalimentación estratégica para pauta publicitaria y lanzamientos. Solo los administradores pueden eliminar comentarios.
+                  </div>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => setViewingCampaign(null)}
-                className="w-full sm:w-auto px-6 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold"
-              >
-                Cerrar
-              </button>
-            </div>
+                {/* Formulario para agregar comentario */}
+                <form onSubmit={handleAddCampaignComment} className="space-y-2">
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Escribe un comentario o retroalimentación sobre esta campaña hotelera..."
+                    value={campaignCommentText}
+                    onChange={(e) => setCampaignCommentText(e.target.value)}
+                    className="w-full border border-stone-300 rounded-2xl p-3 text-xs text-stone-900 focus:ring-2 focus:ring-rose-500 focus:outline-none resize-none leading-relaxed"
+                  />
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-stone-500">
+                      Publicando como: <strong>{currentUser?.name || 'Administrador'}</strong> ({currentUser?.email || (isCurrentUserAdmin ? ADMIN_EMAILS[0] : 'admin')})
+                    </span>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>💬</span> Publicar Comentario
+                    </button>
+                  </div>
+                </form>
+
+                {/* Lista de comentarios */}
+                <div className="space-y-3 pt-2">
+                  <h4 className="font-bold text-stone-800 text-xs uppercase tracking-wider">
+                    Historial de Comentarios ({(viewingCampaign.comments || []).length})
+                  </h4>
+
+                  {(!viewingCampaign.comments || viewingCampaign.comments.length === 0) ? (
+                    <div className="text-center py-8 bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-stone-400 text-xs">
+                      No hay comentarios en esta campaña aún. Escribe el primero arriba.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                      {viewingCampaign.comments.map((comm) => {
+                        const isAuthorAdmin = ADMIN_EMAILS.some(
+                          (adm) => adm.toLowerCase() === (comm.authorEmail || '').toLowerCase().trim()
+                        );
+
+                        return (
+                          <div
+                            key={comm.id}
+                            className="bg-stone-50 rounded-2xl p-3.5 border border-stone-200 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-rose-700 text-white flex items-center justify-center text-[10px] font-bold">
+                                  {comm.authorName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                                </div>
+                                <span className="font-bold text-stone-900">{comm.authorName}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                                  isAuthorAdmin
+                                    ? 'bg-amber-100 text-amber-900 font-bold border border-amber-300'
+                                    : 'bg-stone-200 text-stone-700'
+                                }`}>
+                                  {comm.authorEmail}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-stone-400 text-[10px]">
+                                <span>{formatDate(comm.createdAt.split('T')[0])}</span>
+                                {isCurrentUserAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteCampaignComment(comm.id)}
+                                    className="p-1 text-stone-400 hover:text-rose-600 rounded cursor-pointer transition-colors"
+                                    title="Eliminar comentario (Solo Administradores)"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-stone-800 whitespace-pre-wrap pl-8 leading-relaxed">
+                              {comm.text}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-3 border-t border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => setViewingCampaign(null)}
+                    className="px-6 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

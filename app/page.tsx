@@ -600,6 +600,7 @@ export default function Home() {
             publications={publications}
             briefs={briefs}
             marketingTasks={marketingTasks}
+            currentUser={currentUser}
             onAddCampaign={handleAddCampaign}
             onUpdateCampaign={handleUpdateCampaign}
             onDeleteCampaign={handleDeleteCampaign}

@@ -87,6 +87,10 @@ export async function ensureTables(): Promise<boolean> {
     `;
 
     await sql`ALTER TABLE marketing_tasks ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE marketing_tasks ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE marketing_tasks ADD COLUMN IF NOT EXISTS format TEXT;`;
+    await sql`ALTER TABLE marketing_tasks ADD COLUMN IF NOT EXISTS hotel_targets JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE marketing_tasks ADD COLUMN IF NOT EXISTS assigned_email TEXT;`;
 
     // 3. Marketing Campaigns Table
     await sql`
@@ -108,6 +112,8 @@ export async function ensureTables(): Promise<boolean> {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+
+    await sql`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;`;
 
     // 4. Content Publications Table
     await sql`
@@ -188,15 +194,19 @@ export function mapRowToMarketingTask(row: any): MarketingTask {
     code: row.code,
     title: row.title,
     hotelTarget: row.hotel_target,
+    hotelTargets: typeof row.hotel_targets === 'string' ? JSON.parse(row.hotel_targets) : (row.hotel_targets || []),
+    format: row.format || undefined,
     category: row.category,
     stage: row.stage,
     priority: row.priority,
     requestedBy: row.requested_by,
     assignedTo: row.assigned_to,
+    assignedEmail: row.assigned_email || undefined,
     dueDate: row.due_date,
     description: row.description || '',
     assetUrl: row.asset_url || undefined,
     checklist: typeof row.checklist === 'string' ? JSON.parse(row.checklist) : (row.checklist || []),
+    comments: typeof row.comments === 'string' ? JSON.parse(row.comments) : (row.comments || []),
     createdAt: row.created_at
   };
 }
@@ -217,7 +227,8 @@ export function mapRowToCampaign(row: any): MarketingCampaign {
     channels: typeof row.channels === 'string' ? JSON.parse(row.channels) : (row.channels || []),
     externalLinks: typeof row.external_links === 'string' ? JSON.parse(row.external_links) : (row.external_links || []),
     leadOwner: row.lead_owner,
-    description: row.description || ''
+    description: row.description || '',
+    comments: typeof row.comments === 'string' ? JSON.parse(row.comments) : (row.comments || [])
   };
 }
 

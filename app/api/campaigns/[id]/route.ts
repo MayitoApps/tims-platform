@@ -27,7 +27,8 @@ export async function PUT(
         start_date = COALESCE(${updates.startDate ?? null}, start_date),
         end_date = COALESCE(${updates.endDate ?? null}, end_date),
         channels = COALESCE(${updates.channels ? JSON.stringify(updates.channels) : null}::jsonb, channels),
-        description = COALESCE(${updates.description ?? null}, description)
+        description = COALESCE(${updates.description ?? null}, description),
+        comments = COALESCE(${updates.comments ? JSON.stringify(updates.comments) : null}::jsonb, comments)
       WHERE id = ${id};
     `;
 

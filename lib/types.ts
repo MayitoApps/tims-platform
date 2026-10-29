@@ -31,6 +31,47 @@ export interface ExternalLink {
   platform: 'figma' | 'drive' | 'canva' | 'dropbox' | 'instagram' | 'otro';
 }
 
+export interface TaskComment {
+  id: string;
+  authorName: string;
+  authorEmail: string;
+  authorAvatar?: string;
+  text: string;
+  createdAt: string;
+}
+
+export const ADMIN_EMAILS = [
+  'expansioncomercia.gohb@gmail.com',
+  'marketinggrupoorganico@gmail.com'
+];
+
+export const DESIGN_RESPONSIBLES = [
+  {
+    name: 'Estefania Azcona',
+    email: 'mkt2.grupoorganico@gmail.com',
+    role: 'Diseño & Marketing',
+    initials: 'EA'
+  },
+  {
+    name: 'Mario Avalos',
+    email: 'artes.grupoorganico@gmail.com',
+    role: 'Artes & Diseño Gráfico',
+    initials: 'MA'
+  }
+];
+
+export const REQUIREMENT_FORMATS = [
+  'Historia',
+  'Carrusel',
+  'Cambio en sitio web',
+  'Flyer',
+  'Poster',
+  'Lona',
+  'Otro'
+] as const;
+
+export type RequirementFormat = (typeof REQUIREMENT_FORMATS)[number] | string;
+
 export interface MarketingCampaign {
   id: string;
   code: string;
@@ -47,6 +88,7 @@ export interface MarketingCampaign {
   leadOwner: string;
   description: string;
   selectedSpaces?: string[];
+  comments?: TaskComment[];
 }
 
 export interface ContentPublication {
@@ -102,15 +144,19 @@ export interface MarketingTask {
   code: string;
   title: string;
   hotelTarget: string;
+  hotelTargets?: string[];
+  format?: string;
   category: MarketingTaskCategory;
   stage: MarketingTaskStage;
   priority: 'alta' | 'media' | 'urgente';
   requestedBy: string;
   assignedTo: string;
+  assignedEmail?: string;
   dueDate: string;
   description: string;
   assetUrl?: string;
   checklist?: TaskChecklistItem[];
+  comments?: TaskComment[];
   createdAt: string;
 }
 
