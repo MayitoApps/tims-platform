@@ -23,7 +23,9 @@ import {
   MarketingTask,
   MarketingCampaignStatus,
   HotelDealStage,
-  MarketingTaskStage
+  MarketingTaskStage,
+  AppNotification,
+  isAdminEmail
 } from '@/lib/types';
 
 export default function Home() {
@@ -37,6 +39,7 @@ export default function Home() {
   const [briefs, setBriefs] = useState<CreativeBrief[]>(INITIAL_BRIEFS);
   const [deals, setDeals] = useState<HotelDeal[]>(INITIAL_DEALS);
   const [marketingTasks, setMarketingTasks] = useState<MarketingTask[]>(INITIAL_MARKETING_TASKS);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
 
   const handleSelectUpcomingDeal = (deal: HotelDeal) => {
@@ -94,6 +97,11 @@ export default function Home() {
         const parsed = JSON.parse(cachedBriefs);
         if (Array.isArray(parsed)) setBriefs(parsed);
       }
+      const cachedNotifs = localStorage.getItem('tims_notifications');
+      if (cachedNotifs) {
+        const parsed = JSON.parse(cachedNotifs);
+        if (Array.isArray(parsed)) setNotifications(parsed);
+      }
     } catch {}
 
     // 2. Fetch authenticated session
@@ -116,6 +124,19 @@ export default function Home() {
 
     // 3. Función de Sincronización en Tiempo Real con Postgres
     const syncDataFromCloud = () => {
+      // Sync Notifications
+      fetch('/api/notifications')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && Array.isArray(data.notifications)) {
+            setNotifications(data.notifications);
+            try {
+              localStorage.setItem('tims_notifications', JSON.stringify(data.notifications));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+
       // Sync Deals
       fetch('/api/deals')
         .then((res) => res.json())
@@ -202,6 +223,62 @@ export default function Home() {
       await fetch('/api/auth/logout');
     } catch {}
     window.location.href = '/';
+  };
+
+  // -----------------------------------------------------------------
+  // NOTIFICATIONS ACTIONS (PERSONAL & ADMIN)
+  // -----------------------------------------------------------------
+  const handleAddNotification = async (notif: AppNotification) => {
+    const nextList = [notif, ...notifications];
+    setNotifications(nextList);
+    try {
+      localStorage.setItem('tims_notifications', JSON.stringify(nextList));
+    } catch {}
+
+    // Toast visible para el usuario si es el destinatario personal o si es administrador
+    const isTarget = notif.targetEmail && currentUser?.email && notif.targetEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim();
+    const isAdmin = isAdminEmail(currentUser?.email);
+    if (isTarget || isAdmin) {
+      showToast(`🔔 ${notif.title}: ${notif.message.slice(0, 55)}...`);
+    }
+
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notif)
+      });
+    } catch (err) {
+      console.error('Error saving notification:', err);
+    }
+  };
+
+  const handleSelectNotification = (notif: AppNotification) => {
+    // Marcar como leída
+    const nextList = notifications.map((n) => (n.id === notif.id ? { ...n, read: true } : n));
+    setNotifications(nextList);
+    try {
+      localStorage.setItem('tims_notifications', JSON.stringify(nextList));
+    } catch {}
+
+    // Navegar y enfocar el elemento correspondiente
+    if (notif.linkSection === 'commercial') {
+      setActiveSection('commercial');
+      if (notif.targetId) {
+        setSelectedDealId(notif.targetId);
+      }
+    } else if (notif.linkSection === 'marketing') {
+      setActiveSection('marketing');
+    }
+  };
+
+  const handleMarkAllNotificationsRead = () => {
+    const nextList = notifications.map((n) => ({ ...n, read: true }));
+    setNotifications(nextList);
+    try {
+      localStorage.setItem('tims_notifications', JSON.stringify(nextList));
+    } catch {}
+    showToast('Todas las notificaciones marcadas como leídas');
   };
 
   // -----------------------------------------------------------------
@@ -589,7 +666,10 @@ export default function Home() {
         onSectionChange={setActiveSection}
         onLogout={handleLogout}
         deals={deals}
+        notifications={notifications}
         onSelectDeal={handleSelectUpcomingDeal}
+        onSelectNotification={handleSelectNotification}
+        onMarkAllAsRead={handleMarkAllNotificationsRead}
       />
 
       {/* Section Content */}
@@ -600,6 +680,7 @@ export default function Home() {
             publications={publications}
             briefs={briefs}
             marketingTasks={marketingTasks}
+            deals={deals}
             currentUser={currentUser}
             onAddCampaign={handleAddCampaign}
             onUpdateCampaign={handleUpdateCampaign}
@@ -615,6 +696,7 @@ export default function Home() {
             onUpdateMarketingTask={handleUpdateMarketingTask}
             onDeleteMarketingTask={handleDeleteMarketingTask}
             onUpdateMarketingTaskStage={handleUpdateMarketingTaskStage}
+            onAddNotification={handleAddNotification}
           />
         ) : (
           <CommercialSection
@@ -626,6 +708,7 @@ export default function Home() {
             onUpdateDeal={handleUpdateDeal}
             onDeleteDeal={handleDeleteDeal}
             onUpdateDealStage={handleUpdateDealStage}
+            onAddNotification={handleAddNotification}
           />
         )}
       </main>

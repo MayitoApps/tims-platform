@@ -1,7 +1,21 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { HotelDeal, HotelDealStage, DealCategory, UserProfile, RequestedRoomType, PaymentStatus } from '@/lib/types';
+import {
+  HotelDeal,
+  HotelDealStage,
+  DealCategory,
+  UserProfile,
+  RequestedRoomType,
+  PaymentStatus,
+  TaskComment,
+  AppNotification,
+  COMMERCIAL_TEAM,
+  CommercialExecutive,
+  ADMIN_EMAILS,
+  isAdminEmail,
+  getExecutiveEventStatus
+} from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
@@ -17,6 +31,7 @@ interface CommercialSectionProps {
   onUpdateDeal: (deal: HotelDeal) => void;
   onDeleteDeal: (dealId: string) => void;
   onUpdateDealStage: (id: string, stage: HotelDealStage) => void;
+  onAddNotification?: (notif: AppNotification) => void;
 }
 
 const STAGES: { id: HotelDealStage; title: string; colorDot: string }[] = [
@@ -35,8 +50,11 @@ export function CommercialSection({
   onAddDeal,
   onUpdateDeal,
   onDeleteDeal,
-  onUpdateDealStage
+  onUpdateDealStage,
+  onAddNotification
 }: CommercialSectionProps) {
+  const isCurrentUserAdmin = isAdminEmail(currentUser?.email);
+
   const [subView, setSubView] = useState<'pipeline' | 'calendario' | 'tabla' | 'reporte'>('pipeline');
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
@@ -55,8 +73,15 @@ export function CommercialSection({
 
   // Modal - Ver Detalle Completo en Grande & Cotización PDF & Checker
   const [viewingDeal, setViewingDeal] = useState<HotelDeal | null>(null);
+  const [viewingTab, setViewingTab] = useState<'info' | 'comments'>('info');
+  const [dealCommentText, setDealCommentText] = useState('');
   const [quotationDeal, setQuotationDeal] = useState<HotelDeal | null>(null);
   const [isCheckerOpen, setIsCheckerOpen] = useState(false);
+
+  // Reporte & Metas
+  const [totalGoalMXN, setTotalGoalMXN] = useState(10000000);
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [tempGoalInput, setTempGoalInput] = useState('10000000');
 
   // Auto-open deal if passed via selectedDealId (e.g. from Notifications)
   useEffect(() => {
@@ -91,6 +116,8 @@ export function CommercialSection({
   const [editNotes, setEditNotes] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editAssignedRepName, setEditAssignedRepName] = useState(COMMERCIAL_TEAM[0].name);
+  const [editAssignedRepEmail, setEditAssignedRepEmail] = useState(COMMERCIAL_TEAM[0].email);
 
   // Form states - Deal
   const [clientName, setClientName] = useState('');
@@ -111,6 +138,8 @@ export function CommercialSection({
   const [notes, setNotes] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [assignedRepName, setAssignedRepName] = useState(COMMERCIAL_TEAM[0].name);
+  const [assignedRepEmail, setAssignedRepEmail] = useState(COMMERCIAL_TEAM[0].email);
 
   const availableSpaces = HOTEL_SPACES[hotel] || [];
   const availableRoomTypes = HOTEL_ROOM_TYPES[hotel] || [];
@@ -172,6 +201,68 @@ export function CommercialSection({
     .filter((d) => d.stage !== 'perdido')
     .reduce((acc, d) => acc + d.roomNights, 0);
 
+  // MANEJO DE COMENTARIOS Y NOTAS DE ADMINISTRADORES EN EVENTOS
+  const handleAddDealComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!viewingDeal || !dealCommentText.trim()) return;
+
+    const newComment: TaskComment = {
+      id: `cmt-deal-${Date.now()}`,
+      authorName: currentUser?.name || 'Administrador Comercial',
+      authorEmail: currentUser?.email || 'direccion@grupoorganico.com',
+      authorAvatar: currentUser?.avatar,
+      text: dealCommentText.trim(),
+      createdAt: new Date().toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    };
+
+    const updatedComments = [...(viewingDeal.comments || []), newComment];
+    const updatedDeal: HotelDeal = {
+      ...viewingDeal,
+      comments: updatedComments
+    };
+
+    setViewingDeal(updatedDeal);
+    onUpdateDeal(updatedDeal);
+    setDealCommentText('');
+
+    if (onAddNotification) {
+      onAddNotification({
+        id: `notif-${Date.now()}`,
+        title: `Nueva nota en evento: ${viewingDeal.code}`,
+        message: `${newComment.authorName}: "${newComment.text.slice(0, 90)}..." (Evento: ${viewingDeal.companyOrAgency})`,
+        type: 'comment',
+        targetEmail: viewingDeal.assignedEmail,
+        targetName: viewingDeal.assignedRep,
+        authorName: newComment.authorName,
+        authorEmail: newComment.authorEmail,
+        linkSection: 'commercial',
+        targetId: viewingDeal.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
+    }
+  };
+
+  const handleDeleteDealComment = (commentId: string) => {
+    if (!viewingDeal) return;
+    if (!isCurrentUserAdmin) {
+      alert('Solo los administradores autorizados pueden eliminar notas y comentarios.');
+      return;
+    }
+    const updatedComments = (viewingDeal.comments || []).filter((c) => c.id !== commentId);
+    const updatedDeal: HotelDeal = {
+      ...viewingDeal,
+      comments: updatedComments
+    };
+    setViewingDeal(updatedDeal);
+    onUpdateDeal(updatedDeal);
+  };
+
   // EDIT MODAL HANDLERS
   const openEditModal = (deal: HotelDeal) => {
     setEditingDeal(deal);
@@ -193,6 +284,8 @@ export function CommercialSection({
     setEditNotes(deal.notes || '');
     setEditEmail(deal.contactEmail || '');
     setEditPhone(deal.contactPhone || '');
+    setEditAssignedRepName(deal.assignedRep || COMMERCIAL_TEAM[0].name);
+    setEditAssignedRepEmail(deal.assignedEmail || COMMERCIAL_TEAM[0].email);
     setEditConflictError(null);
 
     const roomMap: Record<string, number> = {};
@@ -279,6 +372,15 @@ export function CommercialSection({
       }
     }
 
+    // Validación de disponibilidad del ejecutivo: Si está operando un evento en esas fechas, no puede ser asignado
+    const repStatus = getExecutiveEventStatus(deals, editAssignedRepEmail || editAssignedRepName, editCheckIn);
+    if (repStatus.isOperating && repStatus.activeDeal && repStatus.activeDeal.id !== editingDeal.id) {
+      setEditConflictError(
+        `⛔ ${editAssignedRepName} no puede ser asignado ya que se encuentra OPERANDO EN SITIO el evento "${repStatus.activeDeal.companyOrAgency}" en ${repStatus.activeDeal.hotelName} (del ${formatDate(repStatus.activeDeal.checkInDate)} al ${formatDate(repStatus.activeDeal.checkOutDate)}). No se le pueden asignar tareas ni eventos mientras esté operando.`
+      );
+      return;
+    }
+
     const requestedRoomsBreakdown = Object.entries(editRoomQuantities)
       .filter(([_, count]) => count > 0)
       .map(([roomTypeName, count]) => ({ roomTypeName, count }));
@@ -305,6 +407,8 @@ export function CommercialSection({
       attendeesCount: parseInt(editAttendees) || 0,
       checkInDate: editCheckIn,
       checkOutDate: editCheckOut,
+      assignedRep: editAssignedRepName,
+      assignedEmail: editAssignedRepEmail,
       notes: editNotes,
       contactEmail: editEmail,
       contactPhone: editPhone
@@ -346,13 +450,18 @@ export function CommercialSection({
       }
     }
 
+    // Validar disponibilidad del ejecutivo asignado
+    const repStatus = getExecutiveEventStatus(deals, assignedRepEmail || assignedRepName, checkIn);
+    if (repStatus.isOperating && repStatus.activeDeal) {
+      setConflictError(
+        `⛔ ${assignedRepName} no puede ser asignado ya que se encuentra OPERANDO EN SITIO el evento "${repStatus.activeDeal.companyOrAgency}" en ${repStatus.activeDeal.hotelName} (del ${formatDate(repStatus.activeDeal.checkInDate)} al ${formatDate(repStatus.activeDeal.checkOutDate)}). No se le pueden asignar tareas ni eventos mientras esté operando.`
+      );
+      return;
+    }
+
     const requestedRoomsList: RequestedRoomType[] = Object.entries(roomQuantities)
       .filter(([_, count]) => count > 0)
       .map(([roomTypeName, count]) => ({ roomTypeName, count }));
-
-    const assignedExecutive = currentUser?.name 
-      ? `${currentUser.name}${currentUser.email ? ` (${currentUser.email})` : ''}`
-      : 'Gerencia Comercial';
 
     const totalValNum = parseFloat(totalValue) || 150000;
     const depValNum = parseFloat(depositAmount) || 0;
@@ -375,11 +484,29 @@ export function CommercialSection({
       attendeesCount: parseInt(attendees) || 50,
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      assignedRep: assignedExecutive,
+      assignedRep: assignedRepName,
+      assignedEmail: assignedRepEmail,
+      comments: [],
       notes: notes || 'Solicitud de bloqueo de espacios y cotización oficial.',
       contactEmail: email || 'contacto@empresa.com',
       contactPhone: phone || '+52 55 0000 0000'
     });
+
+    if (onAddNotification) {
+      onAddNotification({
+        id: `notif-${Date.now()}`,
+        title: `Nuevo RFP / Evento registrado`,
+        message: `${company} en ${hotel} (${formatCurrency(totalValNum, 'MXN')}). Ejecutivo: ${assignedRepName}`,
+        type: 'deal_created',
+        targetEmail: assignedRepEmail,
+        targetName: assignedRepName,
+        authorName: currentUser?.name || 'Sistema Comercial',
+        authorEmail: currentUser?.email,
+        linkSection: 'commercial',
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
+    }
 
     setClientName('');
     setCompany('');
@@ -471,6 +598,68 @@ export function CommercialSection({
               Métricas
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Disponibilidad Operativa del Equipo Comercial */}
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">👥</span>
+            <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+              Disponibilidad Operativa del Equipo Comercial
+            </span>
+          </div>
+          <span className="text-[11px] text-stone-500">
+            Los ejecutivos operando eventos en sitio quedan temporalmente bloqueados para nuevas asignaciones
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {COMMERCIAL_TEAM.map((exec) => {
+            const status = getExecutiveEventStatus(deals, exec.email || exec.name);
+            const isBlocked = status.isOperating;
+            return (
+              <div
+                key={exec.email}
+                className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 transition-all ${
+                  isBlocked
+                    ? 'bg-rose-50/90 border-rose-300 text-rose-950 shadow-2xs'
+                    : 'bg-stone-50 border-stone-200 text-stone-800'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                    isBlocked ? 'bg-rose-600 text-white' : 'bg-emerald-800 text-white'
+                  }`}>
+                    {exec.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold truncate">{exec.name}</div>
+                    <div className="text-[10px] text-stone-500 truncate">{exec.role}</div>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  {isBlocked && status.activeDeal ? (
+                    <div className="space-y-0.5">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-extrabold uppercase animate-pulse">
+                        <span>⛔</span> En Evento
+                      </span>
+                      <div className="text-[9px] font-semibold text-rose-800 max-w-[130px] truncate" title={`${status.activeDeal.hotelName} (${status.activeDeal.checkInDate} al ${status.activeDeal.checkOutDate})`}>
+                        {status.activeDeal.hotelName}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                      Disponible
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -907,40 +1096,496 @@ export function CommercialSection({
         </div>
       )}
 
-      {/* SUB-VIEW 4: REPORTE & MÉTRICAS */}
-      {subView === 'reporte' && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-xs space-y-1">
-            <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-              Ingresos Totales en Negociación
-            </span>
-            <div className="font-editorial text-3xl font-extrabold text-emerald-800">
-              {formatCurrency(totalPipelineRevenue)}
-            </div>
-            <p className="text-[11px] text-stone-500">Suma de todas las cotizaciones activas</p>
-          </div>
+      {/* SUB-VIEW 4: REPORTE & MÉTRICAS VISUALES EN PESOS MEXICANOS (MXN) */}
+      {subView === 'reporte' && (() => {
+        const totalDeposits = filteredDeals
+          .filter((d) => d.stage !== 'perdido')
+          .reduce((acc, d) => acc + (d.depositAmount || 0), 0);
 
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-xs space-y-1">
-            <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-              Contratos Firmados (Confirmados)
-            </span>
-            <div className="font-editorial text-3xl font-extrabold text-teal-800">
-              {formatCurrency(totalWonRevenue)}
-            </div>
-            <p className="text-[11px] text-emerald-700 font-bold">Cierres exitosos confirmados</p>
-          </div>
+        const totalPendingBalance = filteredDeals
+          .filter((d) => d.stage !== 'perdido')
+          .reduce((acc, d) => acc + (d.balanceDue || Math.max(0, d.totalValue - (d.depositAmount || 0))), 0);
 
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-xs space-y-1">
-            <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-              Total Room Nights Vendidas
-            </span>
-            <div className="font-editorial text-3xl font-extrabold text-amber-800">
-              {totalRoomNights} <span className="text-sm font-sans font-normal text-stone-500">RN</span>
+        const groupAchievementPercent = totalGoalMXN > 0
+          ? Math.min(100, (totalWonRevenue / totalGoalMXN) * 100)
+          : 0;
+
+        const maxStageValue = Math.max(
+          ...STAGES.map((s) =>
+            filteredDeals
+              .filter((d) => d.stage === s.id)
+              .reduce((acc, d) => acc + d.totalValue, 0)
+          ),
+          1
+        );
+
+        const hotelMetrics = HOTEL_PROPERTIES.map((hotelName) => {
+          const hDeals = deals.filter((d) => d.hotelName === hotelName && d.stage !== 'perdido');
+          const won = hDeals
+            .filter((d) => d.stage === 'contratado')
+            .reduce((acc, d) => acc + d.totalValue, 0);
+          const pipeline = hDeals.reduce((acc, d) => acc + d.totalValue, 0);
+          const rn = hDeals.reduce((acc, d) => acc + d.roomNights, 0);
+          return { hotelName, dealsCount: hDeals.length, won, pipeline, rn };
+        });
+
+        const maxHotelRevenue = Math.max(...hotelMetrics.map((h) => h.pipeline), 1);
+
+        return (
+          <div className="space-y-6">
+            {/* Banner de Moneda y Control de Meta */}
+            <div className="bg-linear-to-r from-emerald-900 via-stone-900 to-teal-950 text-white rounded-3xl p-6 shadow-xl border border-emerald-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+                    🇲🇽 Moneda Oficial: Pesos Mexicanos (MXN)
+                  </span>
+                  <span className="text-[10px] text-stone-300">
+                    Todas las métricas y cotizaciones en $ MXN
+                  </span>
+                </div>
+                <h3 className="font-editorial text-2xl sm:text-3xl font-bold tracking-tight">
+                  Tablero de Inteligencia Financiera & Comercial
+                </h3>
+                <p className="text-xs text-stone-300 max-w-xl">
+                  Seguimiento de meta total del grupo hotelero, metas personales por ejecutivo y balance de cobranza.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/15">
+                <div>
+                  <span className="text-[10px] text-stone-300 uppercase font-bold block">
+                    Meta Anual del Grupo (MXN):
+                  </span>
+                  {isEditingGoal ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="number"
+                        value={tempGoalInput}
+                        onChange={(e) => setTempGoalInput(e.target.value)}
+                        className="bg-white text-stone-900 px-2 py-1 rounded-lg text-xs font-mono font-bold w-32 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = parseFloat(tempGoalInput) || 10000000;
+                          setTotalGoalMXN(val);
+                          setIsEditingGoal(false);
+                        }}
+                        className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold"
+                      >
+                        ✓
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="font-mono text-xl font-extrabold text-amber-300">
+                      {formatCurrency(totalGoalMXN, 'MXN')}
+                    </div>
+                  )}
+                </div>
+                {!isEditingGoal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempGoalInput(String(totalGoalMXN));
+                      setIsEditingGoal(true);
+                    }}
+                    className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-stone-200 text-xs transition-colors"
+                    title="Ajustar Meta Total"
+                  >
+                    ✏️
+                  </button>
+                )}
+              </div>
             </div>
-            <p className="text-[11px] text-stone-500">Noches habitación de grupos</p>
+
+            {/* SECCIÓN 1: META TOTAL DEL GRUPO (GRAN BARRA DE ESTADO) */}
+            <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                      Meta Total Grupo Orgánico 2026
+                    </span>
+                  </div>
+                  <h4 className="font-editorial text-2xl sm:text-3xl font-extrabold text-stone-900">
+                    {groupAchievementPercent.toFixed(1)}% de la Meta Alcanzada
+                  </h4>
+                  <p className="text-xs text-stone-500">
+                    Progreso basado en contratos cerrados y anticipos confirmados
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 text-right">
+                  <div>
+                    <span className="text-[10px] text-stone-400 uppercase font-bold block">
+                      Brecha Restante:
+                    </span>
+                    <span className="font-mono text-lg sm:text-xl font-extrabold text-amber-900">
+                      {formatCurrency(Math.max(0, totalGoalMXN - totalWonRevenue), 'MXN')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gran Barra de Progreso con Marcas */}
+              <div className="space-y-2">
+                <div className="h-6 w-full bg-stone-100 rounded-full overflow-hidden p-1 border border-stone-200 relative flex items-center">
+                  <div
+                    className="h-full rounded-full bg-linear-to-r from-emerald-600 via-teal-500 to-emerald-400 transition-all duration-700 relative shadow-inner"
+                    style={{ width: `${Math.max(3, groupAchievementPercent)}%` }}
+                  >
+                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                  </div>
+                </div>
+
+                {/* Marcadores de Hito */}
+                <div className="flex justify-between text-[10px] font-mono text-stone-400 px-1 font-semibold">
+                  <span>0% ($0 MXN)</span>
+                  <span>25% ({formatCurrency(totalGoalMXN * 0.25, 'MXN')})</span>
+                  <span>50% ({formatCurrency(totalGoalMXN * 0.5, 'MXN')})</span>
+                  <span>75% ({formatCurrency(totalGoalMXN * 0.75, 'MXN')})</span>
+                  <span className="text-emerald-800 font-bold">100% Meta ({formatCurrency(totalGoalMXN, 'MXN')})</span>
+                </div>
+              </div>
+
+              {/* Tarjetas Resumen de Apoyo */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 pt-2">
+                <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                    ✓ Contratado / Cerrado
+                  </span>
+                  <div className="font-mono text-xl font-extrabold text-emerald-950">
+                    {formatCurrency(totalWonRevenue, 'MXN')}
+                  </div>
+                  <span className="text-[10px] text-emerald-700">Contratos firmados y asegurados</span>
+                </div>
+
+                <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
+                    ⏳ Pipeline en Negociación
+                  </span>
+                  <div className="font-mono text-xl font-extrabold text-amber-950">
+                    {formatCurrency(totalPipelineRevenue, 'MXN')}
+                  </div>
+                  <span className="text-[10px] text-amber-700">Cotizaciones activas con clientes</span>
+                </div>
+
+                <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-stone-700 tracking-wider block">
+                    🛏️ Total Room Nights
+                  </span>
+                  <div className="font-mono text-xl font-extrabold text-stone-900">
+                    {totalRoomNights} <span className="text-xs font-sans text-stone-500 font-normal">RN</span>
+                  </div>
+                  <span className="text-[10px] text-stone-500">Noches habitación de grupos</span>
+                </div>
+
+                <div className="bg-teal-50/70 border border-teal-200 rounded-2xl p-4 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-teal-800 tracking-wider block">
+                    💳 Anticipos Cobrados
+                  </span>
+                  <div className="font-mono text-xl font-extrabold text-teal-950">
+                    {formatCurrency(totalDeposits, 'MXN')}
+                  </div>
+                  <span className="text-[10px] text-teal-700">Flujo efectivo en caja</span>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN 2: METAS PERSONALES POR EJECUTIVO COMERCIAL */}
+            <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 pb-3">
+                <div>
+                  <h4 className="font-editorial text-2xl font-bold text-stone-900">
+                    Metas Personales por Ejecutivo Comercial
+                  </h4>
+                  <p className="text-xs text-stone-500">
+                    Desempeño individual en pesos mexicanos ($ MXN) y disponibilidad operativa en eventos
+                  </p>
+                </div>
+                <span className="text-[11px] font-mono bg-stone-100 text-stone-700 px-3 py-1 rounded-full font-bold">
+                  Meta Individual Base: $3,000,000 MXN
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {COMMERCIAL_TEAM.map((exec) => {
+                  const execDeals = deals.filter(
+                    (d) =>
+                      (d.assignedEmail && d.assignedEmail.toLowerCase().trim() === exec.email.toLowerCase().trim()) ||
+                      (d.assignedRep && (d.assignedRep.toLowerCase().includes(exec.name.toLowerCase()) || exec.name.toLowerCase().includes(d.assignedRep.toLowerCase())))
+                  );
+
+                  const wonVal = execDeals
+                    .filter((d) => d.stage === 'contratado')
+                    .reduce((acc, d) => acc + d.totalValue, 0);
+
+                  const pipelineVal = execDeals
+                    .filter((d) => d.stage !== 'perdido')
+                    .reduce((acc, d) => acc + d.totalValue, 0);
+
+                  const personalGoal = 3000000;
+                  const percent = Math.min(100, (wonVal / personalGoal) * 100);
+
+                  const status = getExecutiveEventStatus(deals, exec.email || exec.name);
+
+                  const progressColor =
+                    percent >= 80
+                      ? 'bg-emerald-600'
+                      : percent >= 40
+                      ? 'bg-amber-500'
+                      : 'bg-blue-600';
+
+                  return (
+                    <div
+                      key={exec.email}
+                      className="bg-stone-50/70 border border-stone-200 rounded-2xl p-5 space-y-4 shadow-2xs hover:shadow-xs transition-shadow"
+                    >
+                      {/* Header del Ejecutivo */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-emerald-800 to-teal-900 text-white font-bold text-sm flex items-center justify-center shadow-xs">
+                            {exec.initials}
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-stone-900 text-sm leading-tight">{exec.name}</h5>
+                            <span className="text-[10px] text-stone-500 block">{exec.role}</span>
+                          </div>
+                        </div>
+
+                        {status.isOperating ? (
+                          <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-extrabold uppercase animate-pulse">
+                            ⛔ En Evento
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                            🟢 Disponible
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Notificación de evento en curso si está bloqueado */}
+                      {status.isOperating && status.activeDeal && (
+                        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-950 font-semibold space-y-0.5">
+                          <span className="block text-[10px] uppercase font-bold text-rose-800">
+                            Operando evento en sitio:
+                          </span>
+                          <div>{status.activeDeal.companyOrAgency} · 🏨 {status.activeDeal.hotelName}</div>
+                          <div className="text-[10px] text-rose-700 font-mono">
+                            Del {status.activeDeal.checkInDate} al {status.activeDeal.checkOutDate}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Cifras de Meta Personal */}
+                      <div className="space-y-1">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-[11px] text-stone-500 font-semibold">Cierre Confirmado:</span>
+                          <span className="font-mono text-base font-extrabold text-stone-900">
+                            {formatCurrency(wonVal, 'MXN')}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between text-xs">
+                          <span className="text-stone-400 text-[11px]">Meta Personal:</span>
+                          <span className="font-mono text-stone-500">{formatCurrency(personalGoal, 'MXN')}</span>
+                        </div>
+                      </div>
+
+                      {/* Barra de Progreso Personal */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px] font-bold">
+                          <span className="text-stone-600">Cumplimiento:</span>
+                          <span className="font-mono text-stone-900">{percent.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${progressColor} transition-all duration-500`}
+                            style={{ width: `${Math.max(4, percent)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Pipeline Adicional */}
+                      <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[11px]">
+                        <span className="text-stone-500">Pipeline en curso:</span>
+                        <span className="font-mono font-bold text-amber-800">
+                          {formatCurrency(pipelineVal, 'MXN')} ({execDeals.length} deals)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* SECCIÓN 3: BARRAS DE ESTADO POR FASE DEL PIPELINE COMERCIAL */}
+            <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
+              <div className="border-b border-stone-200 pb-3">
+                <h4 className="font-editorial text-2xl font-bold text-stone-900">
+                  Volumen y Embudo por Fases del Pipeline (MXN)
+                </h4>
+                <p className="text-xs text-stone-500">
+                  Distribución del valor económico y número de eventos en cada etapa de negociación
+                </p>
+              </div>
+
+              <div className="space-y-3.5">
+                {STAGES.map((stage) => {
+                  const stageDeals = filteredDeals.filter((d) => d.stage === stage.id);
+                  const stageSum = stageDeals.reduce((acc, d) => acc + d.totalValue, 0);
+                  const percentOfMax = (stageSum / maxStageValue) * 100;
+                  const totalPipelineSum = totalPipelineRevenue || 1;
+                  const shareOfPipeline = ((stageSum / totalPipelineSum) * 100).toFixed(1);
+
+                  return (
+                    <div key={stage.id} className="space-y-1.5 bg-stone-50/60 p-3.5 rounded-2xl border border-stone-200/80">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-3 h-3 rounded-full ${stage.colorDot}`} />
+                          <span className="font-bold text-stone-900">{stage.title}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200/80 font-mono font-semibold text-stone-700">
+                            {stageDeals.length} {stageDeals.length === 1 ? 'evento' : 'eventos'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-stone-500 font-mono">
+                            {shareOfPipeline}% del pipeline
+                          </span>
+                          <span className="font-mono text-sm font-extrabold text-stone-900">
+                            {formatCurrency(stageSum, 'MXN')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Barra de Estado Visual de la Fase */}
+                      <div className="h-3 w-full bg-stone-200/80 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${stage.colorDot}`}
+                          style={{ width: `${Math.max(stageSum > 0 ? 3 : 0, percentOfMax)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* SECCIÓN 4: RENDIMIENTO E INGRESOS POR HOTEL (LAS 6 PROPIEDADES) */}
+            <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
+              <div className="border-b border-stone-200 pb-3">
+                <h4 className="font-editorial text-2xl font-bold text-stone-900">
+                  Rendimiento e Ingresos por Hotel (6 Propiedades de Grupo Orgánico)
+                </h4>
+                <p className="text-xs text-stone-500">
+                  Comparativa de facturación confirmada y room nights en pesos mexicanos ($ MXN)
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {hotelMetrics.map((hm) => {
+                  const percentOfMaxHotel = (hm.pipeline / maxHotelRevenue) * 100;
+                  return (
+                    <div
+                      key={hm.hotelName}
+                      className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                            <span>🏨</span>
+                            <span>{hm.hotelName}</span>
+                          </div>
+                          <span className="text-[10px] text-stone-500">
+                            {hm.dealsCount} {hm.dealsCount === 1 ? 'evento registrado' : 'eventos registrados'}
+                          </span>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="font-mono text-sm font-extrabold text-emerald-900">
+                            {formatCurrency(hm.won, 'MXN')}
+                          </div>
+                          <span className="text-[10px] text-stone-500 font-mono">
+                            {hm.rn} Room Nights
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-stone-400">
+                          <span>Volumen total en negociación:</span>
+                          <span className="font-mono font-bold text-stone-700">{formatCurrency(hm.pipeline, 'MXN')}</span>
+                        </div>
+                        <div className="h-2 w-full bg-stone-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-700 transition-all duration-500"
+                            style={{ width: `${Math.max(hm.pipeline > 0 ? 4 : 0, percentOfMaxHotel)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* SECCIÓN 5: SALUD FINANCIERA & COBRANZA EN MXN */}
+            <div className="bg-amber-50/60 border border-amber-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-amber-200/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">💳</span>
+                  <div>
+                    <h4 className="font-bold text-amber-950 text-sm uppercase tracking-wider">
+                      Estado General de Cobranza & Anticipos
+                    </h4>
+                    <span className="text-xs text-amber-800">
+                      Balance en tiempo real entre anticipos ingresados y cuentas por cobrar
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-900">
+                  {((totalDeposits / ((totalDeposits + totalPendingBalance) || 1)) * 100).toFixed(1)}% Cobrado
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-white rounded-full overflow-hidden border border-amber-300 flex">
+                  <div
+                    className="h-full bg-emerald-600 transition-all duration-500"
+                    style={{
+                      width: `${((totalDeposits / ((totalDeposits + totalPendingBalance) || 1)) * 100)}%`
+                    }}
+                    title="Cobrado"
+                  />
+                  <div
+                    className="h-full bg-amber-400 transition-all duration-500"
+                    style={{
+                      width: `${((totalPendingBalance / ((totalDeposits + totalPendingBalance) || 1)) * 100)}%`
+                    }}
+                    title="Saldo por Cobrar"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-emerald-600" />
+                    <span className="text-stone-700">Anticipos Recibidos:</span>
+                    <strong className="font-mono text-emerald-900">{formatCurrency(totalDeposits, 'MXN')}</strong>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-amber-400" />
+                    <span className="text-stone-700">Saldo Pendiente de Cobro:</span>
+                    <strong className="font-mono text-amber-950">{formatCurrency(totalPendingBalance, 'MXN')}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL: NUEVA COTIZACIÓN / RFP CON PREVENCIÓN DE CONFLICTO DE FECHAS */}
       {isDealModalOpen && (
@@ -1280,6 +1925,61 @@ export function CommercialSection({
                     }}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />
+                </div>
+              </div>
+
+              {/* Selector de Ejecutivo Comercial Responsable */}
+              <div className="space-y-1.5">
+                <label className="block text-stone-700 font-bold mb-1">
+                  Ejecutivo Comercial Responsable
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {COMMERCIAL_TEAM.map((exec) => {
+                    const isSelected = assignedRepName === exec.name;
+                    const status = getExecutiveEventStatus(deals, exec.email || exec.name, checkIn);
+                    const isBlocked = status.isOperating;
+                    return (
+                      <button
+                        key={exec.email}
+                        type="button"
+                        onClick={() => {
+                          if (isBlocked) {
+                            setConflictError(
+                              `⛔ ${exec.name} no está disponible para asignaciones porque se encuentra OPERANDO EN SITIO el evento "${status.activeDeal?.companyOrAgency}" en ${status.activeDeal?.hotelName} (del ${formatDate(status.activeDeal?.checkInDate || '')} al ${formatDate(status.activeDeal?.checkOutDate || '')}).`
+                            );
+                            return;
+                          }
+                          setAssignedRepName(exec.name);
+                          setAssignedRepEmail(exec.email);
+                          setConflictError(null);
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition-all relative ${
+                          isSelected
+                            ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600/30'
+                            : isBlocked
+                            ? 'bg-rose-50/70 border-rose-300 opacity-70'
+                            : 'bg-white border-stone-200 hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-stone-900">{exec.name}</span>
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                              isBlocked ? 'bg-rose-600 text-white' : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {isBlocked ? '⛔ EN EVENTO' : '🟢 Libre'}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-stone-500 truncate">{exec.role}</div>
+                        {isBlocked && status.activeDeal && (
+                          <div className="text-[9px] text-rose-700 font-semibold mt-1 leading-tight">
+                            Operando en {status.activeDeal.hotelName}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1666,6 +2366,61 @@ export function CommercialSection({
                 </div>
               </div>
 
+              {/* Selector de Ejecutivo Comercial (Edición) */}
+              <div className="space-y-1.5">
+                <label className="block text-stone-700 font-bold mb-1">
+                  Ejecutivo Comercial Responsable
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {COMMERCIAL_TEAM.map((exec) => {
+                    const isSelected = editAssignedRepName === exec.name;
+                    const status = getExecutiveEventStatus(deals, exec.email || exec.name, editCheckIn);
+                    const isBlocked = status.isOperating && status.activeDeal?.id !== editingDeal.id;
+                    return (
+                      <button
+                        key={exec.email}
+                        type="button"
+                        onClick={() => {
+                          if (isBlocked) {
+                            setEditConflictError(
+                              `⛔ ${exec.name} no está disponible para asignaciones porque se encuentra OPERANDO EN SITIO el evento "${status.activeDeal?.companyOrAgency}" en ${status.activeDeal?.hotelName} (del ${formatDate(status.activeDeal?.checkInDate || '')} al ${formatDate(status.activeDeal?.checkOutDate || '')}).`
+                            );
+                            return;
+                          }
+                          setEditAssignedRepName(exec.name);
+                          setEditAssignedRepEmail(exec.email);
+                          setEditConflictError(null);
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition-all relative ${
+                          isSelected
+                            ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600/30'
+                            : isBlocked
+                            ? 'bg-rose-50/70 border-rose-300 opacity-70'
+                            : 'bg-white border-stone-200 hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-stone-900">{exec.name}</span>
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                              isBlocked ? 'bg-rose-600 text-white' : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {isBlocked ? '⛔ EN EVENTO' : '🟢 Libre'}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-stone-500 truncate">{exec.role}</div>
+                        {isBlocked && status.activeDeal && (
+                          <div className="text-[9px] text-rose-700 font-semibold mt-1 leading-tight">
+                            Operando en {status.activeDeal.hotelName}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-stone-700 font-bold mb-1">Notas / Requerimientos</label>
                 <textarea
@@ -1822,6 +2577,132 @@ export function CommercialSection({
               </div>
             </div>
 
+            {/* Tabs de Navegación de la Ficha */}
+            <div className="flex border-b border-stone-200 gap-2">
+              <button
+                type="button"
+                onClick={() => setViewingTab('info')}
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewingTab === 'info'
+                    ? 'border-emerald-700 text-emerald-900 bg-emerald-50/60 rounded-t-lg'
+                    : 'border-transparent text-stone-500 hover:text-stone-900'
+                }`}
+              >
+                <span>📋 Ficha del Evento & Cotización</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingTab('comments')}
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewingTab === 'comments'
+                    ? 'border-emerald-700 text-emerald-900 bg-emerald-50/60 rounded-t-lg'
+                    : 'border-transparent text-stone-500 hover:text-stone-900'
+                }`}
+              >
+                <span>💬 Notas & Comentarios de Administradores</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
+                  {(viewingDeal.comments || []).length}
+                </span>
+              </button>
+            </div>
+
+            {viewingTab === 'comments' ? (
+              <div className="space-y-4">
+                {/* Aviso Informativo de Seguridad y Permisos */}
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 flex items-start gap-2.5">
+                  <span className="text-base shrink-0">🛡️</span>
+                  <div className="space-y-0.5">
+                    <strong className="block font-bold">Canal de Instrucciones & Notas de Dirección:</strong>
+                    <p className="text-[11px] text-amber-900 leading-relaxed">
+                      Los administradores pueden comunicarse directamente con el ejecutivo responsable (<strong>{viewingDeal.assignedRep}</strong>) para revisiones, alertas de cobro y cambios de fecha.
+                      <strong className="block text-amber-950 mt-0.5">
+                        Importante: Solo los administradores autorizados ({ADMIN_EMAILS.join(', ')}) tienen permisos para eliminar notas y comentarios. Los usuarios estándar no pueden borrarlos.
+                      </strong>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Lista de Comentarios / Notas */}
+                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                  {(viewingDeal.comments || []).length > 0 ? (
+                    (viewingDeal.comments || []).map((comment) => (
+                      <div
+                        key={comment.id}
+                        className="p-4 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-2 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-emerald-800 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                              {comment.authorName ? comment.authorName.split(' ').map((n) => n[0]).join('').slice(0, 2) : 'AD'}
+                            </div>
+                            <div>
+                              <span className="font-bold text-stone-900 block leading-tight">{comment.authorName}</span>
+                              <span className="text-[10px] text-stone-400 font-mono">{comment.authorEmail}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-stone-400 font-mono">{comment.createdAt}</span>
+                            {isCurrentUserAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDealComment(comment.id)}
+                                className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Eliminar nota (Solo Administradores)"
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-stone-700 whitespace-pre-wrap leading-relaxed pl-9">
+                          {comment.text}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-10 text-center bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-stone-400 space-y-1.5">
+                      <span className="text-3xl">💬</span>
+                      <p className="text-xs font-semibold text-stone-600">No hay notas registradas en este evento.</p>
+                      <p className="text-[11px] text-stone-400">
+                        Los administradores pueden publicar instrucciones, acuerdos y notas operativas aquí.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Formulario de Nueva Nota */}
+                <form onSubmit={handleAddDealComment} className="pt-3 border-t border-stone-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-stone-800">
+                      Publicar Nueva Nota para el Ejecutivo
+                    </label>
+                    <span className="text-[11px] text-stone-500">
+                      Autor: <strong>{currentUser?.name || 'Administrador'}</strong> ({currentUser?.email || 'admin@grupoorganico.com'})
+                    </span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    required
+                    value={dealCommentText}
+                    onChange={(e) => setDealCommentText(e.target.value)}
+                    placeholder="Escribe una instrucción, ajuste de cotización, requerimiento del cliente o nota de cobranza..."
+                    className="w-full border border-stone-300 rounded-xl p-3 text-xs text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>Publicar Nota en Evento</span>
+                      <span>➤</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <>
             {/* Tarjetas Métricas Principales */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-0.5">
@@ -2077,6 +2958,8 @@ export function CommercialSection({
                 })}
               </div>
             </div>
+            </>
+            )}
 
             {/* Acciones del Footer */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-stone-200">

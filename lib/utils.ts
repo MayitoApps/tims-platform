@@ -1,11 +1,12 @@
 import { MarketingCampaignStatus, HotelDealStage, DealCategory } from './types';
 
-export function formatCurrency(amount: number, currency: 'MXN' | 'USD' = 'USD'): string {
-  return new Intl.NumberFormat('es-MX', {
+export function formatCurrency(amount: number, currency: 'MXN' | 'USD' = 'MXN'): string {
+  const formatted = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: currency,
     maximumFractionDigits: 0
   }).format(amount);
+  return `${formatted} MXN`;
 }
 
 export function formatDate(dateString: string): string {

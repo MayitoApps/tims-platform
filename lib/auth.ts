@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { isAdminEmail } from './types';
 
 export interface AuthSession {
   id: string;
@@ -26,7 +27,11 @@ export async function createSessionCookie(user: { id: string; name: string; emai
     name: user.name,
     email: user.email,
     avatar: user.avatar,
-    role: user.email.includes('sales') || user.email.includes('comercial') ? 'sales' : 'marketing',
+    role: isAdminEmail(user.email)
+      ? 'admin'
+      : user.email.includes('sales') || user.email.includes('comercial')
+      ? 'sales'
+      : 'marketing',
     initials: getInitials(user.name)
   };
 

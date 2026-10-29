@@ -64,6 +64,8 @@ export async function ensureTables(): Promise<boolean> {
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS deposit_amount NUMERIC DEFAULT 0;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pendiente';`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS payment_due_date TEXT;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS assigned_email TEXT;`;
 
     // 2. Marketing Tasks Table
     await sql`
@@ -147,6 +149,24 @@ export async function ensureTables(): Promise<boolean> {
       );
     `;
 
+    // 6. App Notifications Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS app_notifications (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        type TEXT NOT NULL,
+        target_email TEXT,
+        target_name TEXT,
+        author_name TEXT,
+        author_email TEXT,
+        link_section TEXT NOT NULL DEFAULT 'marketing',
+        target_id TEXT,
+        created_at TEXT NOT NULL,
+        read BOOLEAN DEFAULT false
+      );
+    `;
+
     tablesInitialized = true;
     return true;
   } catch (error) {
@@ -180,7 +200,9 @@ export function mapRowToDeal(row: any): HotelDeal {
     checkInDate: row.check_in_date,
     checkOutDate: row.check_out_date,
     assignedRep: row.assigned_rep,
+    assignedEmail: row.assigned_email || undefined,
     notes: row.notes || '',
+    comments: typeof row.comments === 'string' ? JSON.parse(row.comments) : (row.comments || []),
     contactEmail: row.contact_email || '',
     contactPhone: row.contact_phone || '',
     createdAt: row.created_at

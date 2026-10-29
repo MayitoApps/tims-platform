@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         selected_spaces, requested_rooms, stage, total_value, currency,
         deposit_amount, payment_status, payment_due_date,
         room_nights, attendees_count, check_in_date, check_out_date,
-        assigned_rep, notes, contact_email, contact_phone, created_at
+        assigned_rep, assigned_email, notes, comments, contact_email, contact_phone, created_at
       ) VALUES (
         ${deal.id}, ${deal.code}, ${deal.clientName}, ${deal.companyOrAgency || deal.clientName},
         ${deal.hotelName}, ${deal.category || 'bodas_sociales'},
@@ -63,7 +63,10 @@ export async function POST(request: Request) {
         ${deal.depositAmount || 0}, ${deal.paymentStatus || 'pendiente'}, ${deal.paymentDueDate || null},
         ${deal.roomNights || 0}, ${deal.attendeesCount || 0},
         ${deal.checkInDate}, ${deal.checkOutDate}, ${deal.assignedRep},
-        ${deal.notes || ''}, ${deal.contactEmail || ''}, ${deal.contactPhone || ''},
+        ${deal.assignedEmail || null},
+        ${deal.notes || ''},
+        ${JSON.stringify(deal.comments || [])}::jsonb,
+        ${deal.contactEmail || ''}, ${deal.contactPhone || ''},
         ${deal.createdAt}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -85,7 +88,9 @@ export async function POST(request: Request) {
         check_in_date = EXCLUDED.check_in_date,
         check_out_date = EXCLUDED.check_out_date,
         assigned_rep = EXCLUDED.assigned_rep,
+        assigned_email = EXCLUDED.assigned_email,
         notes = EXCLUDED.notes,
+        comments = EXCLUDED.comments,
         contact_email = EXCLUDED.contact_email,
         contact_phone = EXCLUDED.contact_phone,
         updated_at = CURRENT_TIMESTAMP;

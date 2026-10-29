@@ -12,9 +12,12 @@ import {
   TaskChecklistItem,
   TaskComment,
   UserProfile,
+  HotelDeal,
+  AppNotification,
   ADMIN_EMAILS,
   DESIGN_RESPONSIBLES,
-  REQUIREMENT_FORMATS
+  REQUIREMENT_FORMATS,
+  getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge } from '@/lib/utils';
@@ -25,6 +28,7 @@ interface MarketingSectionProps {
   publications: ContentPublication[];
   briefs: CreativeBrief[];
   marketingTasks?: MarketingTask[];
+  deals?: HotelDeal[];
   currentUser?: UserProfile | null;
   onAddCampaign: (campaign: Omit<MarketingCampaign, 'id' | 'code' | 'spent'>) => void;
   onUpdateCampaign?: (campaign: MarketingCampaign) => void;
@@ -40,6 +44,7 @@ interface MarketingSectionProps {
   onUpdateMarketingTask?: (task: MarketingTask) => void;
   onDeleteMarketingTask?: (id: string) => void;
   onUpdateMarketingTaskStage: (id: string, stage: MarketingTaskStage) => void;
+  onAddNotification?: (notif: AppNotification) => void;
 }
 
 const MARKETING_STAGES: { id: MarketingTaskStage; title: string; colorDot: string }[] = [
@@ -63,6 +68,7 @@ export function MarketingSection({
   publications,
   briefs,
   marketingTasks = [],
+  deals = [],
   currentUser = null,
   onAddCampaign,
   onUpdateCampaign,
@@ -77,7 +83,8 @@ export function MarketingSection({
   onAddMarketingTask,
   onUpdateMarketingTask,
   onDeleteMarketingTask,
-  onUpdateMarketingTaskStage
+  onUpdateMarketingTaskStage,
+  onAddNotification
 }: MarketingSectionProps) {
   const [subView, setSubView] = useState<'tablero' | 'campanas' | 'calendario' | 'briefs'>('tablero');
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
@@ -314,6 +321,22 @@ export function MarketingSection({
       comments: []
     });
 
+    if (onAddNotification) {
+      onAddNotification({
+        id: `notif-${Date.now()}`,
+        title: `Nuevo requerimiento asignado`,
+        message: `Se asignó '${finalTitle}' a ${tAssignedTo} para entrega el ${tDueDate}.`,
+        type: 'task_created',
+        targetEmail: tAssignedEmail,
+        targetName: tAssignedTo,
+        authorName: currentUser?.name || 'Dirección',
+        authorEmail: currentUser?.email,
+        linkSection: 'marketing',
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
+    }
+
     setTTitle('');
     setTFormat('Historia');
     setTCustomFormat('');
@@ -433,6 +456,23 @@ export function MarketingSection({
     setTaskCommentText('');
     if (onUpdateMarketingTask) {
       onUpdateMarketingTask(updatedTask);
+    }
+
+    if (onAddNotification) {
+      onAddNotification({
+        id: `notif-${Date.now()}`,
+        title: `Nuevo comentario en: ${viewingTask.title}`,
+        message: `${newComment.authorName}: "${newComment.text.slice(0, 90)}..."`,
+        type: 'comment',
+        targetEmail: viewingTask.assignedEmail,
+        targetName: viewingTask.assignedTo,
+        authorName: newComment.authorName,
+        authorEmail: newComment.authorEmail,
+        linkSection: 'marketing',
+        targetId: viewingTask.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
     }
   };
 

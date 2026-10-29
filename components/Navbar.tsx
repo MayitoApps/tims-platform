@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { UserProfile, HotelDeal } from '@/lib/types';
+import { UserProfile, HotelDeal, AppNotification } from '@/lib/types';
 import { UpcomingEventsNotification } from './UpcomingEventsNotification';
 
 interface NavbarProps {
@@ -10,7 +10,10 @@ interface NavbarProps {
   onSectionChange: (section: 'marketing' | 'commercial') => void;
   onLogout: () => void;
   deals?: HotelDeal[];
+  notifications?: AppNotification[];
   onSelectDeal?: (deal: HotelDeal) => void;
+  onSelectNotification?: (notif: AppNotification) => void;
+  onMarkAllAsRead?: () => void;
 }
 
 export function Navbar({
@@ -19,7 +22,10 @@ export function Navbar({
   onSectionChange,
   onLogout,
   deals = [],
-  onSelectDeal
+  notifications = [],
+  onSelectDeal,
+  onSelectNotification,
+  onMarkAllAsRead
 }: NavbarProps) {
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-stone-200 px-4 sm:px-8 py-3 transition-colors shadow-2xs">
@@ -68,14 +74,18 @@ export function Navbar({
             <span>Neon Realtime Activo</span>
           </div>
 
-          {/* Notificaciones de Eventos Próximos */}
+          {/* Centro de Notificaciones & Eventos Próximos */}
           <UpcomingEventsNotification
             deals={deals}
+            currentUser={currentUser}
+            notifications={notifications}
             onSelectEvent={(deal) => {
               if (onSelectDeal) {
                 onSelectDeal(deal);
               }
             }}
+            onSelectNotification={onSelectNotification}
+            onMarkAllAsRead={onMarkAllAsRead}
           />
 
           <div className="h-5 w-px bg-stone-200 hidden sm:block" />

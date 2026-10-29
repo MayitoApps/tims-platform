@@ -46,7 +46,9 @@ export async function PUT(
           check_in_date = COALESCE(${updates.checkInDate}, check_in_date),
           check_out_date = COALESCE(${updates.checkOutDate}, check_out_date),
           assigned_rep = COALESCE(${updates.assignedRep}, assigned_rep),
+          assigned_email = COALESCE(${updates.assignedEmail}, assigned_email),
           notes = COALESCE(${updates.notes}, notes),
+          comments = COALESCE(${updates.comments ? JSON.stringify(updates.comments) : null}::jsonb, comments),
           contact_email = COALESCE(${updates.contactEmail}, contact_email),
           contact_phone = COALESCE(${updates.contactPhone}, contact_phone),
           updated_at = CURRENT_TIMESTAMP

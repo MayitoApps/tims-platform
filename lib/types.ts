@@ -45,6 +45,76 @@ export const ADMIN_EMAILS = [
   'marketinggrupoorganico@gmail.com'
 ];
 
+export function isAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.toLowerCase().trim();
+  return ADMIN_EMAILS.some((adm) => adm.toLowerCase() === clean);
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'comment' | 'task_created' | 'deal_created' | 'stage_changed' | 'payment_alert' | 'event_active';
+  targetEmail?: string; // Correo específico del destinatario (si aplica)
+  targetName?: string;  // Nombre del destinatario
+  authorName?: string;
+  authorEmail?: string;
+  linkSection: 'marketing' | 'commercial';
+  targetId?: string;    // ID del requerimiento o ID del deal
+  createdAt: string;
+  read?: boolean;
+}
+
+export interface CommercialExecutive {
+  name: string;
+  email: string;
+  role: string;
+  initials: string;
+}
+
+export const COMMERCIAL_TEAM: CommercialExecutive[] = [
+  {
+    name: 'Carlos Mendoza',
+    email: 'comercial1.grupoorganico@gmail.com',
+    role: 'Ejecutivo de Bodas & MICE',
+    initials: 'CM'
+  },
+  {
+    name: 'Valeria Domínguez',
+    email: 'comercial2.grupoorganico@gmail.com',
+    role: 'Ejecutiva de Cuentas Corporativas',
+    initials: 'VD'
+  },
+  {
+    name: 'Gerencia Comercial',
+    email: 'expansioncomercia.gohb@gmail.com',
+    role: 'Dirección Comercial & Eventos',
+    initials: 'GC'
+  }
+];
+
+export function getExecutiveEventStatus(
+  deals: HotelDeal[],
+  repIdentifier: string,
+  dateStr: string = new Date().toISOString().split('T')[0]
+): { isOperating: boolean; activeDeal?: HotelDeal } {
+  if (!repIdentifier) return { isOperating: false };
+  const clean = repIdentifier.toLowerCase().trim();
+  const activeDeal = deals.find((d) => {
+    if (d.stage !== 'contratado') return false;
+    const match =
+      (d.assignedEmail && d.assignedEmail.toLowerCase().trim() === clean) ||
+      (d.assignedRep && (d.assignedRep.toLowerCase().includes(clean) || clean.includes(d.assignedRep.toLowerCase())));
+    if (!match) return false;
+    return dateStr >= d.checkInDate && dateStr <= d.checkOutDate;
+  });
+  return {
+    isOperating: !!activeDeal,
+    activeDeal
+  };
+}
+
 export const DESIGN_RESPONSIBLES = [
   {
     name: 'Estefania Azcona',
@@ -214,7 +284,9 @@ export interface HotelDeal {
   checkInDate: string;
   checkOutDate: string;
   assignedRep: string;
+  assignedEmail?: string;
   notes: string;
+  comments?: TaskComment[];
   contactEmail: string;
   contactPhone: string;
   createdAt: string;
