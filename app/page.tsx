@@ -48,32 +48,45 @@ export default function Home() {
 
   // Check Google Auth session on mount & Sync with Database
   useEffect(() => {
-    // 1. Initial hydration from local storage for instant render
+    // 1. One-time clean of legacy mock demo data from local storage
+    try {
+      const isLegacyCleared = localStorage.getItem('tims_mock_data_cleared_v2');
+      if (!isLegacyCleared) {
+        localStorage.removeItem('tims_deals');
+        localStorage.removeItem('tims_mkt_tasks');
+        localStorage.removeItem('tims_campaigns');
+        localStorage.removeItem('tims_publications');
+        localStorage.removeItem('tims_briefs');
+        localStorage.setItem('tims_mock_data_cleared_v2', 'true');
+      }
+    } catch {}
+
+    // Initial hydration from local storage for instant render
     try {
       const cachedDeals = localStorage.getItem('tims_deals');
       if (cachedDeals) {
         const parsed = JSON.parse(cachedDeals);
-        if (Array.isArray(parsed) && parsed.length > 0) setDeals(parsed);
+        if (Array.isArray(parsed)) setDeals(parsed);
       }
       const cachedTasks = localStorage.getItem('tims_mkt_tasks');
       if (cachedTasks) {
         const parsed = JSON.parse(cachedTasks);
-        if (Array.isArray(parsed) && parsed.length > 0) setMarketingTasks(parsed);
+        if (Array.isArray(parsed)) setMarketingTasks(parsed);
       }
       const cachedCampaigns = localStorage.getItem('tims_campaigns');
       if (cachedCampaigns) {
         const parsed = JSON.parse(cachedCampaigns);
-        if (Array.isArray(parsed) && parsed.length > 0) setCampaigns(parsed);
+        if (Array.isArray(parsed)) setCampaigns(parsed);
       }
       const cachedPubs = localStorage.getItem('tims_publications');
       if (cachedPubs) {
         const parsed = JSON.parse(cachedPubs);
-        if (Array.isArray(parsed) && parsed.length > 0) setPublications(parsed);
+        if (Array.isArray(parsed)) setPublications(parsed);
       }
       const cachedBriefs = localStorage.getItem('tims_briefs');
       if (cachedBriefs) {
         const parsed = JSON.parse(cachedBriefs);
-        if (Array.isArray(parsed) && parsed.length > 0) setBriefs(parsed);
+        if (Array.isArray(parsed)) setBriefs(parsed);
       }
     } catch {}
 
@@ -101,7 +114,7 @@ export default function Home() {
       fetch('/api/deals')
         .then((res) => res.json())
         .then((data) => {
-          if (data?.deals && Array.isArray(data.deals) && data.deals.length > 0) {
+          if (data && Array.isArray(data.deals)) {
             setDeals(data.deals);
             try {
               localStorage.setItem('tims_deals', JSON.stringify(data.deals));
@@ -114,7 +127,7 @@ export default function Home() {
       fetch('/api/marketing-tasks')
         .then((res) => res.json())
         .then((data) => {
-          if (data?.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
+          if (data && Array.isArray(data.tasks)) {
             setMarketingTasks(data.tasks);
             try {
               localStorage.setItem('tims_mkt_tasks', JSON.stringify(data.tasks));
@@ -127,7 +140,7 @@ export default function Home() {
       fetch('/api/campaigns')
         .then((res) => res.json())
         .then((data) => {
-          if (data?.campaigns && Array.isArray(data.campaigns) && data.campaigns.length > 0) {
+          if (data && Array.isArray(data.campaigns)) {
             setCampaigns(data.campaigns);
             try {
               localStorage.setItem('tims_campaigns', JSON.stringify(data.campaigns));
@@ -140,7 +153,7 @@ export default function Home() {
       fetch('/api/publications')
         .then((res) => res.json())
         .then((data) => {
-          if (data?.publications && Array.isArray(data.publications) && data.publications.length > 0) {
+          if (data && Array.isArray(data.publications)) {
             setPublications(data.publications);
             try {
               localStorage.setItem('tims_publications', JSON.stringify(data.publications));
@@ -153,7 +166,7 @@ export default function Home() {
       fetch('/api/briefs')
         .then((res) => res.json())
         .then((data) => {
-          if (data?.briefs && Array.isArray(data.briefs) && data.briefs.length > 0) {
+          if (data && Array.isArray(data.briefs)) {
             setBriefs(data.briefs);
             try {
               localStorage.setItem('tims_briefs', JSON.stringify(data.briefs));
