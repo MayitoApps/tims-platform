@@ -60,6 +60,21 @@ export default function Home() {
         const parsed = JSON.parse(cachedTasks);
         if (Array.isArray(parsed) && parsed.length > 0) setMarketingTasks(parsed);
       }
+      const cachedCampaigns = localStorage.getItem('tims_campaigns');
+      if (cachedCampaigns) {
+        const parsed = JSON.parse(cachedCampaigns);
+        if (Array.isArray(parsed) && parsed.length > 0) setCampaigns(parsed);
+      }
+      const cachedPubs = localStorage.getItem('tims_publications');
+      if (cachedPubs) {
+        const parsed = JSON.parse(cachedPubs);
+        if (Array.isArray(parsed) && parsed.length > 0) setPublications(parsed);
+      }
+      const cachedBriefs = localStorage.getItem('tims_briefs');
+      if (cachedBriefs) {
+        const parsed = JSON.parse(cachedBriefs);
+        if (Array.isArray(parsed) && parsed.length > 0) setBriefs(parsed);
+      }
     } catch {}
 
     // 2. Fetch authenticated session
@@ -128,14 +143,30 @@ export default function Home() {
       code: nextCode,
       spent: 0
     };
-    setCampaigns((prev) => [created, ...prev]);
-    showToast(`Campaña ${nextCode} registrada en base de datos`);
+    const nextList = [created, ...campaigns];
+    setCampaigns(nextList);
+    try { localStorage.setItem('tims_campaigns', JSON.stringify(nextList)); } catch {}
+    showToast(`Campaña ${nextCode} guardada exitosamente`);
+  };
+
+  const handleUpdateCampaign = (updated: MarketingCampaign) => {
+    const nextList = campaigns.map((c) => (c.id === updated.id ? updated : c));
+    setCampaigns(nextList);
+    try { localStorage.setItem('tims_campaigns', JSON.stringify(nextList)); } catch {}
+    showToast(`Campaña ${updated.code} actualizada`);
+  };
+
+  const handleDeleteCampaign = (id: string) => {
+    const nextList = campaigns.filter((c) => c.id !== id);
+    setCampaigns(nextList);
+    try { localStorage.setItem('tims_campaigns', JSON.stringify(nextList)); } catch {}
+    showToast('Campaña eliminada correctamente');
   };
 
   const handleUpdateCampaignStatus = (id: string, status: MarketingCampaignStatus) => {
-    setCampaigns((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status } : c))
-    );
+    const nextList = campaigns.map((c) => (c.id === id ? { ...c, status } : c));
+    setCampaigns(nextList);
+    try { localStorage.setItem('tims_campaigns', JSON.stringify(nextList)); } catch {}
     showToast('Estado de campaña actualizado en tiempo real');
   };
 
@@ -144,8 +175,24 @@ export default function Home() {
       ...newP,
       id: `pub-${Date.now()}`
     };
-    setPublications((prev) => [created, ...prev]);
+    const nextList = [created, ...publications];
+    setPublications(nextList);
+    try { localStorage.setItem('tims_publications', JSON.stringify(nextList)); } catch {}
     showToast('Publicación programada en el calendario de PR');
+  };
+
+  const handleUpdatePublication = (updated: ContentPublication) => {
+    const nextList = publications.map((p) => (p.id === updated.id ? updated : p));
+    setPublications(nextList);
+    try { localStorage.setItem('tims_publications', JSON.stringify(nextList)); } catch {}
+    showToast('Publicación actualizada correctamente');
+  };
+
+  const handleDeletePublication = (id: string) => {
+    const nextList = publications.filter((p) => p.id !== id);
+    setPublications(nextList);
+    try { localStorage.setItem('tims_publications', JSON.stringify(nextList)); } catch {}
+    showToast('Publicación eliminada correctamente');
   };
 
   const handleAddBrief = (newB: Omit<CreativeBrief, 'id' | 'date'>) => {
@@ -154,8 +201,24 @@ export default function Home() {
       id: `brf-${Date.now()}`,
       date: new Date().toISOString().split('T')[0]
     };
-    setBriefs((prev) => [created, ...prev]);
+    const nextList = [created, ...briefs];
+    setBriefs(nextList);
+    try { localStorage.setItem('tims_briefs', JSON.stringify(nextList)); } catch {}
     showToast('Brief creativo archivado en la biblioteca');
+  };
+
+  const handleUpdateBrief = (updated: CreativeBrief) => {
+    const nextList = briefs.map((b) => (b.id === updated.id ? updated : b));
+    setBriefs(nextList);
+    try { localStorage.setItem('tims_briefs', JSON.stringify(nextList)); } catch {}
+    showToast('Brief creativo actualizado');
+  };
+
+  const handleDeleteBrief = (id: string) => {
+    const nextList = briefs.filter((b) => b.id !== id);
+    setBriefs(nextList);
+    try { localStorage.setItem('tims_briefs', JSON.stringify(nextList)); } catch {}
+    showToast('Brief eliminado de la biblioteca');
   };
 
   const handleAddMarketingTask = async (newTask: Omit<MarketingTask, 'id' | 'code' | 'createdAt'>) => {
@@ -368,9 +431,15 @@ export default function Home() {
             briefs={briefs}
             marketingTasks={marketingTasks}
             onAddCampaign={handleAddCampaign}
+            onUpdateCampaign={handleUpdateCampaign}
+            onDeleteCampaign={handleDeleteCampaign}
             onUpdateCampaignStatus={handleUpdateCampaignStatus}
             onAddPublication={handleAddPublication}
+            onUpdatePublication={handleUpdatePublication}
+            onDeletePublication={handleDeletePublication}
             onAddBrief={handleAddBrief}
+            onUpdateBrief={handleUpdateBrief}
+            onDeleteBrief={handleDeleteBrief}
             onAddMarketingTask={handleAddMarketingTask}
             onUpdateMarketingTask={handleUpdateMarketingTask}
             onDeleteMarketingTask={handleDeleteMarketingTask}

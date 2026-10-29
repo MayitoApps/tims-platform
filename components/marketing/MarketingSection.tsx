@@ -20,9 +20,15 @@ interface MarketingSectionProps {
   briefs: CreativeBrief[];
   marketingTasks?: MarketingTask[];
   onAddCampaign: (campaign: Omit<MarketingCampaign, 'id' | 'code' | 'spent'>) => void;
+  onUpdateCampaign?: (campaign: MarketingCampaign) => void;
+  onDeleteCampaign?: (id: string) => void;
   onUpdateCampaignStatus: (id: string, status: MarketingCampaignStatus) => void;
   onAddPublication: (pub: Omit<ContentPublication, 'id'>) => void;
+  onUpdatePublication?: (pub: ContentPublication) => void;
+  onDeletePublication?: (id: string) => void;
   onAddBrief: (brief: Omit<CreativeBrief, 'id' | 'date'>) => void;
+  onUpdateBrief?: (brief: CreativeBrief) => void;
+  onDeleteBrief?: (id: string) => void;
   onAddMarketingTask: (task: Omit<MarketingTask, 'id' | 'code' | 'createdAt'>) => void;
   onUpdateMarketingTask?: (task: MarketingTask) => void;
   onDeleteMarketingTask?: (id: string) => void;
@@ -51,9 +57,15 @@ export function MarketingSection({
   briefs,
   marketingTasks = [],
   onAddCampaign,
+  onUpdateCampaign,
+  onDeleteCampaign,
   onUpdateCampaignStatus,
   onAddPublication,
+  onUpdatePublication,
+  onDeletePublication,
   onAddBrief,
+  onUpdateBrief,
+  onDeleteBrief,
   onAddMarketingTask,
   onUpdateMarketingTask,
   onDeleteMarketingTask,
@@ -66,11 +78,68 @@ export function MarketingSection({
   const [dragOverStage, setDragOverStage] = useState<MarketingTaskStage | null>(null);
   const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
 
-  // Modals
+  // Modals - Creation
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
   const [isPubModalOpen, setIsPubModalOpen] = useState(false);
   const [isBriefModalOpen, setIsBriefModalOpen] = useState(false);
+
+  // Modals - Edit & Delete States (Tasks)
+  const [editingTask, setEditingTask] = useState<MarketingTask | null>(null);
+  const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<MarketingTask | null>(null);
+
+  const [editTTitle, setEditTTitle] = useState('');
+  const [editTHotel, setEditTHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [editTCategory, setEditTCategory] = useState<MarketingTaskCategory>('diseno_grafico');
+  const [editTPriority, setEditTPriority] = useState<'alta' | 'media' | 'urgente'>('alta');
+  const [editTStage, setEditTStage] = useState<MarketingTaskStage>('backlog');
+  const [editTRequestedBy, setEditTRequestedBy] = useState('');
+  const [editTAssignedTo, setEditTAssignedTo] = useState('');
+  const [editTDueDate, setEditTDueDate] = useState('2026-11-15');
+  const [editTDesc, setEditTDesc] = useState('');
+  const [editTAssetUrl, setEditTAssetUrl] = useState('');
+
+  // Modals - Edit & Delete States (Campaigns)
+  const [editingCampaign, setEditingCampaign] = useState<MarketingCampaign | null>(null);
+  const [isEditCampaignModalOpen, setIsEditCampaignModalOpen] = useState(false);
+  const [campaignToDelete, setCampaignToDelete] = useState<MarketingCampaign | null>(null);
+
+  const [editCTitle, setEditCTitle] = useState('');
+  const [editCHotel, setEditCHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [editCSelectedSpaces, setEditCSelectedSpaces] = useState<string[]>([]);
+  const [editCType, setEditCType] = useState<MarketingCampaign['type']>('temporada');
+  const [editCStatus, setEditCStatus] = useState<MarketingCampaignStatus>('planificacion');
+  const [editCBudget, setEditCBudget] = useState('45000');
+  const [editCStart, setEditCStart] = useState('2026-10-20');
+  const [editCEnd, setEditCEnd] = useState('2026-12-31');
+  const [editCChannels, setEditCChannels] = useState('Instagram Ads, Meta Ads');
+  const [editCDesc, setEditCDesc] = useState('');
+
+  // Modals - Edit & Delete States (Publications)
+  const [editingPub, setEditingPub] = useState<ContentPublication | null>(null);
+  const [isEditPubModalOpen, setIsEditPubModalOpen] = useState(false);
+  const [pubToDelete, setPubToDelete] = useState<ContentPublication | null>(null);
+
+  const [editPTitle, setEditPTitle] = useState('');
+  const [editPHotel, setEditPHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [editPChannel, setEditPChannel] = useState<ContentPublication['channel']>('instagram');
+  const [editPDate, setEditPDate] = useState('2026-11-10');
+  const [editPResponsible, setEditPResponsible] = useState('Equipo Creativo');
+  const [editPStatus, setEditPStatus] = useState<ContentPublication['status']>('programado');
+
+  // Modals - Edit & Delete States (Briefs)
+  const [editingBrief, setEditingBrief] = useState<CreativeBrief | null>(null);
+  const [isEditBriefModalOpen, setIsEditBriefModalOpen] = useState(false);
+  const [briefToDelete, setBriefToDelete] = useState<CreativeBrief | null>(null);
+
+  const [editBTitle, setEditBTitle] = useState('');
+  const [editBHotel, setEditBHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [editBCategory, setEditBCategory] = useState<CreativeBrief['category']>('shooting_fotografico');
+  const [editBObjective, setEditBObjective] = useState('');
+  const [editBAudience, setEditBAudience] = useState('');
+  const [editBMessage, setEditBMessage] = useState('');
+  const [editBDeliverables, setEditBDeliverables] = useState('25 Fotos HD, 3 Reels');
 
   // Form states - Marketing Task
   const [tTitle, setTTitle] = useState('');
@@ -228,6 +297,194 @@ export function MarketingSection({
     } else if (direction === 'next' && idx < MARKETING_STAGES.length - 1) {
       onUpdateMarketingTaskStage(task.id, MARKETING_STAGES[idx + 1].id);
     }
+  };
+
+  // --- Handlers: Marketing Task Edit/Delete ---
+  const openEditTaskModal = (task: MarketingTask) => {
+    setEditingTask(task);
+    setEditTTitle(task.title);
+    setEditTHotel(task.hotelTarget);
+    setEditTCategory(task.category);
+    setEditTPriority(task.priority);
+    setEditTStage(task.stage);
+    setEditTRequestedBy(task.requestedBy);
+    setEditTAssignedTo(task.assignedTo);
+    setEditTDueDate(task.dueDate);
+    setEditTDesc(task.description || '');
+    setEditTAssetUrl(task.assetUrl || '');
+    setIsEditTaskModalOpen(true);
+  };
+
+  const handleSaveEditTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask || !editTTitle.trim()) return;
+
+    const updated: MarketingTask = {
+      ...editingTask,
+      title: editTTitle,
+      hotelTarget: editTHotel,
+      category: editTCategory,
+      priority: editTPriority,
+      stage: editTStage,
+      requestedBy: editTRequestedBy || 'Gerencia',
+      assignedTo: editTAssignedTo || 'Equipo Creativo',
+      dueDate: editTDueDate,
+      description: editTDesc,
+      assetUrl: editTAssetUrl || undefined
+    };
+
+    if (onUpdateMarketingTask) {
+      onUpdateMarketingTask(updated);
+    }
+    setIsEditTaskModalOpen(false);
+    setEditingTask(null);
+  };
+
+  const handleConfirmDeleteTask = () => {
+    if (!taskToDelete) return;
+    if (onDeleteMarketingTask) {
+      onDeleteMarketingTask(taskToDelete.id);
+    }
+    setTaskToDelete(null);
+  };
+
+  // --- Handlers: Campaign Edit/Delete ---
+  const openEditCampaignModal = (c: MarketingCampaign) => {
+    setEditingCampaign(c);
+    setEditCTitle(c.title);
+    setEditCHotel(c.hotelTarget);
+    setEditCSelectedSpaces(c.selectedSpaces || []);
+    setEditCType(c.type);
+    setEditCStatus(c.status);
+    setEditCBudget(String(c.budget));
+    setEditCStart(c.startDate);
+    setEditCEnd(c.endDate);
+    setEditCChannels(c.channels.join(', '));
+    setEditCDesc(c.description || '');
+    setIsEditCampaignModalOpen(true);
+  };
+
+  const handleToggleEditCampaignSpace = (spName: string) => {
+    setEditCSelectedSpaces((prev) =>
+      prev.includes(spName) ? prev.filter((s) => s !== spName) : [...prev, spName]
+    );
+  };
+
+  const handleSaveEditCampaign = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCampaign || !editCTitle.trim()) return;
+
+    const updated: MarketingCampaign = {
+      ...editingCampaign,
+      title: editCTitle,
+      hotelTarget: editCHotel,
+      selectedSpaces: editCSelectedSpaces,
+      type: editCType,
+      status: editCStatus,
+      budget: parseFloat(editCBudget) || editingCampaign.budget,
+      startDate: editCStart,
+      endDate: editCEnd,
+      channels: editCChannels.split(',').map((s) => s.trim()).filter(Boolean),
+      description: editCDesc
+    };
+
+    if (onUpdateCampaign) {
+      onUpdateCampaign(updated);
+    }
+    setIsEditCampaignModalOpen(false);
+    setEditingCampaign(null);
+  };
+
+  const handleConfirmDeleteCampaign = () => {
+    if (!campaignToDelete) return;
+    if (onDeleteCampaign) {
+      onDeleteCampaign(campaignToDelete.id);
+    }
+    setCampaignToDelete(null);
+  };
+
+  // --- Handlers: Publication Edit/Delete ---
+  const openEditPubModal = (pub: ContentPublication) => {
+    setEditingPub(pub);
+    setEditPTitle(pub.title);
+    setEditPHotel(pub.hotel);
+    setEditPChannel(pub.channel);
+    setEditPDate(pub.publishDate);
+    setEditPResponsible(pub.responsible);
+    setEditPStatus(pub.status);
+    setIsEditPubModalOpen(true);
+  };
+
+  const handleSaveEditPub = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPub || !editPTitle.trim()) return;
+
+    const updated: ContentPublication = {
+      ...editingPub,
+      title: editPTitle,
+      hotel: editPHotel,
+      channel: editPChannel,
+      publishDate: editPDate,
+      responsible: editPResponsible,
+      status: editPStatus
+    };
+
+    if (onUpdatePublication) {
+      onUpdatePublication(updated);
+    }
+    setIsEditPubModalOpen(false);
+    setEditingPub(null);
+  };
+
+  const handleConfirmDeletePub = () => {
+    if (!pubToDelete) return;
+    if (onDeletePublication) {
+      onDeletePublication(pubToDelete.id);
+    }
+    setPubToDelete(null);
+  };
+
+  // --- Handlers: Brief Edit/Delete ---
+  const openEditBriefModal = (brf: CreativeBrief) => {
+    setEditingBrief(brf);
+    setEditBTitle(brf.title);
+    setEditBHotel(brf.hotelTarget);
+    setEditBCategory(brf.category);
+    setEditBObjective(brf.objective);
+    setEditBAudience(brf.targetAudience);
+    setEditBMessage(brf.keyMessage);
+    setEditBDeliverables(brf.deliverables.join(', '));
+    setIsEditBriefModalOpen(true);
+  };
+
+  const handleSaveEditBrief = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBrief || !editBTitle.trim()) return;
+
+    const updated: CreativeBrief = {
+      ...editingBrief,
+      title: editBTitle,
+      hotelTarget: editBHotel,
+      category: editBCategory,
+      objective: editBObjective,
+      targetAudience: editBAudience,
+      keyMessage: editBMessage,
+      deliverables: editBDeliverables.split(',').map((s) => s.trim()).filter(Boolean)
+    };
+
+    if (onUpdateBrief) {
+      onUpdateBrief(updated);
+    }
+    setIsEditBriefModalOpen(false);
+    setEditingBrief(null);
+  };
+
+  const handleConfirmDeleteBrief = () => {
+    if (!briefToDelete) return;
+    if (onDeleteBrief) {
+      onDeleteBrief(briefToDelete.id);
+    }
+    setBriefToDelete(null);
   };
 
   return (
@@ -517,7 +774,7 @@ export function MarketingSection({
                               )}
                             </div>
 
-                            {/* Quick Step Buttons */}
+                            {/* Quick Step & Action Buttons */}
                             <div className="flex items-center justify-between pt-1.5 border-t border-stone-100 text-[10px]">
                               <button
                                 onClick={(e) => {
@@ -528,8 +785,32 @@ export function MarketingSection({
                                 className="px-2 py-0.5 rounded-sm border border-stone-200 text-stone-600 hover:bg-stone-50 disabled:opacity-30 disabled:pointer-events-none font-bold"
                                 title="Fase anterior"
                               >
-                                ◀ Fase previa
+                                ◀
                               </button>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditTaskModal(task);
+                                  }}
+                                  title="Editar Requerimiento"
+                                  className="px-1.5 py-0.5 rounded-sm bg-stone-100 hover:bg-purple-100 text-stone-700 hover:text-purple-900 border border-stone-200 font-semibold"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTaskToDelete(task);
+                                  }}
+                                  title="Eliminar Requerimiento"
+                                  className="px-1.5 py-0.5 rounded-sm bg-stone-100 hover:bg-rose-100 text-stone-700 hover:text-rose-800 border border-stone-200"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -539,7 +820,7 @@ export function MarketingSection({
                                 className="px-2 py-0.5 rounded-sm bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none font-bold"
                                 title="Avanzar de fase"
                               >
-                                Avanzar ▶
+                                ▶
                               </button>
                             </div>
                           </div>
@@ -561,6 +842,8 @@ export function MarketingSection({
           campaigns={campaigns}
           publications={publications}
           onAddCampaignClick={() => setIsCampaignModalOpen(true)}
+          onEditCampaignClick={openEditCampaignModal}
+          onDeleteCampaignClick={(c) => setCampaignToDelete(c)}
         />
       )}
 
@@ -579,6 +862,7 @@ export function MarketingSection({
                   <th className="py-3 px-4">Fechas</th>
                   <th className="py-3 px-4">Canales</th>
                   <th className="py-3 px-4">Enlaces</th>
+                  <th className="py-3 px-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -647,6 +931,23 @@ export function MarketingSection({
                           ))}
                         </div>
                       </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditCampaignModal(c)}
+                            className="px-2 py-1 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition-colors flex items-center gap-1"
+                          >
+                            <span>✏️</span> Editar
+                          </button>
+                          <button
+                            onClick={() => setCampaignToDelete(c)}
+                            className="p-1 rounded-lg bg-stone-100 text-stone-600 hover:bg-rose-50 hover:text-rose-700 border border-stone-200 text-xs transition-colors"
+                            title="Eliminar Campaña"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -672,8 +973,26 @@ export function MarketingSection({
                 <p className="text-xs text-rose-600 font-bold mt-0.5">{pub.hotel}</p>
               </div>
               <div className="flex items-center justify-between text-xs pt-2 border-t border-stone-100 text-stone-600">
-                <span>Resp: {pub.responsible}</span>
-                <span className="capitalize font-bold text-emerald-700">{pub.status}</span>
+                <div className="flex items-center gap-2">
+                  <span>Resp: {pub.responsible}</span>
+                  <span className="capitalize font-bold text-emerald-700">{pub.status}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openEditPubModal(pub)}
+                    className="p-1 rounded-md bg-stone-100 hover:bg-indigo-100 text-stone-700 hover:text-indigo-900 text-xs font-semibold border border-stone-200"
+                    title="Editar Publicación"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => setPubToDelete(pub)}
+                    className="p-1 rounded-md bg-stone-100 hover:bg-rose-100 text-stone-700 hover:text-rose-800 text-xs border border-stone-200"
+                    title="Eliminar Publicación"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -698,9 +1017,27 @@ export function MarketingSection({
               <p className="text-xs text-stone-700 line-clamp-2 leading-relaxed bg-stone-50 p-3 rounded-xl border border-stone-100">
                 {brf.objective}
               </p>
-              <div className="pt-2 border-t border-stone-100 text-xs text-stone-500 flex justify-between">
-                <span>Autor: {brf.author}</span>
-                <span className="font-bold text-stone-800">{brf.deliverables.length} entregables</span>
+              <div className="pt-2 border-t border-stone-100 text-xs text-stone-500 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span>Autor: {brf.author}</span>
+                  <span className="font-bold text-stone-800">{brf.deliverables.length} entregables</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openEditBriefModal(brf)}
+                    className="p-1 rounded-md bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-900 text-xs font-semibold border border-stone-200"
+                    title="Editar Brief"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => setBriefToDelete(brf)}
+                    className="p-1 rounded-md bg-stone-100 hover:bg-rose-100 text-stone-700 hover:text-rose-800 text-xs border border-stone-200"
+                    title="Eliminar Brief"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -1177,6 +1514,789 @@ export function MarketingSection({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL: EDITAR REQUERIMIENTO DE MARKETING */}
+      {isEditTaskModalOpen && editingTask && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-lg p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-purple-800 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                  {editingTask.code}
+                </span>
+                <h3 className="font-editorial text-2xl font-bold text-stone-900">
+                  Editar Requerimiento
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditTaskModalOpen(false);
+                  setEditingTask(null);
+                }}
+                className="text-stone-400 hover:text-stone-600 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTask} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Título del Requerimiento</label>
+                <input
+                  type="text"
+                  required
+                  value={editTTitle}
+                  onChange={(e) => setEditTTitle(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel Destino</label>
+                  <select
+                    value={editTHotel}
+                    onChange={(e) => setEditTHotel(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    {HOTEL_PROPERTIES.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Tipo de Entregable</label>
+                  <select
+                    value={editTCategory}
+                    onChange={(e) => setEditTCategory(e.target.value as MarketingTaskCategory)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    {MARKETING_CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.icon} {cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Fase / Estatus</label>
+                  <select
+                    value={editTStage}
+                    onChange={(e) => setEditTStage(e.target.value as MarketingTaskStage)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold"
+                  >
+                    {MARKETING_STAGES.map((s) => (
+                      <option key={s.id} value={s.id}>{s.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Prioridad</label>
+                  <select
+                    value={editTPriority}
+                    onChange={(e) => setEditTPriority(e.target.value as any)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold"
+                  >
+                    <option value="media">Media (Habitual)</option>
+                    <option value="alta">Alta (Campaña Próxima)</option>
+                    <option value="urgente">Urgente (Inmediato)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Fecha Límite</label>
+                  <input
+                    type="date"
+                    required
+                    value={editTDueDate}
+                    onChange={(e) => setEditTDueDate(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Asignado a</label>
+                  <input
+                    type="text"
+                    value={editTAssignedTo}
+                    onChange={(e) => setEditTAssignedTo(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Solicitado por</label>
+                <input
+                  type="text"
+                  value={editTRequestedBy}
+                  onChange={(e) => setEditTRequestedBy(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Enlace a Recursos / Figma / Drive</label>
+                <input
+                  type="url"
+                  value={editTAssetUrl}
+                  onChange={(e) => setEditTAssetUrl(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Descripción & Especificaciones</label>
+                <textarea
+                  rows={3}
+                  value={editTDesc}
+                  onChange={(e) => setEditTDesc(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDel = editingTask;
+                    setIsEditTaskModalOpen(false);
+                    setEditingTask(null);
+                    if (toDel) setTaskToDelete(toDel);
+                  }}
+                  className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <span>🗑️ Eliminar</span>
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditTaskModalOpen(false);
+                      setEditingTask(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-semibold shadow-xs"
+                  >
+                    Guardar Cambios
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMACIÓN DE ELIMINACIÓN DE TASK */}
+      {taskToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-editorial text-xl font-bold text-stone-900">
+                  ¿Eliminar este Requerimiento?
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Esta acción se sincronizará con la base de datos de marketing.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs space-y-1">
+              <div className="font-bold text-stone-900">
+                {taskToDelete.code} · {taskToDelete.title}
+              </div>
+              <div className="text-stone-600">
+                🏨 <strong>{taskToDelete.hotelTarget}</strong> · Resp: {taskToDelete.assignedTo}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setTaskToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteTask}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs"
+              >
+                Eliminar Definitivamente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDITAR CAMPAÑA */}
+      {isEditCampaignModalOpen && editingCampaign && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-lg p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                  {editingCampaign.code}
+                </span>
+                <h3 className="font-editorial text-2xl font-bold text-stone-900">
+                  Editar Campaña
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditCampaignModalOpen(false);
+                  setEditingCampaign(null);
+                }}
+                className="text-stone-400 hover:text-stone-600 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditCampaign} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Título de la Campaña</label>
+                <input
+                  type="text"
+                  required
+                  value={editCTitle}
+                  onChange={(e) => setEditCTitle(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel Destino</label>
+                  <select
+                    value={editCHotel}
+                    onChange={(e) => {
+                      setEditCHotel(e.target.value);
+                      setEditCSelectedSpaces([]);
+                    }}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    {HOTEL_PROPERTIES.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Estado</label>
+                  <select
+                    value={editCStatus}
+                    onChange={(e) => setEditCStatus(e.target.value as MarketingCampaignStatus)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold"
+                  >
+                    <option value="planificacion">Planificación</option>
+                    <option value="en_produccion">En Producción</option>
+                    <option value="revision">En Revisión</option>
+                    <option value="activa">Activa en Pauta</option>
+                    <option value="finalizada">Finalizada</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Espacios del Hotel */}
+              <div className="space-y-2 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                <label className="text-[11px] font-bold text-stone-800 uppercase tracking-wider block">
+                  Espacios del Hotel a Promocionar:
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
+                  {(HOTEL_SPACES[editCHotel] || []).map((space) => {
+                    const isSelected = editCSelectedSpaces.includes(space.name);
+                    return (
+                      <div
+                        key={space.id}
+                        onClick={() => handleToggleEditCampaignSpace(space.name)}
+                        className={'p-1.5 rounded-lg border text-[11px] cursor-pointer flex items-center gap-1.5 ' + (
+                          isSelected ? 'bg-rose-100 border-rose-400 text-rose-900 font-bold' : 'bg-white border-stone-200 text-stone-700'
+                        )}
+                      >
+                        <input type="checkbox" checked={isSelected} onChange={() => {}} className="accent-rose-600" />
+                        <span className="truncate">{space.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Presupuesto ($ MXN)</label>
+                  <input
+                    type="number"
+                    value={editCBudget}
+                    onChange={(e) => setEditCBudget(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Canales</label>
+                  <input
+                    type="text"
+                    value={editCChannels}
+                    onChange={(e) => setEditCChannels(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Fecha Inicio</label>
+                  <input
+                    type="date"
+                    value={editCStart}
+                    onChange={(e) => setEditCStart(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Fecha Fin</label>
+                  <input
+                    type="date"
+                    value={editCEnd}
+                    onChange={(e) => setEditCEnd(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDel = editingCampaign;
+                    setIsEditCampaignModalOpen(false);
+                    setEditingCampaign(null);
+                    if (toDel) setCampaignToDelete(toDel);
+                  }}
+                  className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <span>🗑️ Eliminar</span>
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditCampaignModalOpen(false);
+                      setEditingCampaign(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-xs"
+                  >
+                    Guardar Cambios
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMACIÓN DE ELIMINACIÓN DE CAMPAÑA */}
+      {campaignToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-editorial text-xl font-bold text-stone-900">
+                  ¿Eliminar esta Campaña?
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Esta acción se sincronizará con el calendario y la base de datos.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs space-y-1">
+              <div className="font-bold text-stone-900">
+                {campaignToDelete.code} · {campaignToDelete.title}
+              </div>
+              <div className="text-stone-600">
+                🏨 <strong>{campaignToDelete.hotelTarget}</strong> ({campaignToDelete.startDate} al {campaignToDelete.endDate})
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setCampaignToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteCampaign}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs"
+              >
+                Eliminar Definitivamente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDITAR PUBLICACIÓN / CONTENIDO */}
+      {isEditPubModalOpen && editingPub && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <h3 className="font-editorial text-xl font-bold text-stone-900">
+                Editar Publicación / PR
+              </h3>
+              <button
+                onClick={() => {
+                  setIsEditPubModalOpen(false);
+                  setEditingPub(null);
+                }}
+                className="text-stone-400 hover:text-stone-600 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditPub} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Título de la Pieza</label>
+                <input
+                  type="text"
+                  required
+                  value={editPTitle}
+                  onChange={(e) => setEditPTitle(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Canal</label>
+                  <select
+                    value={editPChannel}
+                    onChange={(e) => setEditPChannel(e.target.value as any)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    <option value="instagram">Instagram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="newsletter">Newsletter</option>
+                    <option value="prensa">Nota de Prensa</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel</label>
+                  <select
+                    value={editPHotel}
+                    onChange={(e) => setEditPHotel(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    {HOTEL_PROPERTIES.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Fecha</label>
+                  <input
+                    type="date"
+                    value={editPDate}
+                    onChange={(e) => setEditPDate(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Estado</label>
+                  <select
+                    value={editPStatus}
+                    onChange={(e) => setEditPStatus(e.target.value as any)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    <option value="idea">Idea</option>
+                    <option value="redactado">Redactado</option>
+                    <option value="diseñado">Diseñado</option>
+                    <option value="programado">Programado</option>
+                    <option value="publicado">Publicado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Responsable</label>
+                <input
+                  type="text"
+                  value={editPResponsible}
+                  onChange={(e) => setEditPResponsible(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                />
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDel = editingPub;
+                    setIsEditPubModalOpen(false);
+                    setEditingPub(null);
+                    if (toDel) setPubToDelete(toDel);
+                  }}
+                  className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold"
+                >
+                  Eliminar
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditPubModalOpen(false);
+                      setEditingPub(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMACIÓN DE ELIMINACIÓN DE PUBLICACIÓN */}
+      {pubToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-editorial text-xl font-bold text-stone-900">
+                  ¿Eliminar Publicación?
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Se removerá del calendario de contenidos y PR.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs space-y-1">
+              <div className="font-bold text-stone-900">{pubToDelete.title}</div>
+              <div className="text-stone-600">
+                Canal: <strong className="uppercase">{pubToDelete.channel}</strong> · Hotel: {pubToDelete.hotel}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setPubToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeletePub}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDITAR BRIEF CREATIVO */}
+      {isEditBriefModalOpen && editingBrief && (
+        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <h3 className="font-editorial text-xl font-bold text-stone-900">
+                Editar Brief Creativo
+              </h3>
+              <button
+                onClick={() => {
+                  setIsEditBriefModalOpen(false);
+                  setEditingBrief(null);
+                }}
+                className="text-stone-400 hover:text-stone-600 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditBrief} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Título del Documento</label>
+                <input
+                  type="text"
+                  required
+                  value={editBTitle}
+                  onChange={(e) => setEditBTitle(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel</label>
+                  <select
+                    value={editBHotel}
+                    onChange={(e) => setEditBHotel(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    {HOTEL_PROPERTIES.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Categoría</label>
+                  <select
+                    value={editBCategory}
+                    onChange={(e) => setEditBCategory(e.target.value as any)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  >
+                    <option value="shooting_fotografico">Shooting Fotográfico</option>
+                    <option value="comunicado_prensa">Comunicado de Prensa</option>
+                    <option value="campana_digital">Campaña Digital</option>
+                    <option value="evento_marca">Evento de Marca</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Objetivo</label>
+                <textarea
+                  rows={2}
+                  value={editBObjective}
+                  onChange={(e) => setEditBObjective(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Entregables (separados por coma)</label>
+                <input
+                  type="text"
+                  value={editBDeliverables}
+                  onChange={(e) => setEditBDeliverables(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                />
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDel = editingBrief;
+                    setIsEditBriefModalOpen(false);
+                    setEditingBrief(null);
+                    if (toDel) setBriefToDelete(toDel);
+                  }}
+                  className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold"
+                >
+                  Eliminar
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditBriefModalOpen(false);
+                      setEditingBrief(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRMACIÓN DE ELIMINACIÓN DE BRIEF */}
+      {briefToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-editorial text-xl font-bold text-stone-900">
+                  ¿Eliminar este Brief?
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Se removerá permanentemente de la biblioteca de briefs.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs space-y-1">
+              <div className="font-bold text-stone-900">{briefToDelete.title}</div>
+              <div className="text-stone-600">
+                Hotel: <strong>{briefToDelete.hotelTarget}</strong> · Autor: {briefToDelete.author}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setBriefToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteBrief}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs"
+              >
+                Eliminar Definitivamente
+              </button>
+            </div>
           </div>
         </div>
       )}

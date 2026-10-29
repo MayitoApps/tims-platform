@@ -13,3 +13,4 @@ export async function GET(request: NextRequest) {
   const baseUrl = new URL('/', request.url);
   return NextResponse.redirect(baseUrl);
 }
+

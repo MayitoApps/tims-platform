@@ -14,6 +14,8 @@ interface SharedCalendarProps {
   onAddCampaignClick?: () => void;
   onEditDealClick?: (deal: HotelDeal) => void;
   onDeleteDealClick?: (deal: HotelDeal) => void;
+  onEditCampaignClick?: (campaign: MarketingCampaign) => void;
+  onDeleteCampaignClick?: (campaign: MarketingCampaign) => void;
 }
 
 interface CalendarItem {
@@ -42,7 +44,9 @@ export function SharedCalendar({
   onAddDealClick,
   onAddCampaignClick,
   onEditDealClick,
-  onDeleteDealClick
+  onDeleteDealClick,
+  onEditCampaignClick,
+  onDeleteCampaignClick
 }: SharedCalendarProps) {
   // Navigation State (Starts at today's real date)
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -563,6 +567,30 @@ export function SharedCalendar({
                       const d = deals.find((x) => x.id === activeItemModal.id);
                       setActiveItemModal(null);
                       if (d) onDeleteDealClick(d);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 shadow-2xs"
+                  >
+                    <span>🗑️ Eliminar</span>
+                  </button>
+                )}
+                {activeItemModal.type === 'campaign' && onEditCampaignClick && (
+                  <button
+                    onClick={() => {
+                      const c = campaigns.find((x) => x.id === activeItemModal.id);
+                      setActiveItemModal(null);
+                      if (c) onEditCampaignClick(c);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs font-bold hover:bg-rose-100 transition-colors flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <span>✏️ Editar Campaña</span>
+                  </button>
+                )}
+                {activeItemModal.type === 'campaign' && onDeleteCampaignClick && (
+                  <button
+                    onClick={() => {
+                      const c = campaigns.find((x) => x.id === activeItemModal.id);
+                      setActiveItemModal(null);
+                      if (c) onDeleteCampaignClick(c);
                     }}
                     className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 shadow-2xs"
                   >
