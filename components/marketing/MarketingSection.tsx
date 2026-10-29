@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MarketingCampaign, ContentPublication, CreativeBrief, MarketingCampaignStatus, HotelDeal } from '@/lib/types';
+import { MarketingCampaign, ContentPublication, CreativeBrief, MarketingCampaignStatus } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
@@ -10,7 +10,6 @@ interface MarketingSectionProps {
   campaigns: MarketingCampaign[];
   publications: ContentPublication[];
   briefs: CreativeBrief[];
-  deals: HotelDeal[];
   onAddCampaign: (campaign: Omit<MarketingCampaign, 'id' | 'code' | 'spent'>) => void;
   onUpdateCampaignStatus: (id: string, status: MarketingCampaignStatus) => void;
   onAddPublication: (pub: Omit<ContentPublication, 'id'>) => void;
@@ -21,7 +20,6 @@ export function MarketingSection({
   campaigns,
   publications,
   briefs,
-  deals,
   onAddCampaign,
   onUpdateCampaignStatus,
   onAddPublication,
@@ -258,10 +256,10 @@ export function MarketingSection({
         </div>
       )}
 
-      {/* SUB-VIEW: CALENDARIO EN TIEMPO REAL */}
+      {/* SUB-VIEW: CALENDARIO EXCLUSIVO DE MARKETING (SEPARADO) */}
       {subView === 'calendario' && (
         <SharedCalendar
-          deals={deals}
+          mode="marketing"
           campaigns={campaigns}
           publications={publications}
           onAddCampaignClick={() => setIsCampaignModalOpen(true)}

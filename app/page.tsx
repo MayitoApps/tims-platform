@@ -10,8 +10,7 @@ import {
   INITIAL_CAMPAIGNS,
   INITIAL_PUBLICATIONS,
   INITIAL_BRIEFS,
-  INITIAL_DEALS,
-  INITIAL_FACTSHEETS
+  INITIAL_DEALS
 } from '@/lib/initial-data';
 
 import {
@@ -20,7 +19,6 @@ import {
   ContentPublication,
   CreativeBrief,
   HotelDeal,
-  HotelFactsheet,
   MarketingCampaignStatus,
   HotelDealStage
 } from '@/lib/types';
@@ -30,12 +28,11 @@ export default function Home() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [activeSection, setActiveSection] = useState<'marketing' | 'commercial'>('marketing');
 
-  // Real data state (Clean slate: starts empty as requested)
+  // Real data state
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>(INITIAL_CAMPAIGNS);
   const [publications, setPublications] = useState<ContentPublication[]>(INITIAL_PUBLICATIONS);
   const [briefs, setBriefs] = useState<CreativeBrief[]>(INITIAL_BRIEFS);
   const [deals, setDeals] = useState<HotelDeal[]>(INITIAL_DEALS);
-  const [factsheets, setFactsheets] = useState<HotelFactsheet[]>(INITIAL_FACTSHEETS);
 
   // Live Toast Notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -139,16 +136,6 @@ export default function Home() {
     showToast('Etapa de negociación actualizada en tiempo real');
   };
 
-  const handleAddFactsheet = (newF: Omit<HotelFactsheet, 'id' | 'updatedAt'>) => {
-    const created: HotelFactsheet = {
-      ...newF,
-      id: `fs-${Date.now()}`,
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
-    setFactsheets((prev) => [created, ...prev]);
-    showToast('Factsheet oficial publicado para el equipo de ventas');
-  };
-
   // Loading state
   if (isLoadingAuth) {
     return (
@@ -192,7 +179,6 @@ export default function Home() {
             campaigns={campaigns}
             publications={publications}
             briefs={briefs}
-            deals={deals}
             onAddCampaign={handleAddCampaign}
             onUpdateCampaignStatus={handleUpdateCampaignStatus}
             onAddPublication={handleAddPublication}
@@ -201,12 +187,8 @@ export default function Home() {
         ) : (
           <CommercialSection
             deals={deals}
-            campaigns={campaigns}
-            publications={publications}
-            factsheets={factsheets}
             onAddDeal={handleAddDeal}
             onUpdateDealStage={handleUpdateDealStage}
-            onAddFactsheet={handleAddFactsheet}
           />
         )}
       </main>

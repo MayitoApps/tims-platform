@@ -1,19 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { HotelDeal, HotelDealStage, DealCategory, HotelFactsheet, MarketingCampaign, ContentPublication } from '@/lib/types';
+import { HotelDeal, HotelDealStage, DealCategory } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 
 interface CommercialSectionProps {
   deals: HotelDeal[];
-  campaigns: MarketingCampaign[];
-  publications: ContentPublication[];
-  factsheets: HotelFactsheet[];
   onAddDeal: (deal: Omit<HotelDeal, 'id' | 'code' | 'createdAt'>) => void;
   onUpdateDealStage: (id: string, stage: HotelDealStage) => void;
-  onAddFactsheet: (factsheet: Omit<HotelFactsheet, 'id' | 'updatedAt'>) => void;
 }
 
 const STAGES: { id: HotelDealStage; title: string; colorDot: string }[] = [
@@ -26,19 +22,15 @@ const STAGES: { id: HotelDealStage; title: string; colorDot: string }[] = [
 
 export function CommercialSection({
   deals,
-  campaigns,
-  publications,
-  factsheets,
   onAddDeal,
-  onUpdateDealStage,
-  onAddFactsheet
+  onUpdateDealStage
 }: CommercialSectionProps) {
-  const [subView, setSubView] = useState<'pipeline' | 'calendario' | 'tabla' | 'tarifarios' | 'reporte'>('pipeline');
+  const [subView, setSubView] = useState<'pipeline' | 'calendario' | 'tabla' | 'reporte'>('pipeline');
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
 
-  // Modals
+  // Modal
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
-  const [isFactsheetModalOpen, setIsFactsheetModalOpen] = useState(false);
+  const [conflictError, setConflictError] = useState<string | null>(null);
 
   // Form states - Deal
   const [clientName, setClientName] = useState('');
@@ -57,15 +49,10 @@ export function CommercialSection({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
 
-  // Form states - Factsheet
-  const [fsTitle, setFsTitle] = useState('');
-  const [fsHotel, setFsHotel] = useState(HOTEL_PROPERTIES[0]);
-  const [fsType, setFsType] = useState<HotelFactsheet['type']>('capacidad_salones');
-  const [fsUrl, setFsUrl] = useState('https://drive.google.com');
-
   const availableSpaces = HOTEL_SPACES[hotel] || [];
 
   const handleToggleSpace = (spaceName: string) => {
+    setConflictError(null);
     setSelectedSpaces((prev) =>
       prev.includes(spaceName) ? prev.filter((s) => s !== spaceName) : [...prev, spaceName]
     );
@@ -73,7 +60,8 @@ export function CommercialSection({
 
   const handleHotelChangeInForm = (newHotel: string) => {
     setHotel(newHotel);
-    setSelectedSpaces([]); // Reset spaces when hotel changes
+    setSelectedSpaces([]);
+    setConflictError(null);
   };
 
   const filteredDeals = deals.filter(
@@ -92,15 +80,36 @@ export function CommercialSection({
     .filter((d) => d.stage !== 'perdido')
     .reduce((acc, d) => acc + d.roomNights, 0);
 
+  // VALIDACIÓN ESTRICTA DE CONFLICTO DE FECHAS Y ESPACIOS
   const handleCreateDeal = (e: React.FormEvent) => {
     e.preventDefault();
+    setConflictError(null);
+
     if (!clientName.trim() || !company.trim()) return;
+
+    const spacesToBook = selectedSpaces.length > 0 ? selectedSpaces : [availableSpaces[0]?.name || 'Área Principal'];
+
+    // Validar si existe alguna reserva activa en el mismo hotel con solapamiento de fechas y espacios
+    for (const deal of deals) {
+      if (deal.hotelName === hotel && deal.stage !== 'perdido') {
+        const isDateOverlap = checkIn <= deal.checkOutDate && checkOut >= deal.checkInDate;
+        if (isDateOverlap) {
+          const conflictingSpaces = spacesToBook.filter((sp) => deal.selectedSpaces.includes(sp));
+          if (conflictingSpaces.length > 0) {
+            setConflictError(
+              `⚠️ Conflicto de disponibilidad: El espacio "${conflictingSpaces.join(', ')}" en ${hotel} ya se encuentra reservado del ${formatDate(deal.checkInDate)} al ${formatDate(deal.checkOutDate)} para "${deal.companyOrAgency}". No es posible reservar el mismo espacio en estas fechas.`
+            );
+            return; // DETIENE EL GUARDADO
+          }
+        }
+      }
+    }
 
     onAddDeal({
       clientName,
       companyOrAgency: company,
       hotelName: hotel,
-      selectedSpaces: selectedSpaces.length > 0 ? selectedSpaces : [availableSpaces[0]?.name || 'Área Principal'],
+      selectedSpaces: spacesToBook,
       category,
       stage: 'rfp_recibido',
       totalValue: parseFloat(totalValue) || 150000,
@@ -120,22 +129,6 @@ export function CommercialSection({
     setNotes('');
     setSelectedSpaces([]);
     setIsDealModalOpen(false);
-  };
-
-  const handleCreateFactsheet = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fsTitle.trim()) return;
-
-    onAddFactsheet({
-      hotelName: fsHotel,
-      title: fsTitle,
-      type: fsType,
-      fileUrl: fsUrl,
-      version: 'v2026'
-    });
-
-    setFsTitle('');
-    setIsFactsheetModalOpen(false);
   };
 
   const moveStage = (deal: HotelDeal, direction: 'prev' | 'next') => {
@@ -161,15 +154,15 @@ export function CommercialSection({
               Comercialización & Ventas de Hoteles
             </h2>
             <p className="text-emerald-100 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
-              Gestión de grupos, bodas, eventos MICE, cuentas corporativas y bloqueo de espacios para cada una de las 6 propiedades del grupo.
+              Gestión de grupos, bodas, eventos MICE, cuentas corporativas y bloqueo de espacios con control de solapamiento de fechas.
             </p>
           </div>
 
-          {/* Quick Sub-View Selector */}
+          {/* Quick Sub-View Selector (Salones y Tarifas retirado) */}
           <div className="flex flex-wrap items-center gap-1.5 bg-black/25 backdrop-blur-md p-1.5 rounded-xl text-xs font-semibold">
             <button
               onClick={() => setSubView('pipeline')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3.5 py-2 rounded-lg transition-all ${
                 subView === 'pipeline'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -179,17 +172,17 @@ export function CommercialSection({
             </button>
             <button
               onClick={() => setSubView('calendario')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3.5 py-2 rounded-lg transition-all ${
                 subView === 'calendario'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
               }`}
             >
-              📅 Calendario en Tiempo Real
+              📅 Calendario de Eventos & Bloqueos
             </button>
             <button
               onClick={() => setSubView('tabla')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3.5 py-2 rounded-lg transition-all ${
                 subView === 'tabla'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -198,18 +191,8 @@ export function CommercialSection({
               Tabla de Negociaciones
             </button>
             <button
-              onClick={() => setSubView('tarifarios')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                subView === 'tarifarios'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              Salones & Tarifas
-            </button>
-            <button
               onClick={() => setSubView('reporte')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3.5 py-2 rounded-lg transition-all ${
                 subView === 'reporte'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -221,7 +204,7 @@ export function CommercialSection({
         </div>
       </div>
 
-      {/* Hotel Filter & Action Bar (except in Calendar which has its own controls) */}
+      {/* Hotel Filter & Action Bar */}
       {subView !== 'calendario' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-stone-200 shadow-2xs">
           <div className="flex items-center gap-2">
@@ -243,32 +226,28 @@ export function CommercialSection({
           </div>
 
           <div>
-            {subView !== 'tarifarios' ? (
-              <button
-                onClick={() => setIsDealModalOpen(true)}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2"
-              >
-                <span>+ Nuevo Grupo / Cotización con Espacios</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setIsFactsheetModalOpen(true)}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2"
-              >
-                <span>+ Subir Factsheet / Tarifario</span>
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setConflictError(null);
+                setIsDealModalOpen(true);
+              }}
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2"
+            >
+              <span>+ Nuevo Grupo / Cotización con Espacios</span>
+            </button>
           </div>
         </div>
       )}
 
-      {/* SUB-VIEW: CALENDARIO EN TIEMPO REAL */}
+      {/* SUB-VIEW: CALENDARIO EXCLUSIVO DE COMERCIALIZACIÓN (SEPARADO) */}
       {subView === 'calendario' && (
         <SharedCalendar
+          mode="commercial"
           deals={deals}
-          campaigns={campaigns}
-          publications={publications}
-          onAddDealClick={() => setIsDealModalOpen(true)}
+          onAddDealClick={() => {
+            setConflictError(null);
+            setIsDealModalOpen(true);
+          }}
         />
       )}
 
@@ -463,36 +442,6 @@ export function CommercialSection({
         </div>
       )}
 
-      {/* SUB-VIEW 3: TARIFARIOS & SALONES */}
-      {subView === 'tarifarios' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {factsheets.map((fs) => (
-            <div key={fs.id} className="bg-white border border-stone-200 rounded-2xl p-5 shadow-xs space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="uppercase text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-sm border border-amber-200">
-                  {fs.type.replace('_', ' ')}
-                </span>
-                <span className="font-mono text-stone-400 text-[11px]">{fs.version}</span>
-              </div>
-              <div>
-                <h4 className="font-bold text-stone-900 text-base">{fs.title}</h4>
-                <p className="text-xs text-emerald-700 font-semibold">{fs.hotelName}</p>
-              </div>
-              <div className="pt-2 border-t border-stone-100 flex justify-end">
-                <a
-                  href={fs.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 flex items-center gap-1"
-                >
-                  <span>Abrir Factsheet Oficial</span> ↗
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* SUB-VIEW 4: REPORTE & MÉTRICAS */}
       {subView === 'reporte' && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -528,7 +477,7 @@ export function CommercialSection({
         </div>
       )}
 
-      {/* MODAL: NUEVA COTIZACIÓN / RFP CON SELECCIÓN DE ESPACIOS */}
+      {/* MODAL: NUEVA COTIZACIÓN / RFP CON PREVENCIÓN DE CONFLICTO DE FECHAS */}
       {isDealModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-xl p-6 sm:p-8 space-y-5 max-h-[92vh] overflow-y-auto">
@@ -538,13 +487,20 @@ export function CommercialSection({
                   Alta de Cliente & Reserva de Espacios
                 </h3>
                 <p className="text-xs text-stone-500">
-                  Selecciona la propiedad de Grupo Orgánico y marca uno o varios espacios requeridos.
+                  Selecciona la propiedad de Grupo Orgánico y marca los espacios requeridos.
                 </p>
               </div>
               <button onClick={() => setIsDealModalOpen(false)} className="text-stone-400 hover:text-stone-600 text-lg">
                 ✕
               </button>
             </div>
+
+            {/* ALERTA DE CONFLICTO DE FECHAS / ESPACIOS BLOQUEADOS */}
+            {conflictError && (
+              <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-400 text-rose-950 text-xs font-semibold leading-relaxed animate-shake">
+                {conflictError}
+              </div>
+            )}
 
             <form onSubmit={handleCreateDeal} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
@@ -586,18 +542,18 @@ export function CommercialSection({
                 </select>
               </div>
 
-              {/* SECCIÓN CRÍTICA: ESPACIOS DISPONIBLES DE ESTE HOTEL (Checkboxes dinámicos) */}
+              {/* ESPACIOS DISPONIBLES DE ESTE HOTEL (Checkboxes dinámicos de gohb.com.mx) */}
               <div className="space-y-2 bg-stone-50 p-3.5 rounded-2xl border border-stone-200">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-stone-800 uppercase tracking-wider">
-                    Espacios Disponibles en {hotel}:
+                    Espacios Oficiales en {hotel}:
                   </label>
                   <span className="text-[10px] font-bold text-emerald-800">
                     {selectedSpaces.length} seleccionados
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-500">
-                  Marca uno o varios espacios que el cliente solicita bloquear para su evento o estancia:
+                  Elige uno o varios espacios para verificar disponibilidad en las fechas elegidas:
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-48 overflow-y-auto pr-1">
@@ -609,19 +565,19 @@ export function CommercialSection({
                         onClick={() => handleToggleSpace(space.name)}
                         className={`p-2 rounded-xl border cursor-pointer transition-all flex items-start gap-2 ${
                           isSelected
-                            ? 'bg-emerald-100/80 border-emerald-500 text-emerald-950 font-semibold shadow-2xs'
+                            ? 'bg-emerald-100/90 border-emerald-500 text-emerald-950 font-bold shadow-2xs'
                             : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => {}} // handled by parent div
+                          onChange={() => {}}
                           className="mt-0.5 rounded-sm accent-emerald-600"
                         />
                         <div className="leading-tight">
                           <div className="text-xs">{space.name}</div>
-                          <div className="text-[9px] text-stone-500 line-clamp-1">{space.description}</div>
+                          <div className="text-[9px] text-stone-500">{space.description}</div>
                         </div>
                       </div>
                     );
@@ -676,7 +632,7 @@ export function CommercialSection({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-stone-700 font-bold mb-1">Room Nights (Noches)</label>
+                  <label className="block text-stone-700 font-bold mb-1">Room Nights</label>
                   <input
                     type="number"
                     value={roomNights}
@@ -692,7 +648,10 @@ export function CommercialSection({
                   <input
                     type="date"
                     value={checkIn}
-                    onChange={(e) => setCheckIn(e.target.value)}
+                    onChange={(e) => {
+                      setCheckIn(e.target.value);
+                      setConflictError(null);
+                    }}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />
                 </div>
@@ -701,7 +660,10 @@ export function CommercialSection({
                   <input
                     type="date"
                     value={checkOut}
-                    onChange={(e) => setCheckOut(e.target.value)}
+                    onChange={(e) => {
+                      setCheckOut(e.target.value);
+                      setConflictError(null);
+                    }}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />
                 </div>
@@ -711,7 +673,7 @@ export function CommercialSection({
                 <label className="block text-stone-700 font-bold mb-1">Detalles de Montaje / Requerimientos</label>
                 <textarea
                   rows={2}
-                  placeholder="Detalles sobre menú, horario de coctel, número de habitaciones bloqueadas..."
+                  placeholder="Detalles sobre banquete, montaje de salón, requerimientos técnicos..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
@@ -731,93 +693,6 @@ export function CommercialSection({
                   className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-xs"
                 >
                   Guardar y Bloquear en Calendario
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: SUBIR FACTSHEET */}
-      {isFactsheetModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-              <h3 className="font-editorial text-xl font-bold text-stone-900">
-                Nuevo Factsheet de Hotel
-              </h3>
-              <button onClick={() => setIsFactsheetModalOpen(false)} className="text-stone-400 hover:text-stone-600 text-sm">
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateFactsheet} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-stone-700 font-bold mb-1">Título del Documento</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ej. Planos & Capacidades Salón Victoria"
-                  value={fsTitle}
-                  onChange={(e) => setFsTitle(e.target.value)}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Hotel</label>
-                  <select
-                    value={fsHotel}
-                    onChange={(e) => setFsHotel(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
-                  >
-                    {HOTEL_PROPERTIES.map((h) => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Tipo</label>
-                  <select
-                    value={fsType}
-                    onChange={(e) => setFsType(e.target.value as any)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
-                  >
-                    <option value="capacidad_salones">Capacidad de Salones</option>
-                    <option value="tarifario_grupos">Tarifario de Grupos</option>
-                    <option value="paquetes_bodas">Paquetes de Bodas</option>
-                    <option value="menu_banquetes">Menús de Banquetes</option>
-                    <option value="presentacion_hotel">Presentación del Hotel</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-stone-700 font-bold mb-1">URL Oficial del Archivo (Drive / PDF)</label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://drive.google.com/..."
-                  value={fsUrl}
-                  onChange={(e) => setFsUrl(e.target.value)}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-stone-200">
-                <button
-                  type="button"
-                  onClick={() => setIsFactsheetModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-semibold"
-                >
-                  Guardar Factsheet
                 </button>
               </div>
             </form>

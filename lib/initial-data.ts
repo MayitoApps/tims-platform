@@ -3,7 +3,6 @@ import {
   ContentPublication,
   CreativeBrief,
   HotelDeal,
-  HotelFactsheet,
   HotelSpaceInfo
 } from './types';
 
@@ -20,73 +19,83 @@ export const HOTEL_PROPERTIES = [
 ];
 
 // =============================================================
-// ESPACIOS OFICIALES POR HOTEL (Extraídos de cada propiedad)
+// ESPACIOS OFICIALES EXTRAÍDOS DIRECTAMENTE DE:
+// https://www.gohb.com.mx/nuestros-espacios (Nombres 100% exactos)
 // =============================================================
 export const HOTEL_SPACES: Record<string, HotelSpaceInfo[]> = {
   'Orgánico Ajusco': [
-    { id: 'aj-sal-vic', name: 'Salón Victoria', description: 'Espacio cerrado con calefacción para recepciones y cenas de gala', type: 'salon' },
-    { id: 'aj-aud-isa', name: 'Auditorio Isaura', description: 'Espacio multifuncional para juntas de consejo y dinámicas de grupo', type: 'salon' },
-    { id: 'aj-jar-chu', name: 'Jardín Chulavista & Lago Victoria', description: 'Jardín panorámico entre coníferas para ceremonias y cócteles', type: 'jardin' },
-    { id: 'aj-cas-clu', name: 'Casa Club & Chimenea Central', description: 'Área común acogedora con billar, bar y lounge de montaña', type: 'restaurante' },
-    { id: 'aj-res-pet', name: 'Restaurante Don Petro & Terraza', description: 'Gastronomía de autor a la leña y fuego vivo', type: 'restaurante' },
-    { id: 'aj-cab-bos', name: 'Cabañas & Master Suites del Bosque', description: 'Hospedaje de lujo rústico con chimenea privada', type: 'hospedaje' },
-    { id: 'aj-mir-pda', name: 'Mirador Pico del Águila & Fogateros', description: 'Zona de fogatadas nocturnas con antorchas y vista al valle', type: 'terraza' }
-  ],
-  'Orgánico Valle de Bravo': [
-    { id: 'vb-res-mil', name: 'Restaurante Milagro & Terraza', description: 'Cocina orgánica campestre con terraza rodeada de pinos', type: 'restaurante' },
-    { id: 'vb-bar-bie', name: 'Bar de Mixología Bienaventurado', description: 'Lounge exclusivo de coctelería botánica y autor', type: 'restaurante' },
-    { id: 'vb-jar-bos', name: 'Jardines del Bosque para Bodas', description: 'Claro natural arbolado para banquetes y bodas de destino', type: 'jardin' },
-    { id: 'vb-are-alb', name: 'Área de Alberca & Asoleadero', description: 'Piscina templada con camastros y vista a la montaña', type: 'terraza' },
-    { id: 'vb-sal-ret', name: 'Salón de Retiros & Talleres', description: 'Espacio vidriado con luz natural para yoga y sesiones ejecutivas', type: 'salon' },
-    { id: 'vb-cab-pri', name: 'Suites & Cabañas Boutique', description: 'Hospedaje privado con tina de hidromasaje y chimenea', type: 'hospedaje' }
+    { id: 'aj-aud-isa', name: 'Auditorio Isaura', description: 'Capacidad: 60 personas', type: 'salon' },
+    { id: 'aj-sal-vic', name: 'Salón Victoria', description: 'Capacidad: 150 personas', type: 'salon' },
+    { id: 'aj-cas-clu', name: 'Casa Club', description: 'Capacidad: 20 personas', type: 'salon' },
+    { id: 'aj-res-pet', name: 'Restaurante Don Petro', description: 'Capacidad: 100 personas', type: 'restaurante' },
+    { id: 'aj-bar-mie', name: 'Bar Miel Sobre Limón', description: 'Capacidad: 50 personas', type: 'restaurante' },
+    { id: 'aj-jar-cas', name: 'Jardín Casa Club', description: 'Capacidad: 50 personas', type: 'jardin' },
+    { id: 'aj-jar-chu', name: 'Jardín Chula Vista', description: 'Capacidad: 120 personas', type: 'jardin' },
+    { id: 'aj-jar-lal', name: 'Jardín Loma Alta', description: 'Capacidad: 60 personas', type: 'jardin' },
+    { id: 'aj-jar-les', name: 'Jardín Loma Escondida', description: 'Capacidad: 30 personas', type: 'jardin' },
+    { id: 'aj-jar-lli', name: 'Jardín Loma Linda', description: 'Capacidad: 200 personas', type: 'jardin' }
   ],
   'Orgánico Tepoztlán': [
-    { id: 'tp-jar-mis', name: 'Jardín Místico al Tepozteco', description: 'Explanada de pasto y flora nativa con vista directa al cerro', type: 'jardin' },
-    { id: 'tp-alb-vol', name: 'Alberca & Jacuzzi Volcánico', description: 'Zona acuática integrada en piedra volcánica y vegetación', type: 'terraza' },
-    { id: 'tp-ter-pan', name: 'Terraza Panorámica Tepozteco', description: 'Mirador elevado para cócteles y ceremonias espirituales', type: 'terraza' },
-    { id: 'tp-tem-hol', name: 'Temazcal & Espacio de Sanación', description: 'Área ceremonial para rituales holísticos y bienestar', type: 'bienestar' },
-    { id: 'tp-res-ter', name: 'Restaurante del Jardín', description: 'Cocina mexicana contemporánea con ingredientes locales', type: 'restaurante' },
-    { id: 'tp-sui-pie', name: 'Suites Rústico-Chic en Piedra', description: 'Habitaciones con arquitectura vernácula y terraza privada', type: 'hospedaje' }
+    { id: 'tp-jar-equ', name: 'Jardín Equilibrio', description: 'Capacidad: 150 personas', type: 'jardin' },
+    { id: 'tp-alb', name: 'Alberca', description: 'Capacidad: 100 personas', type: 'terraza' },
+    { id: 'tp-can-squ', name: 'Cancha de Squash', description: 'Capacidad: 30 personas', type: 'salon' },
+    { id: 'tp-cas-clu', name: 'Casa Club', description: 'Capacidad: 30 personas', type: 'salon' },
+    { id: 'tp-sal-imp', name: 'Salón Imperfecto', description: 'Capacidad: 80 personas', type: 'salon' },
+    { id: 'tp-res-inf', name: 'Restaurante Infinito', description: 'Capacidad: 60 personas', type: 'restaurante' }
   ],
-  'Orgánico Veracruz': [
-    { id: 'vr-pla-pri', name: 'Zona de Playa Privada (Costa Esmeralda)', description: 'Arena blanca frente al mar para bodas y ceremonias náuticas', type: 'jardin' },
-    { id: 'vr-res-mue', name: 'Restaurante El Muelle', description: 'Pabellón abierto especializado en cocina de mar y mariscos frescos', type: 'restaurante' },
-    { id: 'vr-poo-dec', name: 'Pool Deck & Alberca Frente al Mar', description: 'Piscina exterior con tumbonas, palmeras y barra de playa', type: 'terraza' },
-    { id: 'vr-jar-tro', name: 'Jardines Tropicales de Palmeras', description: 'Espacio verde para montajes al aire libre y cócteles sunset', type: 'jardin' },
-    { id: 'vr-sui-pla', name: 'Suites & Villas de Playa', description: 'Hospedaje costero con brisa marina y acceso directo al mar', type: 'hospedaje' }
-  ],
-  'Centro Cultural Quinta Soledad': [
-    { id: 'qs-aud-pie', name: 'Auditorio Pierre Damain', description: 'Majestuoso salón insignia para 100 personas con techos altos de cantera', type: 'salon' },
-    { id: 'qs-sal-gua', name: 'Salón Guadalupe', description: 'Salón señorial para 50 personas con vista a los jardines patrimoniales', type: 'salon' },
-    { id: 'qs-cap-vir', name: 'Capilla Virreinal Centenaria', description: 'Templo histórico de 1870 para ceremonias religiosas íntimas', type: 'salon' },
-    { id: 'qs-jar-cen', name: 'Jardines Arbolados de Cantera', description: 'Explanada central rodeada de árboles centenarios y muros virreinales', type: 'jardin' },
-    { id: 'qs-res-cap', name: 'Restaurante Capitular Tlalpan', description: 'Cocina de autor en casona de época porfiriana', type: 'restaurante' },
-    { id: 'qs-cla-bib', name: 'Claustro & Biblioteca Histórica', description: 'Pasillos con arcos y biblioteca para sesiones fotográficas o coctel', type: 'salon' }
+  'Orgánico Valle de Bravo': [
+    { id: 'vb-cas-clu', name: 'Casa Club', description: 'Capacidad: 40 personas', type: 'salon' },
+    { id: 'vb-sal-por', name: 'Salón Porvenir', description: 'Capacidad: 80 personas', type: 'salon' },
+    { id: 'vb-can-ten', name: 'Cancha de Tenis', description: 'Capacidad: 30 personas', type: 'salon' },
+    { id: 'vb-fog', name: 'Fogatero', description: 'Capacidad: 30 personas', type: 'terraza' },
+    { id: 'vb-jar-cnu', name: 'Jardín Casa Nueva', description: 'Capacidad: 100 personas', type: 'jardin' },
+    { id: 'vb-jar-rec', name: 'Jardín Recepción', description: 'Capacidad: 50 personas', type: 'jardin' },
+    { id: 'vb-res-mil', name: 'Restaurante Milagro', description: 'Capacidad: 100 personas', type: 'restaurante' },
+    { id: 'vb-bar-bie', name: 'Bar Bienaventurado', description: 'Capacidad: 50 personas', type: 'restaurante' },
+    { id: 'vb-alb', name: 'Alberca', description: 'Capacidad: 80 personas', type: 'terraza' }
   ],
   'Frontera 49 Roma Norte': [
-    { id: 'f49-roo-sol', name: 'Rooftop Solárium Roma Norte', description: 'Terraza superior con vista al corazón de la colonia Roma', type: 'terraza' },
-    { id: 'f49-res-bar', name: 'Restaurante & Bar Frontera 49', description: 'Gastronomía urbana de autor y coctelería contemporánea', type: 'restaurante' },
-    { id: 'f49-sal-wor', name: 'Salas de Trabajo & Co-living Creativo', description: 'Espacios funcionales para workshops, diseño y reuniones ágiles', type: 'salon' },
-    { id: 'f49-pat-cen', name: 'Patio Central & Galería de Arte', description: 'Patio interior con iluminación cenital para pop-ups y activaciones', type: 'jardin' },
-    { id: 'f49-hab-urb', name: 'Suites Boutique de Diseño', description: 'Hospedaje urbano contemporáneo para creativos y ejecutivos', type: 'hospedaje' }
+    { id: 'f49-cow', name: 'Coworking', description: 'Capacidad: 40 personas', type: 'salon' },
+    { id: 'f49-for-cul', name: 'Foro Cultural', description: 'Capacidad: 70 personas', type: 'salon' },
+    { id: 'f49-res-gar', name: 'Restaurante Garnachería Única', description: 'Capacidad: 50 personas', type: 'restaurante' },
+    { id: 'f49-ter', name: 'Terraza', description: 'Capacidad: 80 personas', type: 'terraza' }
+  ],
+  'Centro Cultural Quinta Soledad': [
+    { id: 'qs-aud-pie', name: 'Auditorio Pierre Damian', description: 'Capacidad: 100 personas', type: 'salon' },
+    { id: 'qs-bar-alp', name: 'Bar Alpestre', description: 'Capacidad: 100 personas', type: 'restaurante' },
+    { id: 'qs-res-cap', name: 'Restaurante Capitular', description: 'Capacidad: 100 personas', type: 'restaurante' },
+    { id: 'qs-sal-gua', name: 'Salón Guadalupe', description: 'Capacidad: 50 personas', type: 'salon' },
+    { id: 'qs-sal-bas', name: 'Salón Basilio', description: 'Capacidad: 12 personas', type: 'salon' },
+    { id: 'qs-sal-con', name: 'Salón Concilio', description: 'Capacidad: 45 personas', type: 'salon' },
+    { id: 'qs-sal-lav', name: 'Salón La Valla', description: 'Capacidad: 16 personas', type: 'salon' },
+    { id: 'qs-sal-min', name: 'Salón Ministerio', description: 'Capacidad: 40 personas', type: 'salon' },
+    { id: 'qs-sal-ova', name: 'Salón Oval', description: 'Capacidad: 45 personas', type: 'salon' },
+    { id: 'qs-cap', name: 'Capilla', description: 'Capacidad: 60 personas', type: 'salon' }
+  ],
+  'Orgánico Veracruz': [
+    { id: 'vr-pla-pri', name: 'Zona de Playa Privada', description: 'Bodas y eventos frente al mar en Costa Esmeralda', type: 'jardin' },
+    { id: 'vr-res-mue', name: 'Restaurante El Muelle', description: 'Cocina de mar y gastronomía local', type: 'restaurante' },
+    { id: 'vr-poo-dec', name: 'Pool Deck & Alberca', description: 'Piscina exterior con tumbonas y palmeras', type: 'terraza' },
+    { id: 'vr-jar-tro', name: 'Jardines Tropicales', description: 'Áreas verdes para cócteles y montajes al atardecer', type: 'jardin' },
+    { id: 'vr-sui-pla', name: 'Suites de Playa', description: 'Hospedaje costero para eventos y retiros', type: 'hospedaje' }
   ]
 };
 
 // =============================================================
 // DATOS EJEMPLO: COMERCIALIZACIÓN HOTELERA (Reservaciones & RFPs)
+// Usando los nombres de espacios 100% exactos de gohb.com.mx
 // =============================================================
 export const INITIAL_DEALS: HotelDeal[] = [
   {
     id: 'deal-1',
     code: 'RFP-501',
     clientName: 'Alejandra Morales & David Henderson',
-    companyOrAgency: 'Boda Morales Henderson (Boutique Wedding)',
+    companyOrAgency: 'Boda Morales Henderson',
     hotelName: 'Orgánico Ajusco',
     selectedSpaces: [
       'Salón Victoria',
-      'Jardín Chulavista & Lago Victoria',
-      'Cabañas & Master Suites del Bosque',
-      'Mirador Pico del Águila & Fogateros'
+      'Jardín Chula Vista',
+      'Casa Club'
     ],
     category: 'bodas_sociales',
     stage: 'contratado',
@@ -97,7 +106,7 @@ export const INITIAL_DEALS: HotelDeal[] = [
     checkInDate: '2026-04-18',
     checkOutDate: '2026-04-20',
     assignedRep: 'Lucía Fernández (Bodas & Sociales)',
-    notes: 'Boda de destino en el bosque. Ceremonia en Jardín Chulavista a las 16:00 hrs, recepción y banquete de 4 tiempos en Salón Victoria. Bloqueo total de cabañas para la familia.',
+    notes: 'Boda boutique en montaña. Ceremonia en Jardín Chula Vista y cena/baile en Salón Victoria. Casa Club para tornaboda.',
     contactEmail: 'alejandra.morales@gmail.com',
     contactPhone: '+52 55 4912 3001',
     createdAt: '2026-02-10'
@@ -106,13 +115,12 @@ export const INITIAL_DEALS: HotelDeal[] = [
     id: 'deal-2',
     code: 'RFP-502',
     clientName: 'Lic. Mariana Garza',
-    companyOrAgency: 'L’Oréal México (Cumbre de Innovación y Bienestar)',
+    companyOrAgency: 'L’Oréal México (Cumbre de Innovación)',
     hotelName: 'Centro Cultural Quinta Soledad',
     selectedSpaces: [
-      'Auditorio Pierre Damain',
+      'Auditorio Pierre Damian',
       'Salón Guadalupe',
-      'Jardines Arbolados de Cantera',
-      'Restaurante Capitular Tlalpan'
+      'Restaurante Capitular'
     ],
     category: 'grupos_convenciones',
     stage: 'negociacion',
@@ -123,7 +131,7 @@ export const INITIAL_DEALS: HotelDeal[] = [
     checkInDate: '2026-04-24',
     checkOutDate: '2026-04-24',
     assignedRep: 'Carlos Mendoza (MICE & Corporativo)',
-    notes: 'Evento corporativo de todo el día. Conferencia en Auditorio Pierre Damain, breakout rooms en Salón Guadalupe y comida de gala en Jardines de Cantera.',
+    notes: 'Conferencias en Auditorio Pierre Damian, mesas de trabajo en Salón Guadalupe y comida en Restaurante Capitular.',
     contactEmail: 'mgarza@loreal.com.mx',
     contactPhone: '+52 55 8820 1199',
     createdAt: '2026-02-18'
@@ -132,13 +140,13 @@ export const INITIAL_DEALS: HotelDeal[] = [
     id: 'deal-3',
     code: 'RFP-503',
     clientName: 'Santiago Bailleres',
-    companyOrAgency: 'McKinsey & Co. (Retiro Estratégico Anual de Socios)',
+    companyOrAgency: 'McKinsey & Co. (Retiro de Liderazgo)',
     hotelName: 'Orgánico Valle de Bravo',
     selectedSpaces: [
-      'Salón de Retiros & Talleres',
-      'Restaurante Milagro & Terraza',
-      'Bar de Mixología Bienaventurado',
-      'Suites & Cabañas Boutique'
+      'Salón Porvenir',
+      'Restaurante Milagro',
+      'Bar Bienaventurado',
+      'Fogatero'
     ],
     category: 'grupos_convenciones',
     stage: 'contratado',
@@ -149,7 +157,7 @@ export const INITIAL_DEALS: HotelDeal[] = [
     checkInDate: '2026-05-08',
     checkOutDate: '2026-05-11',
     assignedRep: 'Carlos Mendoza (MICE & Corporativo)',
-    notes: 'Buyout completo de la propiedad para retiro de liderazgo. Sesiones de trabajo por la mañana en Salón de Retiros y cenas maridaje en Restaurante Milagro.',
+    notes: 'Sesiones de planeación en Salón Porvenir, cenas maridaje en Restaurante Milagro y fogatada en el Fogatero.',
     contactEmail: 'santiago_bailleres@mckinsey.com',
     contactPhone: '+52 55 6019 4433',
     createdAt: '2026-02-25'
@@ -158,13 +166,12 @@ export const INITIAL_DEALS: HotelDeal[] = [
     id: 'deal-4',
     code: 'RFP-504',
     clientName: 'Valeria Cárdenas',
-    companyOrAgency: 'Retiro Holístico & Yoga Shanti',
+    companyOrAgency: 'Retiro Holístico Shanti Yoga',
     hotelName: 'Orgánico Tepoztlán',
     selectedSpaces: [
-      'Jardín Místico al Tepozteco',
-      'Temazcal & Espacio de Sanación',
-      'Terraza Panorámica Tepozteco',
-      'Suites Rústico-Chic en Piedra'
+      'Jardín Equilibrio',
+      'Salón Imperfecto',
+      'Restaurante Infinito'
     ],
     category: 'bodas_sociales',
     stage: 'propuesta_enviada',
@@ -175,7 +182,7 @@ export const INITIAL_DEALS: HotelDeal[] = [
     checkInDate: '2026-05-22',
     checkOutDate: '2026-05-24',
     assignedRep: 'Sofía Rebollar (Bienestar & Eventos)',
-    notes: 'Retiro de meditación, clases de yoga en Jardín Místico al amanecer y ceremonia de temazcal al atardecer.',
+    notes: 'Meditación matutina en Jardín Equilibrio, talleres en Salón Imperfecto y comidas en Restaurante Infinito.',
     contactEmail: 'valeria@shantiyoga.mx',
     contactPhone: '+52 777 312 8844',
     createdAt: '2026-03-01'
@@ -184,13 +191,12 @@ export const INITIAL_DEALS: HotelDeal[] = [
     id: 'deal-5',
     code: 'RFP-505',
     clientName: 'Guillermo y Pamela Sánchez',
-    companyOrAgency: 'Boda frente al mar (Costa Esmeralda)',
+    companyOrAgency: 'Boda Sánchez & Romo',
     hotelName: 'Orgánico Veracruz',
     selectedSpaces: [
-      'Zona de Playa Privada (Costa Esmeralda)',
+      'Zona de Playa Privada',
       'Restaurante El Muelle',
-      'Pool Deck & Alberca Frente al Mar',
-      'Suites & Villas de Playa'
+      'Pool Deck & Alberca'
     ],
     category: 'bodas_sociales',
     stage: 'negociacion',
@@ -201,7 +207,7 @@ export const INITIAL_DEALS: HotelDeal[] = [
     checkInDate: '2026-06-12',
     checkOutDate: '2026-06-14',
     assignedRep: 'Lucía Fernández (Bodas & Sociales)',
-    notes: 'Ceremonia civil en playa al atardecer, coctel de bienvenida en Pool Deck y fiesta con cena de mariscos en El Muelle.',
+    notes: 'Ceremonia en Playa Privada, banquete de mariscos en El Muelle y barra de cocteles en Pool Deck.',
     contactEmail: 'guillermo_sanchez@outlook.com',
     contactPhone: '+52 229 901 2288',
     createdAt: '2026-03-02'
@@ -210,12 +216,12 @@ export const INITIAL_DEALS: HotelDeal[] = [
     id: 'deal-6',
     code: 'RFP-506',
     clientName: 'Diego de la Torre',
-    companyOrAgency: 'Galería Mónica Saucedo & Coctel Mezcal Ojo de Tigre',
+    companyOrAgency: 'Galería Mónica Saucedo & Coctel Mezcal',
     hotelName: 'Frontera 49 Roma Norte',
     selectedSpaces: [
-      'Rooftop Solárium Roma Norte',
-      'Patio Central & Galería de Arte',
-      'Restaurante & Bar Frontera 49'
+      'Terraza',
+      'Foro Cultural',
+      'Restaurante Garnachería Única'
     ],
     category: 'cuentas_empresariales',
     stage: 'contratado',
@@ -226,7 +232,7 @@ export const INITIAL_DEALS: HotelDeal[] = [
     checkInDate: '2026-04-10',
     checkOutDate: '2026-04-11',
     assignedRep: 'Sofía Rebollar (Bienestar & Eventos)',
-    notes: 'Lanzamiento de colección artística contemporánea. Exhibición en Patio Central y barra de mixología premium en el Rooftop.',
+    notes: 'Exhibición de arte en Foro Cultural, degustación en Restaurante Garnachería Única y brindis en Terraza.',
     contactEmail: 'diego@monicasaucedo.art',
     contactPhone: '+52 55 1199 4400',
     createdAt: '2026-03-01'
@@ -240,7 +246,7 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
   {
     id: 'cmp-1',
     code: 'MKT-101',
-    title: 'Campaña Bodas de Destino & Romance 2026',
+    title: 'Campaña Bodas en el Bosque & Romance 2026',
     hotelTarget: 'Orgánico Ajusco',
     type: 'temporada',
     status: 'activa',
@@ -255,7 +261,7 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
     ],
     leadOwner: 'Elena Rostova (Marketing)',
     description: 'Atracción de parejas para bodas íntimas en el bosque con pauta segmentada a CDMX, Toluca y Querétaro.',
-    selectedSpaces: ['Salón Victoria', 'Jardín Chulavista & Lago Victoria']
+    selectedSpaces: ['Salón Victoria', 'Jardín Chula Vista']
   },
   {
     id: 'cmp-2',
@@ -273,8 +279,8 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
       { id: 'l3', title: 'Drive Comunicados Prensa', url: 'https://drive.google.com', platform: 'drive' }
     ],
     leadOwner: 'Clara Beaumont (Comunicación)',
-    description: 'Campaña de relaciones públicas para promover el Auditorio Pierre Damain y el Claustro para eventos culturales y corporativos.',
-    selectedSpaces: ['Auditorio Pierre Damain', 'Claustro & Biblioteca Histórica']
+    description: 'Campaña de relaciones públicas para promover el Auditorio Pierre Damian y los salones para eventos corporativos.',
+    selectedSpaces: ['Auditorio Pierre Damian', 'Salón Guadalupe']
   },
   {
     id: 'cmp-3',
@@ -293,14 +299,14 @@ export const INITIAL_CAMPAIGNS: MarketingCampaign[] = [
     ],
     leadOwner: 'Elena Rostova (Marketing)',
     description: 'Promoción de estancias de playa y gastronomía de mar en Restaurante El Muelle.',
-    selectedSpaces: ['Zona de Playa Privada (Costa Esmeralda)', 'Restaurante El Muelle']
+    selectedSpaces: ['Zona de Playa Privada', 'Restaurante El Muelle']
   }
 ];
 
 export const INITIAL_PUBLICATIONS: ContentPublication[] = [
   {
     id: 'pub-1',
-    title: 'Reel: Un despertar entre la bruma del Ajusco en Cabaña Master',
+    title: 'Reel: Un amanecer en Salón Victoria y Jardín Chula Vista',
     hotel: 'Orgánico Ajusco',
     channel: 'instagram',
     publishDate: '2026-04-05',
@@ -309,7 +315,7 @@ export const INITIAL_PUBLICATIONS: ContentPublication[] = [
   },
   {
     id: 'pub-2',
-    title: 'Nota de Prensa: Quinta Soledad, el refugio virreinal de Tlalpan para bodas de ensueño',
+    title: 'Nota de Prensa: Quinta Soledad, historia virreinal y modernidad en Tlalpan',
     hotel: 'Centro Cultural Quinta Soledad',
     channel: 'prensa',
     publishDate: '2026-04-12',
@@ -318,7 +324,7 @@ export const INITIAL_PUBLICATIONS: ContentPublication[] = [
   },
   {
     id: 'pub-3',
-    title: 'TikTok: 3 razones para hacer tu retiro de yoga en Orgánico Tepoztlán',
+    title: 'TikTok: 3 razones para visitar Jardín Equilibrio en Orgánico Tepoztlán',
     hotel: 'Orgánico Tepoztlán',
     channel: 'tiktok',
     publishDate: '2026-04-18',
@@ -327,7 +333,7 @@ export const INITIAL_PUBLICATIONS: ContentPublication[] = [
   },
   {
     id: 'pub-4',
-    title: 'LinkedIn: Retiros de Consejo de Alto Nivel en Orgánico Valle de Bravo',
+    title: 'LinkedIn: Retiros de Consejo de Alto Nivel en Salón Porvenir Valle de Bravo',
     hotel: 'Orgánico Valle de Bravo',
     channel: 'linkedin',
     publishDate: '2026-04-22',
@@ -339,75 +345,35 @@ export const INITIAL_PUBLICATIONS: ContentPublication[] = [
 export const INITIAL_BRIEFS: CreativeBrief[] = [
   {
     id: 'brf-1',
-    title: 'Shooting Oficial: Nuevas Master Suites & Chimeneas Ajusco',
+    title: 'Shooting Oficial: Salón Victoria & Jardines Ajusco 2026',
     hotelTarget: 'Orgánico Ajusco',
     category: 'shooting_fotografico',
-    objective: 'Actualizar banco de imágenes HD para página web y catálogo de ventas para parejas y bodas.',
-    targetAudience: 'Parejas entre 28 y 45 años, ejecutivos y planificadores de bodas de lujo.',
-    keyMessage: 'El bosque y el confort rústico más exclusivo a 40 minutos de la ciudad.',
+    objective: 'Actualizar banco de imágenes HD para catálogo de bodas y eventos corporativos.',
+    targetAudience: 'Wedding planners, parejas y directores corporativos.',
+    keyMessage: 'Naturaleza y elegancia rústica en el Ajusco.',
     deliverables: [
-      '25 Fotografías de arquitectura e interiores de cabañas',
+      '25 Fotografías de Salón Victoria y Jardín Chula Vista',
       '1 Video teaser cinematográfico de 30 segundos (4K)',
-      '10 Tomas de detalle en fogateros y vistas al Pico del Águila'
+      '10 Tomas de detalle en Don Petro y Miel Sobre Limón'
     ],
     author: 'Elena Rostova',
     date: '2026-03-20',
-    spacesTarget: ['Salón Victoria', 'Cabañas & Master Suites del Bosque', 'Mirador Pico del Águila & Fogateros']
+    spacesTarget: ['Salón Victoria', 'Jardín Chula Vista', 'Restaurante Don Petro']
   },
   {
     id: 'brf-2',
-    title: 'Comunicado de Prensa: Apertura de Temporada Gastronómica El Muelle',
-    hotelTarget: 'Orgánico Veracruz',
+    title: 'Comunicado de Prensa: Auditorio Pierre Damian & Experiencias Quinta Soledad',
+    hotelTarget: 'Centro Cultural Quinta Soledad',
     category: 'comunicado_prensa',
-    objective: 'Lograr menciones en revistas especializadas de gastronomía y viajes (Food & Travel, Quién, Travesías).',
-    targetAudience: 'Amantes de la cocina del mar y turistas de fin de semana de CDMX y Puebla.',
-    keyMessage: 'La riqueza marina de Costa Esmeralda con la elegancia relajada de Orgánico.',
+    objective: 'Menciones en medios nacionales de estilo de vida, negocios y cultura.',
+    targetAudience: 'Empresas y organizadores de eventos culturales.',
+    keyMessage: 'El recinto virreinal más exclusivo de Tlalpan para eventos memorables.',
     deliverables: [
-      'Boletín de prensa oficial redactado en 2 páginas',
-      'Fotogalería de 8 platillos insignia de Restaurante El Muelle',
-      'Kit de medios para editores de prensa'
+      'Boletín de prensa oficial',
+      'Fotogalería del Auditorio Pierre Damian y Restaurante Capitular'
     ],
     author: 'Clara Beaumont',
     date: '2026-03-25',
-    spacesTarget: ['Restaurante El Muelle', 'Zona de Playa Privada (Costa Esmeralda)']
-  }
-];
-
-export const INITIAL_FACTSHEETS: HotelFactsheet[] = [
-  {
-    id: 'fs-1',
-    hotelName: 'Orgánico Ajusco',
-    title: 'Factsheet de Salón Victoria & Auditorio Isaura 2026',
-    type: 'capacidad_salones',
-    fileUrl: 'https://drive.google.com',
-    updatedAt: '2026-03-01',
-    version: 'v2026.1'
-  },
-  {
-    id: 'fs-2',
-    hotelName: 'Centro Cultural Quinta Soledad',
-    title: 'Planos y Capacidades Auditorio Pierre Damain & Claustro',
-    type: 'capacidad_salones',
-    fileUrl: 'https://drive.google.com',
-    updatedAt: '2026-02-15',
-    version: 'v2026.2'
-  },
-  {
-    id: 'fs-3',
-    hotelName: 'Orgánico Valle de Bravo',
-    title: 'Tarifario de Grupos & Menús de Banquetes Milagro',
-    type: 'tarifario_grupos',
-    fileUrl: 'https://drive.google.com',
-    updatedAt: '2026-03-05',
-    version: 'v2026.1'
-  },
-  {
-    id: 'fs-4',
-    hotelName: 'Orgánico Veracruz',
-    title: 'Paquetes de Bodas Frente al Mar Costa Esmeralda',
-    type: 'paquetes_bodas',
-    fileUrl: 'https://drive.google.com',
-    updatedAt: '2026-02-28',
-    version: 'v2026.1'
+    spacesTarget: ['Auditorio Pierre Damian', 'Restaurante Capitular']
   }
 ];
