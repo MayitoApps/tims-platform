@@ -697,7 +697,7 @@ export function MarketingSection({
                   </div>
 
                   {/* Tasks in stage */}
-                  <div className="space-y-2.5 flex-1">
+                  <div className="space-y-2 flex-1">
                     {stageTasks.length === 0 ? (
                       <div className="h-32 rounded-xl border border-dashed border-stone-300 flex items-center justify-center text-center p-3 text-stone-400 text-xs">
                         Sin requerimientos en esta fase. Arrastra aquí para mover.
@@ -727,143 +727,118 @@ export function MarketingSection({
                               setDraggedTaskId(null);
                               setDragOverStage(null);
                             }}
-                            className={`bg-white rounded-xl p-3.5 border transition-all cursor-pointer hover:shadow-md space-y-2.5 select-none ${
+                            className={`bg-white rounded-xl p-2.5 border transition-all cursor-pointer hover:shadow-md space-y-1.5 select-none ${
                               isDragging
                                 ? 'opacity-40 border-stone-400 shadow-xl cursor-grabbing'
-                                : 'border-stone-200/90 shadow-2xs hover:border-purple-300 hover:ring-2 hover:ring-purple-200/50'
+                                : 'border-stone-200/90 shadow-2xs hover:border-purple-400 hover:ring-1 hover:ring-purple-300/40'
                             }`}
                           >
+                            {/* Fila 1: Código + Categoría + Prioridad */}
                             <div className="flex items-center justify-between gap-1 text-[10px]">
-                              <span className="font-mono font-bold text-stone-400">
-                                {task.code}
-                              </span>
-                              <span
-                                className={`px-2 py-0.5 rounded-md font-semibold border ${
-                                  catMeta?.badge || 'bg-stone-100 text-stone-700'
-                                }`}
-                              >
-                                {catMeta?.icon} {catMeta?.label}
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-mono font-bold text-stone-500 text-[9px] bg-stone-100 px-1 py-0.2 rounded shrink-0">
+                                  {task.code}
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.2 rounded font-semibold text-[9px] border truncate ${
+                                    catMeta?.badge || 'bg-stone-100 text-stone-700'
+                                  }`}
+                                >
+                                  {catMeta?.icon} {catMeta?.label}
+                                </span>
+                              </div>
+                              <span className={`px-1.5 py-0.2 rounded font-bold text-[8px] uppercase tracking-wider shrink-0 border ${priorityClass}`}>
+                                {task.priority}
                               </span>
                             </div>
 
-                            <div>
-                              <h5 className="font-bold text-stone-900 text-xs sm:text-[13px] leading-snug">
+                            {/* Fila 2: Título del Requerimiento & Hotel */}
+                            <div className="min-w-0 leading-tight">
+                              <h5 className="font-semibold text-stone-900 text-xs truncate" title={task.title}>
                                 {task.title}
                               </h5>
-                              <p className="text-[11px] text-rose-600 font-bold mt-0.5">
-                                {task.hotelTarget}
+                              <p className="text-[10px] text-rose-700 font-bold truncate">
+                                🏨 {task.hotelTarget.replace('Hotel Boutique ', '').replace('Hacienda ', '')}
                               </p>
                             </div>
 
-                            {task.description && (
-                              <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed bg-stone-50 p-2 rounded-lg border border-stone-100">
-                                {task.description}
-                              </p>
-                            )}
+                            {/* Fila 3: Responsable + Fecha Límite + Checklist Pill */}
+                            <div className="flex items-center justify-between gap-1 text-[10px] text-stone-600 bg-stone-50/80 px-2 py-1 rounded-md border border-stone-100">
+                              <span className="truncate max-w-[110px] text-[9px]">
+                                👤 <strong className="text-stone-700">{task.assignedTo.split(' ')[0]}</strong>
+                              </span>
 
-                            {/* Checklist de Entregables Mini Progress */}
-                            {task.checklist && task.checklist.length > 0 && (
-                              <div className="bg-purple-50/50 border border-purple-200/80 rounded-lg p-2 space-y-1">
-                                <div className="flex items-center justify-between text-[10px] font-bold text-stone-700">
-                                  <span className="flex items-center gap-1 text-purple-900">☑️ Entregables:</span>
-                                  <span className="font-mono text-purple-900 font-extrabold">
-                                    {task.checklist.filter((i) => i.completed).length} / {task.checklist.length}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {task.checklist && task.checklist.length > 0 && (
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                                      task.checklist.every((i) => i.completed)
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-purple-50 text-purple-900 border-purple-200'
+                                    }`}
+                                    title="Entregables completados"
+                                  >
+                                    ☑️ {task.checklist.filter((i) => i.completed).length}/{task.checklist.length}
                                   </span>
-                                </div>
-                                <div className="w-full bg-stone-200 h-1.5 rounded-full overflow-hidden">
-                                  <div
-                                    className="bg-purple-700 h-full rounded-full transition-all"
-                                    style={{
-                                      width: `${(task.checklist.filter((i) => i.completed).length / task.checklist.length) * 100}%`
-                                    }}
-                                  />
-                                </div>
+                                )}
+                                <span className="text-[9px] text-stone-500 font-medium">
+                                  📅 {formatDate(task.dueDate)}
+                                </span>
                               </div>
-                            )}
-
-                            <div className="flex items-center justify-between text-[10px] pt-1 border-t border-stone-100">
-                              <span className={`px-1.5 py-0.5 rounded-sm font-semibold border ${priorityClass}`}>
-                                Prioridad {task.priority.toUpperCase()}
-                              </span>
-                              <span className="text-stone-500 font-medium">
-                                📅 {formatDate(task.dueDate)}
-                              </span>
                             </div>
 
-                            <div className="flex items-center justify-between text-[10px] text-stone-500 pt-0.5">
-                              <span className="truncate max-w-[120px]">
-                                Resp: <strong className="text-stone-700">{task.assignedTo}</strong>
-                              </span>
+                            {/* Fila 4: Recurso (si existe) + Acciones Rápidas */}
+                            <div className="flex items-center justify-between pt-1 border-t border-stone-100 text-[10px]">
+                              <div>
+                                {task.assetUrl ? (
+                                  <a
+                                    href={task.assetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-indigo-600 hover:text-indigo-800 font-bold text-[9px] underline flex items-center gap-0.5"
+                                  >
+                                    <span>🔗 Archivo ↗</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-[9px] text-stone-400">Sin archivo</span>
+                                )}
+                              </div>
 
-                              {task.assetUrl && (
-                                <a
-                                  href={task.assetUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-indigo-600 hover:text-indigo-800 font-semibold underline"
-                                >
-                                  Ver Recurso ↗
-                                </a>
-                              )}
-                            </div>
-
-                            {/* Botón de apertura en grande */}
-                            <div className="flex items-center justify-between text-[10px] text-stone-500 pt-1 border-t border-stone-100">
-                              <span className="font-bold text-purple-800 flex items-center gap-1 hover:underline">
-                                👁️ Ver requerimiento completo
-                              </span>
-                              <span className="text-[9px] text-stone-400">Clic para ampliar</span>
-                            </div>
-
-                            {/* Quick Step & Action Buttons */}
-                            <div className="flex items-center justify-between pt-1.5 border-t border-stone-100 text-[10px]">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  moveTaskStage(task, 'prev');
-                                }}
-                                disabled={col.id === 'backlog'}
-                                className="px-2 py-0.5 rounded-sm border border-stone-200 text-stone-600 hover:bg-stone-50 disabled:opacity-30 disabled:pointer-events-none font-bold"
-                                title="Fase anterior"
-                              >
-                                ◀
-                              </button>
-
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openEditTaskModal(task);
                                   }}
-                                  title="Editar Requerimiento"
-                                  className="px-1.5 py-0.5 rounded-sm bg-stone-100 hover:bg-purple-100 text-stone-700 hover:text-purple-900 border border-stone-200 font-semibold"
+                                  title="Editar"
+                                  className="px-1 py-0.5 rounded text-stone-500 hover:text-stone-800 hover:bg-stone-100 text-[10px]"
                                 >
                                   ✏️
                                 </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setTaskToDelete(task);
+                                    moveTaskStage(task, 'prev');
                                   }}
-                                  title="Eliminar Requerimiento"
-                                  className="px-1.5 py-0.5 rounded-sm bg-stone-100 hover:bg-rose-100 text-stone-700 hover:text-rose-800 border border-stone-200"
+                                  disabled={col.id === 'backlog'}
+                                  className="w-4 h-4 flex items-center justify-center rounded border border-stone-200 text-stone-600 hover:bg-stone-50 disabled:opacity-20 disabled:pointer-events-none text-[9px] font-bold"
+                                  title="Fase anterior"
                                 >
-                                  🗑️
+                                  ◀
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    moveTaskStage(task, 'next');
+                                  }}
+                                  disabled={col.id === 'aprobado'}
+                                  className="w-4 h-4 flex items-center justify-center rounded bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-20 disabled:pointer-events-none text-[9px] font-bold"
+                                  title="Avanzar de fase"
+                                >
+                                  ▶
                                 </button>
                               </div>
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  moveTaskStage(task, 'next');
-                                }}
-                                disabled={col.id === 'aprobado'}
-                                className="px-2 py-0.5 rounded-sm bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none font-bold"
-                                title="Avanzar de fase"
-                              >
-                                ▶
-                              </button>
                             </div>
                           </div>
                         );

@@ -325,3 +325,4 @@ export function QuotationPrintModal({ deal, onClose }: QuotationPrintModalProps)
     </div>
   );
 }
+

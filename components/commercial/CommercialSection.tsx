@@ -641,160 +641,107 @@ export function CommercialSection({
                             setDraggedDealId(null);
                             setDragOverStage(null);
                           }}
-                          className={`bg-white border rounded-xl p-3 shadow-2xs hover:shadow-md transition-all space-y-2 cursor-pointer ${
+                          className={`bg-white border rounded-xl p-2.5 shadow-2xs hover:shadow-md transition-all space-y-1.5 cursor-pointer ${
                             isBeingDragged
                               ? 'opacity-35 border-dashed border-emerald-500 scale-98 cursor-grabbing'
-                              : 'border-stone-200 hover:border-emerald-300 hover:ring-2 hover:ring-emerald-200/50'
+                              : 'border-stone-200 hover:border-emerald-400 hover:ring-1 hover:ring-emerald-300/40'
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-1.5">
-                            <div className="min-w-0">
-                              <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded-xs">
+                          {/* Fila 1: Código + Hotel + Monto */}
+                          <div className="flex items-center justify-between gap-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60 shrink-0">
                                 {deal.code}
                               </span>
-                              <h4 className="font-editorial text-sm font-bold text-stone-900 leading-snug mt-0.5 truncate" title={deal.companyOrAgency}>
-                                {deal.companyOrAgency}
-                              </h4>
-                              <div className="text-[11px] text-stone-500 font-medium truncate">
-                                {deal.clientName}
-                              </div>
+                              <span className="text-[10px] font-bold text-stone-700 truncate" title={deal.hotelName}>
+                                🏨 {deal.hotelName.replace('Hotel Boutique ', '').replace('Hacienda ', '')}
+                              </span>
                             </div>
-                            <div className="text-right shrink-0">
-                              <div className="font-mono text-xs font-bold text-emerald-900">
-                                {formatCurrency(deal.totalValue, deal.currency)}
-                              </div>
+                            <span className="font-mono text-xs font-extrabold text-emerald-900 shrink-0">
+                              {formatCurrency(deal.totalValue, deal.currency)}
+                            </span>
+                          </div>
+
+                          {/* Fila 2: Empresa y Cliente */}
+                          <div className="min-w-0 leading-tight">
+                            <h4 className="font-semibold text-xs text-stone-900 truncate" title={deal.companyOrAgency}>
+                              {deal.companyOrAgency}
+                            </h4>
+                            <div className="text-[10px] text-stone-500 truncate">
+                              {deal.clientName}
                             </div>
                           </div>
 
-                          <div className="space-y-1 text-xs">
-                            <div className="text-[11px] font-bold text-rose-700 flex items-center gap-1 truncate">
-                              <span>🏨</span> {deal.hotelName}
-                            </div>
-
-                            {/* Espacios Seleccionados del Hotel */}
-                            {deal.selectedSpaces && deal.selectedSpaces.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-0.5">
-                                {deal.selectedSpaces.map((sp, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="text-[9px] font-semibold bg-emerald-50/80 text-emerald-900 border border-emerald-200 px-1.5 py-0.2 rounded-sm"
-                                  >
-                                    ✓ {sp}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-
-                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                              <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-sm border ${catInfo.badge}`}>
-                                {catInfo.label}
-                              </span>
+                          {/* Fila 3: Fechas y Métricas clave (RN, Categoría) */}
+                          <div className="flex items-center justify-between gap-1 text-[10px] text-stone-600 bg-stone-50/80 px-2 py-1 rounded-md border border-stone-100">
+                            <span className="font-mono text-[9px] text-stone-600 truncate">
+                              📅 {formatDate(deal.checkInDate)} → {formatDate(deal.checkOutDate)}
+                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
                               {deal.roomNights > 0 && (
-                                <span className="text-[9px] font-mono bg-stone-100 text-stone-700 px-1.5 py-0.2 rounded-sm font-semibold">
+                                <span className="font-bold text-[9px] text-amber-800 bg-amber-50 px-1 py-0.2 rounded border border-amber-200/60">
                                   {deal.roomNights} RN
                                 </span>
                               )}
-                            </div>
-
-                            {/* Desglose de Habitaciones Requeridas */}
-                            {deal.requestedRooms && deal.requestedRooms.length > 0 && (
-                              <div className="bg-amber-50/70 border border-amber-200/80 rounded-lg p-1.5 space-y-0.5">
-                                <div className="text-[9px] font-bold text-amber-900 flex items-center justify-between">
-                                  <span className="flex items-center gap-1">🛏️ Habitaciones ({deal.requestedRooms.reduce((acc, r) => acc + r.count, 0)} total):</span>
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {deal.requestedRooms.map((rm, idx) => (
-                                    <span key={idx} className="text-[9px] bg-white border border-amber-200/80 text-amber-900 px-1 py-0.2 rounded font-medium shadow-2xs">
-                                      <strong className="font-bold">{rm.count}x</strong> {rm.roomTypeName}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Control de Anticipos y Pagos */}
-                          <div className="flex items-center justify-between text-[10px] bg-stone-50 px-2 py-1 rounded-md border border-stone-100">
-                            <span className="font-semibold text-stone-600">
-                              Anticipo: {formatCurrency(deal.depositAmount || 0, deal.currency)}
-                            </span>
-                            <span
-                              className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
-                                deal.paymentStatus === 'liquidado'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : deal.paymentStatus === 'anticipo_pagado'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {deal.paymentStatus === 'liquidado'
-                                ? 'Liquidado'
-                                : deal.paymentStatus === 'anticipo_pagado'
-                                ? 'Anticipo'
-                                : 'Sin pago'}
-                            </span>
-                          </div>
-
-                          <div className="text-[10px] text-stone-600 font-mono bg-stone-50 p-1.5 rounded-lg border border-stone-100 flex items-center justify-between">
-                            <span>📅 {formatDate(deal.checkInDate)}</span>
-                            <span>→ {formatDate(deal.checkOutDate)}</span>
-                          </div>
-
-                          {/* Botón de apertura en grande y cotización */}
-                          <div className="flex items-center justify-between pt-1 text-[10px] text-stone-500">
-                            <span className="font-bold text-emerald-800 flex items-center gap-1 hover:underline">
-                              👁️ Ver ficha completa
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setQuotationDeal(deal);
-                              }}
-                              className="px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold flex items-center gap-1 cursor-pointer"
-                              title="Generar e Imprimir Cotización / PDF"
-                            >
-                              <span>📄 Cotización</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-1.5 border-t border-stone-100 text-[10px]">
-                            <div className="flex items-center gap-1.5 truncate">
-                              <span className="text-stone-500 font-medium truncate" title={deal.assignedRep}>
-                                👤 {deal.assignedRep.split(' ')[0]}
+                              <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded border ${catInfo.badge}`}>
+                                {catInfo.label}
                               </span>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEditModal(deal);
-                                  }}
-                                  title="Editar Evento"
-                                  className="px-1.5 py-0.5 rounded-md bg-stone-100 hover:bg-emerald-100 text-stone-700 hover:text-emerald-900 border border-stone-200 font-semibold"
-                                >
-                                  ✏️
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDealToDelete(deal);
-                                  }}
-                                  title="Eliminar Evento"
-                                  className="px-1.5 py-0.5 rounded-md bg-stone-100 hover:bg-rose-100 text-stone-700 hover:text-rose-800 border border-stone-200"
-                                >
-                                  🗑️
-                                </button>
-                              </div>
+                            </div>
+                          </div>
+
+                          {/* Fila 4: Estado de Pago + Acciones Rápidas */}
+                          <div className="flex items-center justify-between pt-1 border-t border-stone-100 text-[10px]">
+                            {/* Estado de pago pill & Botón rápido PDF */}
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
+                                  deal.paymentStatus === 'liquidado'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    : deal.paymentStatus === 'anticipo_pagado'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                }`}
+                              >
+                                {deal.paymentStatus === 'liquidado'
+                                  ? '● Liquidado'
+                                  : deal.paymentStatus === 'anticipo_pagado'
+                                  ? '● Anticipo'
+                                  : '○ Sin pago'}
+                              </span>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setQuotationDeal(deal);
+                                }}
+                                className="px-1.5 py-0.2 rounded bg-stone-100 hover:bg-emerald-50 text-stone-600 hover:text-emerald-800 border border-stone-200 hover:border-emerald-300 font-bold text-[9px] flex items-center gap-0.5 cursor-pointer"
+                                title="Cotización / PDF"
+                              >
+                                <span>📄 PDF</span>
+                              </button>
                             </div>
 
+                            {/* Acciones y cambio de etapa */}
                             <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditModal(deal);
+                                }}
+                                title="Editar"
+                                className="px-1 py-0.5 rounded text-stone-500 hover:text-stone-800 hover:bg-stone-100 text-[10px]"
+                              >
+                                ✏️
+                              </button>
+
                               {stageIdx > 0 && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     moveStage(deal, 'prev');
                                   }}
-                                  title="Mover a etapa anterior"
-                                  className="px-1.5 py-0.5 rounded-md border border-stone-300 hover:bg-stone-100 font-bold"
+                                  title="Etapa anterior"
+                                  className="w-4 h-4 flex items-center justify-center rounded border border-stone-300 text-stone-600 hover:bg-stone-100 text-[9px] font-bold"
                                 >
                                   ◀
                                 </button>
@@ -805,8 +752,8 @@ export function CommercialSection({
                                     e.stopPropagation();
                                     moveStage(deal, 'next');
                                   }}
-                                  title="Mover a etapa siguiente"
-                                  className="px-1.5 py-0.5 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 font-bold"
+                                  title="Siguiente etapa"
+                                  className="w-4 h-4 flex items-center justify-center rounded bg-emerald-700 text-white hover:bg-emerald-800 text-[9px] font-bold"
                                 >
                                   ▶
                                 </button>
