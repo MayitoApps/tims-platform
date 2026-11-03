@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   HotelDeal,
   HotelDealStage,
@@ -12,6 +12,8 @@ import {
   AppNotification,
   COMMERCIAL_TEAM,
   CommercialExecutive,
+  CommercialTask,
+  CommercialTaskStage,
   ADMIN_EMAILS,
   isAdminEmail,
   getExecutiveEventStatus
@@ -24,13 +26,19 @@ import { AvailabilityCheckerModal } from './AvailabilityCheckerModal';
 
 interface CommercialSectionProps {
   deals: HotelDeal[];
+  commercialTasks?: CommercialTask[];
   currentUser?: UserProfile | null;
+  registeredUsers?: UserProfile[];
   selectedDealId?: string | null;
   onClearSelectedDealId?: () => void;
   onAddDeal: (deal: Omit<HotelDeal, 'id' | 'code' | 'createdAt'>) => void;
   onUpdateDeal: (deal: HotelDeal) => void;
   onDeleteDeal: (dealId: string) => void;
   onUpdateDealStage: (id: string, stage: HotelDealStage) => void;
+  onAddCommercialTask?: (task: Omit<CommercialTask, 'id' | 'code' | 'createdAt'>) => void;
+  onUpdateCommercialTask?: (task: CommercialTask) => void;
+  onDeleteCommercialTask?: (taskId: string) => void;
+  onUpdateCommercialTaskStage?: (taskId: string, stage: CommercialTaskStage) => void;
   onAddNotification?: (notif: AppNotification) => void;
 }
 
@@ -42,24 +50,69 @@ const STAGES: { id: HotelDealStage; title: string; colorDot: string }[] = [
   { id: 'perdido', title: 'No Concretado', colorDot: 'bg-rose-500' }
 ];
 
+const COMMERCIAL_TASK_STAGES: { id: CommercialTaskStage; title: string; colorDot: string; bgBadge: string; icon: string }[] = [
+  { id: 'solicitud', title: 'Solicitud', colorDot: 'bg-stone-500', bgBadge: 'bg-stone-100 text-stone-800 border-stone-300', icon: '📥' },
+  { id: 'en_proceso', title: 'En Proceso', colorDot: 'bg-amber-500', bgBadge: 'bg-amber-100 text-amber-900 border-amber-300', icon: '⚡' },
+  { id: 'terminada', title: 'Terminada', colorDot: 'bg-emerald-600', bgBadge: 'bg-emerald-100 text-emerald-900 border-emerald-300', icon: '✅' },
+  { id: 'cancelada', title: 'Cancelada', colorDot: 'bg-rose-500', bgBadge: 'bg-rose-100 text-rose-900 border-rose-300', icon: '🚫' }
+];
+
 export function CommercialSection({
   deals,
+  commercialTasks = [],
   currentUser,
+  registeredUsers = [],
   selectedDealId,
   onClearSelectedDealId,
   onAddDeal,
   onUpdateDeal,
   onDeleteDeal,
   onUpdateDealStage,
+  onAddCommercialTask,
+  onUpdateCommercialTask,
+  onDeleteCommercialTask,
+  onUpdateCommercialTaskStage,
   onAddNotification
 }: CommercialSectionProps) {
   const isCurrentUserAdmin = isAdminEmail(currentUser?.email);
 
-  const [subView, setSubView] = useState<'pipeline' | 'calendario' | 'tabla' | 'reporte'>('pipeline');
+  const [subView, setSubView] = useState<'pipeline' | 'tareas' | 'calendario' | 'tabla' | 'reporte'>('pipeline');
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<HotelDealStage | null>(null);
   const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
+
+  // Commercial Tasks States
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverTaskStage, setDragOverTaskStage] = useState<CommercialTaskStage | null>(null);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [taskModalError, setTaskModalError] = useState<string | null>(null);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [taskHotel, setTaskHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [taskDealId, setTaskDealId] = useState('');
+  const [taskAssignedTo, setTaskAssignedTo] = useState(COMMERCIAL_TEAM[0].name);
+  const [taskAssignedEmail, setTaskAssignedEmail] = useState(COMMERCIAL_TEAM[0].email);
+  const [taskPriority, setTaskPriority] = useState<'urgente' | 'alta' | 'media'>('alta');
+  const [taskDueDate, setTaskDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 5);
+    return d.toISOString().split('T')[0];
+  });
+
+  // Viewing Task Detail / Edit Modal & Comments
+  const [viewingTask, setViewingTask] = useState<CommercialTask | null>(null);
+  const [viewingTaskTab, setViewingTaskTab] = useState<'info' | 'comments'>('info');
+  const [taskCommentText, setTaskCommentText] = useState('');
+  const [isEditingTaskInfo, setIsEditingTaskInfo] = useState(false);
+  const [editTaskTitle, setEditTaskTitle] = useState('');
+  const [editTaskDescription, setEditTaskDescription] = useState('');
+  const [editTaskHotel, setEditTaskHotel] = useState(HOTEL_PROPERTIES[0]);
+  const [editTaskAssignedTo, setEditTaskAssignedTo] = useState('');
+  const [editTaskAssignedEmail, setEditTaskAssignedEmail] = useState('');
+  const [editTaskPriority, setEditTaskPriority] = useState<'urgente' | 'alta' | 'media'>('alta');
+  const [editTaskStage, setEditTaskStage] = useState<CommercialTaskStage>('solicitud');
+  const [editTaskDueDate, setEditTaskDueDate] = useState('');
 
   // Modal - Create
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
@@ -102,7 +155,7 @@ export function CommercialSection({
   const [editHotel, setEditHotel] = useState(HOTEL_PROPERTIES[0]);
   const [editSelectedSpaces, setEditSelectedSpaces] = useState<string[]>([]);
   const [editRoomQuantities, setEditRoomQuantities] = useState<Record<string, number>>({});
-  const [editCategory, setEditCategory] = useState<DealCategory>('bodas_sociales');
+  const [editCategory, setEditCategory] = useState<DealCategory>('social');
   const [editStage, setEditStage] = useState<HotelDealStage>('rfp_recibido');
   const [editTotalValue, setEditTotalValue] = useState('350000');
   const [editCurrency, setEditCurrency] = useState<'MXN' | 'USD'>('MXN');
@@ -125,7 +178,7 @@ export function CommercialSection({
   const [hotel, setHotel] = useState(HOTEL_PROPERTIES[0]);
   const [selectedSpaces, setSelectedSpaces] = useState<string[]>([]);
   const [roomQuantities, setRoomQuantities] = useState<Record<string, number>>({});
-  const [category, setCategory] = useState<DealCategory>('bodas_sociales');
+  const [category, setCategory] = useState<DealCategory>('social');
   const [totalValue, setTotalValue] = useState('350000');
   const [currency, setCurrency] = useState<'MXN' | 'USD'>('MXN');
   const [depositAmount, setDepositAmount] = useState('0');
@@ -261,6 +314,214 @@ export function CommercialSection({
     };
     setViewingDeal(updatedDeal);
     onUpdateDeal(updatedDeal);
+  };
+
+  // -------------------------------------------------------------
+  // TAREAS COMERCIALES - HELPERS & HANDLERS
+  // -------------------------------------------------------------
+  const filteredTasks = useMemo<CommercialTask[]>(() => {
+    if (!commercialTasks) return [];
+    if (selectedHotelFilter === 'all') return commercialTasks;
+    return commercialTasks.filter((t: CommercialTask) => t.hotelTarget === selectedHotelFilter);
+  }, [commercialTasks, selectedHotelFilter]);
+
+  // Lista unificada de ejecutivos y usuarios registrados para asignación
+  const combinedTeamList = useMemo(() => {
+    const map = new Map<string, { name: string; email: string; role: string; initials: string; avatar?: string }>();
+
+    COMMERCIAL_TEAM.forEach((t) => {
+      map.set(t.email.toLowerCase(), {
+        name: t.name,
+        email: t.email,
+        role: t.role,
+        initials: t.initials
+      });
+    });
+
+    if (registeredUsers && registeredUsers.length > 0) {
+      registeredUsers.forEach((u) => {
+        const emailKey = u.email.toLowerCase();
+        if (!map.has(emailKey)) {
+          map.set(emailKey, {
+            name: u.name,
+            email: u.email,
+            role: u.role === 'admin' ? 'Administrador' : u.role === 'marketing' ? 'Marketing' : 'Comercial',
+            initials: u.initials || u.name.slice(0, 2).toUpperCase(),
+            avatar: u.avatar
+          });
+        }
+      });
+    }
+
+    return Array.from(map.values());
+  }, [registeredUsers]);
+
+  // Verificar si un ejecutivo está operando un evento en sitio actualmente
+  const isAssigneeOperatingEvent = (emailOrName: string) => {
+    const st = getExecutiveEventStatus(deals, emailOrName);
+    return st.isOperating ? st.activeDeal : null;
+  };
+
+  const openViewingTask = (task: CommercialTask) => {
+    setViewingTask(task);
+    setViewingTaskTab('info');
+    setIsEditingTaskInfo(false);
+    setEditTaskTitle(task.title);
+    setEditTaskDescription(task.description || '');
+    setEditTaskHotel(task.hotelTarget);
+    setEditTaskAssignedTo(task.assignedTo);
+    setEditTaskAssignedEmail(task.assignedEmail || '');
+    setEditTaskPriority(task.priority || 'alta');
+    setEditTaskStage(task.stage || 'solicitud');
+    setEditTaskDueDate(task.dueDate);
+  };
+
+  const handleCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskTitle.trim()) {
+      setTaskModalError('Por favor ingresa el título o requerimiento de la tarea.');
+      return;
+    }
+
+    // Regla de disponibilidad: Si la persona está operando evento, no se le pueden asignar tareas
+    const operatingDeal = isAssigneeOperatingEvent(taskAssignedEmail || taskAssignedTo);
+    if (operatingDeal) {
+      setTaskModalError(
+        `No es posible asignar tareas a ${taskAssignedTo} en este momento. Se encuentra en sitio operando el evento: "${operatingDeal.companyOrAgency || operatingDeal.clientName}" en ${operatingDeal.hotelName}.`
+      );
+      return;
+    }
+
+    const linkedDeal = deals.find((d) => d.id === taskDealId);
+
+    if (onAddCommercialTask) {
+      onAddCommercialTask({
+        title: taskTitle.trim(),
+        description: taskDescription.trim(),
+        hotelTarget: taskHotel,
+        dealId: linkedDeal ? linkedDeal.id : undefined,
+        dealTitle: linkedDeal ? (linkedDeal.companyOrAgency || linkedDeal.clientName) : undefined,
+        assignedTo: taskAssignedTo,
+        assignedEmail: taskAssignedEmail,
+        priority: taskPriority,
+        stage: 'solicitud',
+        dueDate: taskDueDate,
+        createdBy: currentUser?.name || 'Administración',
+        comments: []
+      });
+    }
+
+    if (onAddNotification && taskAssignedEmail) {
+      onAddNotification({
+        id: `notif-${Date.now()}`,
+        title: 'Nueva Tarea Comercial Asignada',
+        message: `Te han asignado la tarea: "${taskTitle.trim()}" (${taskHotel}).`,
+        type: 'task_created',
+        targetEmail: taskAssignedEmail,
+        targetName: taskAssignedTo,
+        authorName: currentUser?.name || 'Administración',
+        authorEmail: currentUser?.email || 'admin@grupoorganico.com',
+        linkSection: 'commercial',
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
+    }
+
+    // Reset & close
+    setTaskTitle('');
+    setTaskDescription('');
+    setTaskModalError(null);
+    setIsTaskModalOpen(false);
+  };
+
+  const handleSaveTaskInfo = () => {
+    if (!viewingTask) return;
+    const updated: CommercialTask = {
+      ...viewingTask,
+      title: editTaskTitle.trim() || viewingTask.title,
+      description: editTaskDescription,
+      hotelTarget: editTaskHotel,
+      assignedTo: editTaskAssignedTo,
+      assignedEmail: editTaskAssignedEmail,
+      priority: editTaskPriority,
+      stage: editTaskStage,
+      dueDate: editTaskDueDate
+    };
+
+    setViewingTask(updated);
+    if (onUpdateCommercialTask) {
+      onUpdateCommercialTask(updated);
+    }
+    setIsEditingTaskInfo(false);
+  };
+
+  const handleAddTaskComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!viewingTask || !taskCommentText.trim()) return;
+
+    const newComment = {
+      id: `tcomm-${Date.now()}`,
+      authorName: currentUser?.name || 'Administrador',
+      authorEmail: currentUser?.email || 'admin@grupoorganico.com',
+      text: taskCommentText.trim(),
+      createdAt: new Date().toLocaleDateString('es-MX', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    };
+
+    const updatedComments = [...(viewingTask.comments || []), newComment];
+    const updatedTask: CommercialTask = {
+      ...viewingTask,
+      comments: updatedComments
+    };
+
+    setViewingTask(updatedTask);
+    if (onUpdateCommercialTask) {
+      onUpdateCommercialTask(updatedTask);
+    }
+    setTaskCommentText('');
+
+    // Notificación personal dirigida al responsable de la tarea
+    if (onAddNotification && viewingTask.assignedEmail) {
+      const currentEmail = (currentUser?.email || '').toLowerCase().trim();
+      const targetEmail = viewingTask.assignedEmail.toLowerCase().trim();
+      if (currentEmail !== targetEmail) {
+        onAddNotification({
+          id: `notif-${Date.now()}`,
+          title: `Comentario en tarea: ${viewingTask.code}`,
+          message: `${newComment.authorName}: "${newComment.text.slice(0, 90)}..." (Tarea: ${viewingTask.title})`,
+          type: 'comment',
+          targetEmail: viewingTask.assignedEmail,
+          targetName: viewingTask.assignedTo,
+          authorName: newComment.authorName,
+          authorEmail: newComment.authorEmail,
+          linkSection: 'commercial',
+          targetId: viewingTask.id,
+          createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+          read: false
+        });
+      }
+    }
+  };
+
+  const handleDeleteTaskComment = (commentId: string) => {
+    if (!viewingTask) return;
+    if (!isCurrentUserAdmin) {
+      alert('Solo los administradores autorizados pueden eliminar notas y comentarios.');
+      return;
+    }
+    const updatedComments = (viewingTask.comments || []).filter((c) => c.id !== commentId);
+    const updatedTask: CommercialTask = {
+      ...viewingTask,
+      comments: updatedComments
+    };
+    setViewingTask(updatedTask);
+    if (onUpdateCommercialTask) {
+      onUpdateCommercialTask(updatedTask);
+    }
   };
 
   // EDIT MODAL HANDLERS
@@ -568,6 +829,16 @@ export function CommercialSection({
               Pipeline Grupos ({deals.length})
             </button>
             <button
+              onClick={() => setSubView('tareas')}
+              className={`px-3.5 py-2 rounded-lg transition-all ${
+                subView === 'tareas'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              📌 Tareas Comerciales ({commercialTasks.length})
+            </button>
+            <button
               onClick={() => setSubView('calendario')}
               className={`px-3.5 py-2 rounded-lg transition-all ${
                 subView === 'calendario'
@@ -685,21 +956,35 @@ export function CommercialSection({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setIsCheckerOpen(true)}
-              className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold transition-all border border-stone-300 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-            >
-              <span>🔍 Consultar Disponibilidad</span>
-            </button>
-            <button
-              onClick={() => {
-                setConflictError(null);
-                setIsDealModalOpen(true);
-              }}
-              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>+ Nuevo Grupo / Cotización con Espacios</span>
-            </button>
+            {subView === 'tareas' ? (
+              <button
+                onClick={() => {
+                  setTaskModalError(null);
+                  setIsTaskModalOpen(true);
+                }}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>+ Nueva Tarea Comercial</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setIsCheckerOpen(true)}
+                  className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold transition-all border border-stone-300 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>🔍 Consultar Disponibilidad</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setConflictError(null);
+                    setIsDealModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>+ Nuevo Grupo / Cotización con Espacios</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -716,6 +1001,215 @@ export function CommercialSection({
           onEditDealClick={openEditModal}
           onDeleteDealClick={(d) => setDealToDelete(d)}
         />
+      )}
+
+      {/* SUB-VIEW: TABLERO KANBAN DE TAREAS COMERCIALES */}
+      {subView === 'tareas' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-stone-200 shadow-2xs">
+            <div className="flex items-center gap-2 text-xs text-stone-600">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
+              <span className="font-bold text-stone-800">Tablero de Tareas y Asignaciones Comerciales</span>
+              <span className="text-stone-400 hidden md:inline">· Arrastra tarjetas entre fases o haz clic para ver notas y detalles</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-stone-500 font-mono">
+                {filteredTasks.length} {filteredTasks.length === 1 ? 'tarea registrada' : 'tareas registradas'}
+              </span>
+              <button
+                onClick={() => {
+                  setTaskModalError(null);
+                  setIsTaskModalOpen(true);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
+              >
+                <span>+ Nueva Tarea</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+            {COMMERCIAL_TASK_STAGES.map((col) => {
+              const colTasks = filteredTasks.filter((t: CommercialTask) => t.stage === col.id);
+              const isOver = dragOverTaskStage === col.id;
+
+              return (
+                <div
+                  key={col.id}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOverTaskStage(col.id);
+                  }}
+                  onDragLeave={() => setDragOverTaskStage(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const taskId = e.dataTransfer.getData('text/plain') || draggedTaskId;
+                    if (taskId && onUpdateCommercialTaskStage) {
+                      onUpdateCommercialTaskStage(taskId, col.id);
+                    }
+                    setDraggedTaskId(null);
+                    setDragOverTaskStage(null);
+                  }}
+                  className={`rounded-2xl border transition-all p-3.5 flex flex-col min-h-[500px] ${
+                    isOver
+                      ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-300'
+                      : 'bg-stone-50/80 border-stone-200'
+                  }`}
+                >
+                  {/* Column Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-200 mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{col.icon}</span>
+                      <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">{col.title}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-white border border-stone-200 text-stone-700">
+                        {colTasks.length}
+                      </span>
+                      {col.id === 'solicitud' && (
+                        <button
+                          onClick={() => {
+                            setTaskModalError(null);
+                            setIsTaskModalOpen(true);
+                          }}
+                          className="w-5 h-5 rounded-md bg-stone-200 hover:bg-stone-300 text-stone-700 flex items-center justify-center text-xs font-bold cursor-pointer"
+                          title="Crear nueva tarea en Solicitud"
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tasks List */}
+                  <div className="space-y-2.5 flex-1 overflow-y-auto">
+                    {colTasks.length === 0 ? (
+                      <div className="h-32 border-2 border-dashed border-stone-200 rounded-xl flex items-center justify-center text-stone-400 text-xs">
+                        Sin tareas en esta fase
+                      </div>
+                    ) : (
+                      colTasks.map((task: CommercialTask) => {
+                        const operatingDeal = isAssigneeOperatingEvent(task.assignedEmail || task.assignedTo);
+                        const isUrgent = task.priority === 'urgente';
+                        const isHigh = task.priority === 'alta';
+
+                        return (
+                          <div
+                            key={task.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', task.id);
+                              setDraggedTaskId(task.id);
+                            }}
+                            onDragEnd={() => setDraggedTaskId(null)}
+                            onClick={() => openViewingTask(task)}
+                            className={`bg-white rounded-xl p-3.5 border transition-all cursor-pointer shadow-2xs hover:shadow-md hover:border-emerald-300 space-y-2.5 ${
+                              draggedTaskId === task.id ? 'opacity-40 scale-95' : 'opacity-100'
+                            }`}
+                          >
+                            {/* Meta: Code + Priority */}
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="font-mono font-bold text-stone-400">{task.code}</span>
+                              <span
+                                className={`font-bold px-2 py-0.5 rounded-full border ${
+                                  isUrgent
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                    : isHigh
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {task.priority === 'urgente' ? '🔴 Urgente' : task.priority === 'alta' ? '⚡ Alta' : '🔵 Media'}
+                              </span>
+                            </div>
+
+                            {/* Title */}
+                            <h4 className="text-xs font-bold text-stone-900 leading-snug line-clamp-2">
+                              {task.title}
+                            </h4>
+
+                            {/* Hotel */}
+                            <div className="flex items-center gap-1.5 text-[11px] text-stone-600">
+                              <span className="text-stone-400 text-xs">🏨</span>
+                              <span className="font-medium truncate">{task.hotelTarget}</span>
+                            </div>
+
+                            {/* Linked Deal */}
+                            {task.dealTitle && (
+                              <div className="text-[10px] text-indigo-700 bg-indigo-50/70 border border-indigo-200/60 px-2 py-1 rounded-lg truncate flex items-center gap-1">
+                                <span>🔗</span>
+                                <span className="truncate">{task.dealTitle}</span>
+                              </div>
+                            )}
+
+                            {/* Assignee & Status */}
+                            <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px]">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="w-5 h-5 rounded-full bg-slate-800 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                                  {task.assignedTo.slice(0, 2).toUpperCase()}
+                                </div>
+                                <span className="text-stone-700 font-medium truncate text-[11px]">
+                                  {task.assignedTo}
+                                </span>
+                              </div>
+
+                              {operatingDeal ? (
+                                <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0" title={`En operación de evento: ${operatingDeal.companyOrAgency || operatingDeal.clientName}`}>
+                                  ⚠️ En Evento
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-stone-400 font-mono">
+                                  📅 {task.dueDate?.slice(5) || 'Sin fecha'}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Footer: Comments Count & Quick Move */}
+                            <div className="flex items-center justify-between text-[10px] text-stone-400 pt-1">
+                              <span className="flex items-center gap-1">
+                                💬 {(task.comments || []).length} {task.comments?.length === 1 ? 'nota' : 'notas'}
+                              </span>
+                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                {col.id !== 'solicitud' && (
+                                  <button
+                                    onClick={() => {
+                                      const prevStage: CommercialTaskStage =
+                                        col.id === 'cancelada' ? 'en_proceso' :
+                                        col.id === 'terminada' ? 'en_proceso' : 'solicitud';
+                                      onUpdateCommercialTaskStage && onUpdateCommercialTaskStage(task.id, prevStage);
+                                    }}
+                                    className="px-1.5 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-[9px] font-bold cursor-pointer"
+                                    title="Mover a fase previa"
+                                  >
+                                    ◀
+                                  </button>
+                                )}
+                                {col.id !== 'terminada' && (
+                                  <button
+                                    onClick={() => {
+                                      const nextStage: CommercialTaskStage =
+                                        col.id === 'solicitud' ? 'en_proceso' :
+                                        col.id === 'en_proceso' ? 'terminada' : 'terminada';
+                                      onUpdateCommercialTaskStage && onUpdateCommercialTaskStage(task.id, nextStage);
+                                    }}
+                                    className="px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded text-[9px] font-bold cursor-pointer"
+                                    title="Avanzar de fase"
+                                  >
+                                    ▶
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* SUB-VIEW 1: KANBAN PIPELINE */}
@@ -1782,10 +2276,9 @@ export function CommercialSection({
                     onChange={(e) => setCategory(e.target.value as any)}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
                   >
-                    <option value="bodas_sociales">Bodas & Eventos Sociales</option>
-                    <option value="grupos_convenciones">Grupos & Convenciones (MICE)</option>
-                    <option value="cuentas_empresariales">Convenio Corporativo Anual</option>
-                    <option value="agencias_viaje">Agencia de Viaje / Mayorista</option>
+                    <option value="empresarial">Empresarial</option>
+                    <option value="social">Social</option>
+                    <option value="individual">Individual</option>
                   </select>
                 </div>
                 <div>
@@ -2112,10 +2605,9 @@ export function CommercialSection({
                     onChange={(e) => setEditCategory(e.target.value as DealCategory)}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
                   >
-                    <option value="bodas_sociales">Bodas & Sociales</option>
-                    <option value="grupos_convenciones">Grupos & MICE</option>
-                    <option value="cuentas_empresariales">Convenios Empresariales</option>
-                    <option value="agencias_viaje">Agencias & Mayoristas</option>
+                    <option value="empresarial">Empresarial</option>
+                    <option value="social">Social</option>
+                    <option value="individual">Individual</option>
                   </select>
                 </div>
               </div>
@@ -3015,6 +3507,528 @@ export function CommercialSection({
           onClose={() => setIsCheckerOpen(false)}
           onBookAvailable={handleBookAvailable}
         />
+      )}
+
+      {/* MODAL CREAR NUEVA TAREA COMERCIAL */}
+      {isTaskModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-stone-200">
+            <div className="p-6 border-b border-stone-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-stone-900">📌 Nueva Tarea Comercial</h3>
+                <p className="text-xs text-stone-500">Asigna tareas operativas o de seguimiento comercial al equipo</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTaskModalError(null);
+                  setIsTaskModalOpen(false);
+                }}
+                className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-500 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTask} className="p-6 space-y-4 text-xs">
+              {taskModalError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-2xl text-rose-900 flex items-start gap-2.5">
+                  <span className="text-base shrink-0">⚠️</span>
+                  <div className="space-y-0.5">
+                    <p className="font-bold">Restricción Operativa</p>
+                    <p>{taskModalError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Título de la tarea */}
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Título o Requerimiento *</label>
+                <input
+                  type="text"
+                  required
+                  value={taskTitle}
+                  onChange={(e) => {
+                    setTaskTitle(e.target.value);
+                    setTaskModalError(null);
+                  }}
+                  placeholder="Ej: Enviar propuesta formal de menú para Boda Morales"
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2.5 text-stone-900 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Hotel & Prioridad */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Hotel</label>
+                  <select
+                    value={taskHotel}
+                    onChange={(e) => setTaskHotel(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    {HOTEL_PROPERTIES.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Prioridad</label>
+                  <select
+                    value={taskPriority}
+                    onChange={(e) => setTaskPriority(e.target.value as any)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    <option value="urgente">🔴 Urgente</option>
+                    <option value="alta">⚡ Alta</option>
+                    <option value="media">🔵 Media</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Asignado a */}
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Responsable Asignado *</label>
+                <select
+                  value={taskAssignedEmail}
+                  onChange={(e) => {
+                    const found = combinedTeamList.find((m: any) => m.email.toLowerCase() === e.target.value.toLowerCase());
+                    if (found) {
+                      setTaskAssignedEmail(found.email);
+                      setTaskAssignedTo(found.name);
+                    }
+                    setTaskModalError(null);
+                  }}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  {combinedTeamList.map((m: any) => {
+                    const operating = isAssigneeOperatingEvent(m.email);
+                    return (
+                      <option key={m.email} value={m.email}>
+                        {m.name} ({m.role}) {operating ? '⚠️ [EN OPERACIÓN DE EVENTO]' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+
+                {/* Advertencia si el responsable está en evento */}
+                {(() => {
+                  const operating = isAssigneeOperatingEvent(taskAssignedEmail || taskAssignedTo);
+                  if (operating) {
+                    return (
+                      <div className="mt-2 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span>
+                          <strong>{taskAssignedTo}</strong> está actualmente operando el evento <em>&quot;{operating.companyOrAgency || operating.clientName}&quot;</em> en {operating.hotelName}. Por política comercial no puede recibir nuevas tareas.
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+
+              {/* Evento Vinculado (Opcional) */}
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Vincular a Evento / Cotización (Opcional)</label>
+                <select
+                  value={taskDealId}
+                  onChange={(e) => setTaskDealId(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  <option value="">-- Ninguno / Tarea General --</option>
+                  {deals.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.code} · {d.companyOrAgency || d.clientName} ({d.hotelName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fecha Límite */}
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Fecha Límite de Entrega</label>
+                <input
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Descripción */}
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Descripción / Instrucciones</label>
+                <textarea
+                  rows={3}
+                  value={taskDescription}
+                  onChange={(e) => setTaskDescription(e.target.value)}
+                  placeholder="Detalles sobre lo que se requiere realizar, teléfonos o especificaciones..."
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => setIsTaskModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={Boolean(isAssigneeOperatingEvent(taskAssignedEmail || taskAssignedTo))}
+                  className={`px-5 py-2.5 rounded-xl text-white font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isAssigneeOperatingEvent(taskAssignedEmail || taskAssignedTo)
+                      ? 'bg-stone-400 cursor-not-allowed'
+                      : 'bg-emerald-700 hover:bg-emerald-800'
+                  }`}
+                >
+                  <span>Guardar y Asignar Tarea</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VER DETALLE, EDITAR Y COMENTARIOS DE TAREA COMERCIAL */}
+      {viewingTask && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-stone-200 flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-stone-200 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-stone-100 text-stone-700 border border-stone-200">
+                    {viewingTask.code}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    COMMERCIAL_TASK_STAGES.find((s) => s.id === viewingTask.stage)?.bgBadge || 'bg-stone-100 text-stone-800'
+                  }`}>
+                    {COMMERCIAL_TASK_STAGES.find((s) => s.id === viewingTask.stage)?.title || viewingTask.stage}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    🏨 {viewingTask.hotelTarget}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-stone-900 leading-snug">{viewingTask.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingTask(null)}
+                className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-500 flex items-center justify-center text-sm font-bold cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-6 pt-3 border-b border-stone-200 flex items-center gap-2 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setViewingTaskTab('info')}
+                className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer ${
+                  viewingTaskTab === 'info'
+                    ? 'border-emerald-700 text-emerald-900'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                📋 Información de la Tarea
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingTaskTab('comments')}
+                className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  viewingTaskTab === 'comments'
+                    ? 'border-emerald-700 text-emerald-900'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                <span>💬 Notas & Comentarios</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono">
+                  {(viewingTask.comments || []).length}
+                </span>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 flex-1 overflow-y-auto space-y-4 text-xs">
+              {viewingTaskTab === 'info' ? (
+                <>
+                  {!isEditingTaskInfo ? (
+                    <div className="space-y-4">
+                      {/* Grid de atributos */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-stone-50 p-4 rounded-2xl border border-stone-200">
+                        <div>
+                          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Responsable</span>
+                          <span className="font-bold text-stone-900 text-sm">{viewingTask.assignedTo}</span>
+                          {viewingTask.assignedEmail && (
+                            <span className="block text-stone-500 text-[11px] font-mono">{viewingTask.assignedEmail}</span>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Prioridad</span>
+                          <span className="font-bold text-stone-900">
+                            {viewingTask.priority === 'urgente' ? '🔴 Urgente' : viewingTask.priority === 'alta' ? '⚡ Alta' : '🔵 Media'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Fecha Límite</span>
+                          <span className="font-mono font-bold text-stone-800">{viewingTask.dueDate || 'Sin definir'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Fase Actual</span>
+                          <select
+                            value={viewingTask.stage}
+                            onChange={(e) => {
+                              const nextStage = e.target.value as CommercialTaskStage;
+                              if (onUpdateCommercialTaskStage) {
+                                onUpdateCommercialTaskStage(viewingTask.id, nextStage);
+                              }
+                              setViewingTask({ ...viewingTask, stage: nextStage });
+                            }}
+                            className="mt-1 border border-stone-300 rounded-lg px-2.5 py-1 text-xs font-semibold bg-white text-stone-900"
+                          >
+                            {COMMERCIAL_TASK_STAGES.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.icon} {s.title}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {viewingTask.dealTitle && (
+                          <div className="sm:col-span-2">
+                            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Evento Vinculado</span>
+                            <span className="font-semibold text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200/80 inline-block mt-0.5">
+                              🔗 {viewingTask.dealTitle}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Descripción */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-stone-700 uppercase tracking-wider block">
+                          Descripción / Instrucciones
+                        </label>
+                        <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 text-stone-800 whitespace-pre-wrap leading-relaxed">
+                          {viewingTask.description || 'Sin instrucciones adicionales.'}
+                        </div>
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div className="flex items-center justify-between pt-3 border-t border-stone-200">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingTaskInfo(true)}
+                            className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold border border-emerald-300 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                          >
+                            <span>✏️</span> Editar Tarea
+                          </button>
+                          {isCurrentUserAdmin && onDeleteCommercialTask && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`¿Deseas eliminar definitivamente la tarea "${viewingTask.title}"?`)) {
+                                  onDeleteCommercialTask(viewingTask.id);
+                                  setViewingTask(null);
+                                }
+                              }}
+                              className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 flex items-center gap-1 cursor-pointer"
+                              title="Solo administradores pueden eliminar tareas"
+                            >
+                              <span>🗑️</span> Eliminar
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setViewingTask(null)}
+                          className="px-5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold cursor-pointer"
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* MODO EDICIÓN */
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-stone-700 font-bold mb-1">Título</label>
+                        <input
+                          type="text"
+                          value={editTaskTitle}
+                          onChange={(e) => setEditTaskTitle(e.target.value)}
+                          className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 font-bold"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-stone-700 font-bold mb-1">Hotel</label>
+                          <select
+                            value={editTaskHotel}
+                            onChange={(e) => setEditTaskHotel(e.target.value)}
+                            className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                          >
+                            {HOTEL_PROPERTIES.map((h) => (
+                              <option key={h} value={h}>
+                                {h}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-stone-700 font-bold mb-1">Prioridad</label>
+                          <select
+                            value={editTaskPriority}
+                            onChange={(e) => setEditTaskPriority(e.target.value as any)}
+                            className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                          >
+                            <option value="urgente">🔴 Urgente</option>
+                            <option value="alta">⚡ Alta</option>
+                            <option value="media">🔵 Media</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-stone-700 font-bold mb-1">Fase / Estado</label>
+                          <select
+                            value={editTaskStage}
+                            onChange={(e) => setEditTaskStage(e.target.value as CommercialTaskStage)}
+                            className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                          >
+                            {COMMERCIAL_TASK_STAGES.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.title}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-stone-700 font-bold mb-1">Fecha Límite</label>
+                          <input
+                            type="date"
+                            value={editTaskDueDate}
+                            onChange={(e) => setEditTaskDueDate(e.target.value)}
+                            className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-stone-700 font-bold mb-1">Descripción</label>
+                        <textarea
+                          rows={4}
+                          value={editTaskDescription}
+                          onChange={(e) => setEditTaskDescription(e.target.value)}
+                          className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                        />
+                      </div>
+                      <div className="flex items-center justify-end gap-2 pt-3 border-t border-stone-200">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingTaskInfo(false)}
+                          className="px-4 py-2 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 font-bold cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveTaskInfo}
+                          className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold cursor-pointer shadow-xs"
+                        >
+                          Guardar Cambios
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* TAB COMENTARIOS Y NOTAS */
+                <div className="space-y-4">
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] text-amber-950 flex items-start gap-2.5">
+                    <span className="text-base shrink-0">🛡️</span>
+                    <div className="space-y-0.5">
+                      <p className="font-bold">Control de Auditoría y Comentarios</p>
+                      <p>
+                        Puedes añadir notas de seguimiento a esta tarea. Por política de seguridad,{' '}
+                        <strong>solo los administradores autorizados pueden eliminar notas</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Lista de Comentarios */}
+                  <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                    {(viewingTask.comments || []).length > 0 ? (
+                      (viewingTask.comments || []).map((comment) => (
+                        <div
+                          key={comment.id}
+                          className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-1.5 shadow-2xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-slate-800 text-white text-[9px] font-bold flex items-center justify-center">
+                                {comment.authorName ? comment.authorName.slice(0, 2).toUpperCase() : 'US'}
+                              </div>
+                              <span className="font-bold text-stone-900">{comment.authorName}</span>
+                              <span className="text-[10px] text-stone-400 font-mono">· {comment.createdAt}</span>
+                            </div>
+
+                            {/* Solo administradores pueden borrar notas */}
+                            {isCurrentUserAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTaskComment(comment.id)}
+                                className="text-stone-400 hover:text-rose-600 p-1 text-xs transition-colors cursor-pointer"
+                                title="Eliminar nota (Solo Administradores)"
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-stone-800 pl-8 whitespace-pre-wrap leading-relaxed">{comment.text}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-stone-400 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200">
+                        <span className="text-xl block mb-1">💬</span>
+                        No hay comentarios registrados aún en esta tarea.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Formulario Agregar Comentario */}
+                  <form onSubmit={handleAddTaskComment} className="space-y-2 pt-2 border-t border-stone-200">
+                    <label className="text-[11px] font-bold text-stone-700 block">
+                      Añadir Comentario o Nota de Seguimiento:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={taskCommentText}
+                        onChange={(e) => setTaskCommentText(e.target.value)}
+                        placeholder="Escribe un comentario o actualización..."
+                        className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!taskCommentText.trim()}
+                        className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold transition-all disabled:opacity-40 cursor-pointer shadow-xs shrink-0"
+                      >
+                        Enviar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

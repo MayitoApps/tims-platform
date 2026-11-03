@@ -145,17 +145,19 @@ export function getHotelDealStageBadge(stage: HotelDealStage): {
   }
 }
 
-export function getDealCategoryLabel(category: DealCategory): { label: string; badge: string } {
+export function getDealCategoryLabel(category: DealCategory | string): { label: string; badge: string } {
   switch (category) {
+    case 'empresarial':
     case 'grupos_convenciones':
-      return { label: 'Grupos & Convenciones (MICE)', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
-    case 'bodas_sociales':
-      return { label: 'Bodas & Eventos Sociales', badge: 'bg-rose-50 text-rose-700 border-rose-200' };
     case 'cuentas_empresariales':
-      return { label: 'Convenio Corporativo', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
+      return { label: 'Empresarial', badge: 'bg-indigo-50 text-indigo-800 border-indigo-200' };
+    case 'social':
+    case 'bodas_sociales':
+      return { label: 'Social', badge: 'bg-rose-50 text-rose-800 border-rose-200' };
+    case 'individual':
     case 'agencias_viaje':
-      return { label: 'Agencia / Mayorista', badge: 'bg-teal-50 text-teal-700 border-teal-200' };
+      return { label: 'Individual', badge: 'bg-amber-50 text-amber-800 border-amber-200' };
     default:
-      return { label: category, badge: 'bg-stone-100 text-stone-700 border-stone-200' };
+      return { label: category || 'Social', badge: 'bg-stone-100 text-stone-700 border-stone-200' };
   }
 }

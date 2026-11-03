@@ -55,7 +55,45 @@ export async function GET(request: NextRequest) {
 
     const userData = await userinfoResponse.json();
 
-    // 3. Crear sesión en cookie segura
+    // 3. Registrar / Actualizar perfil en Postgres para recopilar la base de usuarios
+    try {
+      const { getDb, ensureTables } = await import('@/lib/db');
+      const { isAdminEmail } = await import('@/lib/types');
+      const { getInitials } = await import('@/lib/auth');
+      const sql = getDb();
+      if (sql) {
+        await ensureTables();
+        const role = isAdminEmail(userData.email)
+          ? 'admin'
+          : userData.email.includes('sales') || userData.email.includes('comercial')
+          ? 'sales'
+          : 'marketing';
+        const initials = getInitials(userData.name || userData.email);
+
+        await sql`
+          INSERT INTO user_profiles (id, name, email, avatar, role, initials, last_login)
+          VALUES (
+            ${userData.sub || `usr-${Date.now()}`},
+            ${userData.name || userData.email.split('@')[0]},
+            ${userData.email},
+            ${userData.picture || null},
+            ${role},
+            ${initials},
+            CURRENT_TIMESTAMP
+          )
+          ON CONFLICT (email) DO UPDATE SET
+            name = EXCLUDED.name,
+            avatar = EXCLUDED.avatar,
+            role = EXCLUDED.role,
+            initials = EXCLUDED.initials,
+            last_login = CURRENT_TIMESTAMP;
+        `;
+      }
+    } catch (dbErr) {
+      console.error('Error guardando perfil de usuario en base de datos:', dbErr);
+    }
+
+    // 4. Crear sesión en cookie segura
     await createSessionCookie({
       id: userData.sub,
       name: userData.name || userData.email.split('@')[0],
@@ -63,7 +101,7 @@ export async function GET(request: NextRequest) {
       avatar: userData.picture
     });
 
-    // 4. Redirigir a la app autenticado
+    // 5. Redirigir a la app autenticado
     return NextResponse.redirect(`${baseUrl}?auth_success=true`);
   } catch (err) {
     console.error('Error en autenticación OAuth:', err);

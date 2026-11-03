@@ -241,10 +241,40 @@ export type HotelDealStage =
   | 'perdido';           // Cancelado o cerrado sin éxito
 
 export type DealCategory = 
-  | 'grupos_convenciones' // MICE: Congresos, eventos corporativos
-  | 'bodas_sociales'      // Bodas de destino, aniversarios
-  | 'cuentas_empresariales' // Convenios corporativos anuales
-  | 'agencias_viaje';     // OTAs / Mayoristas / Consorcios de lujo
+  | 'empresarial'          // Eventos y convenios corporativos
+  | 'social'               // Bodas, aniversarios y reuniones sociales
+  | 'individual'           // Huéspedes individuales / estancias particulares
+  | 'grupos_convenciones'  // Compatibilidad legacy
+  | 'bodas_sociales'       // Compatibilidad legacy
+  | 'cuentas_empresariales'// Compatibilidad legacy
+  | 'agencias_viaje';      // Compatibilidad legacy
+
+// -------------------------------------------------------------
+// TABLERO KANBAN DE TAREAS COMERCIALES
+// -------------------------------------------------------------
+export type CommercialTaskStage = 
+  | 'solicitud'   // Solicitud / Por asignar
+  | 'en_proceso'  // En proceso / En curso
+  | 'terminada'   // Terminada / Completada
+  | 'cancelada';  // Cancelada
+
+export interface CommercialTask {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  hotelTarget: string;
+  dealId?: string;
+  dealTitle?: string;
+  assignedTo: string;
+  assignedEmail?: string;
+  priority: 'urgente' | 'alta' | 'media';
+  stage: CommercialTaskStage;
+  dueDate: string;
+  createdBy: string;
+  comments?: TaskComment[];
+  createdAt: string;
+}
 
 export type PaymentStatus = 
   | 'pendiente'        // Sin anticipo aún

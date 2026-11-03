@@ -1,5 +1,5 @@
 import { neon, NeonQueryFunction } from '@neondatabase/serverless';
-import { HotelDeal, MarketingTask, MarketingCampaign, ContentPublication, CreativeBrief } from './types';
+import { HotelDeal, MarketingTask, MarketingCampaign, ContentPublication, CreativeBrief, CommercialTask } from './types';
 import { INITIAL_DEALS, INITIAL_MARKETING_TASKS, INITIAL_CAMPAIGNS, INITIAL_PUBLICATIONS, INITIAL_BRIEFS } from './initial-data';
 
 // Helper to get neon SQL client
@@ -167,6 +167,44 @@ export async function ensureTables(): Promise<boolean> {
       );
     `;
 
+    // 7. Commercial Tasks Table (Tablero Kanban de Comercialización)
+    await sql`
+      CREATE TABLE IF NOT EXISTS commercial_tasks (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        hotel_target TEXT NOT NULL,
+        deal_id TEXT,
+        deal_title TEXT,
+        assigned_to TEXT NOT NULL,
+        assigned_email TEXT,
+        priority TEXT NOT NULL DEFAULT 'alta',
+        stage TEXT NOT NULL DEFAULT 'solicitud',
+        due_date TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        comments JSONB NOT NULL DEFAULT '[]'::jsonb,
+        created_at TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    // 8. User Profiles Table (Recopilación de usuarios autenticados)
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_profiles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        avatar TEXT,
+        role TEXT NOT NULL DEFAULT 'sales',
+        initials TEXT NOT NULL,
+        department TEXT,
+        phone TEXT,
+        last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
     tablesInitialized = true;
     return true;
   } catch (error) {
@@ -281,5 +319,26 @@ export function mapRowToBrief(row: any): CreativeBrief {
     deliverables: typeof row.deliverables === 'string' ? JSON.parse(row.deliverables) : (row.deliverables || []),
     author: row.author,
     date: row.date
+  };
+}
+
+// Convert DB row to CommercialTask interface
+export function mapRowToCommercialTask(row: any): CommercialTask {
+  return {
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    description: row.description || '',
+    hotelTarget: row.hotel_target,
+    dealId: row.deal_id || undefined,
+    dealTitle: row.deal_title || undefined,
+    assignedTo: row.assigned_to,
+    assignedEmail: row.assigned_email || undefined,
+    priority: row.priority || 'alta',
+    stage: row.stage || 'solicitud',
+    dueDate: row.due_date,
+    createdBy: row.created_by,
+    comments: typeof row.comments === 'string' ? JSON.parse(row.comments) : (row.comments || []),
+    createdAt: row.created_at
   };
 }

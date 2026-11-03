@@ -21,9 +21,11 @@ import {
   CreativeBrief,
   HotelDeal,
   MarketingTask,
+  CommercialTask,
   MarketingCampaignStatus,
   HotelDealStage,
   MarketingTaskStage,
+  CommercialTaskStage,
   AppNotification,
   isAdminEmail
 } from '@/lib/types';
@@ -39,6 +41,8 @@ export default function Home() {
   const [briefs, setBriefs] = useState<CreativeBrief[]>(INITIAL_BRIEFS);
   const [deals, setDeals] = useState<HotelDeal[]>(INITIAL_DEALS);
   const [marketingTasks, setMarketingTasks] = useState<MarketingTask[]>(INITIAL_MARKETING_TASKS);
+  const [commercialTasks, setCommercialTasks] = useState<CommercialTask[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
 
@@ -81,6 +85,11 @@ export default function Home() {
       if (cachedTasks) {
         const parsed = JSON.parse(cachedTasks);
         if (Array.isArray(parsed)) setMarketingTasks(parsed);
+      }
+      const cachedCommTasks = localStorage.getItem('tims_commercial_tasks');
+      if (cachedCommTasks) {
+        const parsed = JSON.parse(cachedCommTasks);
+        if (Array.isArray(parsed)) setCommercialTasks(parsed);
       }
       const cachedCampaigns = localStorage.getItem('tims_campaigns');
       if (cachedCampaigns) {
@@ -159,6 +168,29 @@ export default function Home() {
             try {
               localStorage.setItem('tims_mkt_tasks', JSON.stringify(data.tasks));
             } catch {}
+          }
+        })
+        .catch(() => {});
+
+      // Sync Commercial Tasks
+      fetch('/api/commercial-tasks')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && Array.isArray(data.tasks)) {
+            setCommercialTasks(data.tasks);
+            try {
+              localStorage.setItem('tims_commercial_tasks', JSON.stringify(data.tasks));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+
+      // Sync Registered Users (para asignaciones y perfiles)
+      fetch('/api/users')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && Array.isArray(data.users)) {
+            setRegisteredUsers(data.users);
           }
         })
         .catch(() => {});
@@ -631,6 +663,90 @@ export default function Home() {
     }
   };
 
+  // -----------------------------------------------------------------
+  // TAREAS COMERCIALES ACTIONS (WITH POSTGRES & LOCAL PERSISTENCE)
+  // -----------------------------------------------------------------
+  const handleAddCommercialTask = async (newTask: Omit<CommercialTask, 'id' | 'code' | 'createdAt'>) => {
+    const nextCode = `TK-${String(commercialTasks.length + 1).padStart(2, '0')}`;
+    const created: CommercialTask = {
+      ...newTask,
+      id: `ctask-${Date.now()}`,
+      code: nextCode,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    const nextList = [created, ...commercialTasks];
+    setCommercialTasks(nextList);
+    try {
+      localStorage.setItem('tims_commercial_tasks', JSON.stringify(nextList));
+    } catch {}
+    showToast('Tarea comercial asignada con éxito');
+
+    try {
+      await fetch('/api/commercial-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(created)
+      });
+    } catch (err) {
+      console.error('Error saving commercial task to DB:', err);
+    }
+  };
+
+  const handleUpdateCommercialTask = async (updatedTask: CommercialTask) => {
+    const nextList = commercialTasks.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+    setCommercialTasks(nextList);
+    try {
+      localStorage.setItem('tims_commercial_tasks', JSON.stringify(nextList));
+    } catch {}
+    showToast('Tarea comercial actualizada');
+
+    try {
+      await fetch(`/api/commercial-tasks/${updatedTask.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTask)
+      });
+    } catch (err) {
+      console.error('Error updating commercial task in DB:', err);
+    }
+  };
+
+  const handleDeleteCommercialTask = async (taskId: string) => {
+    const nextList = commercialTasks.filter((t) => t.id !== taskId);
+    setCommercialTasks(nextList);
+    try {
+      localStorage.setItem('tims_commercial_tasks', JSON.stringify(nextList));
+    } catch {}
+    showToast('Tarea comercial eliminada');
+
+    try {
+      await fetch(`/api/commercial-tasks/${taskId}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Error deleting commercial task in DB:', err);
+    }
+  };
+
+  const handleUpdateCommercialTaskStage = async (id: string, stage: CommercialTaskStage) => {
+    const nextList = commercialTasks.map((t) => (t.id === id ? { ...t, stage } : t));
+    setCommercialTasks(nextList);
+    try {
+      localStorage.setItem('tims_commercial_tasks', JSON.stringify(nextList));
+    } catch {}
+    showToast('Fase de tarea comercial actualizada');
+
+    try {
+      await fetch(`/api/commercial-tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage })
+      });
+    } catch (err) {
+      console.error('Error updating commercial task stage in DB:', err);
+    }
+  };
+
   // Loading state
   if (isLoadingAuth) {
     return (
@@ -701,13 +817,19 @@ export default function Home() {
         ) : (
           <CommercialSection
             deals={deals}
+            commercialTasks={commercialTasks}
             currentUser={currentUser}
+            registeredUsers={registeredUsers}
             selectedDealId={selectedDealId}
             onClearSelectedDealId={() => setSelectedDealId(null)}
             onAddDeal={handleAddDeal}
             onUpdateDeal={handleUpdateDeal}
             onDeleteDeal={handleDeleteDeal}
             onUpdateDealStage={handleUpdateDealStage}
+            onAddCommercialTask={handleAddCommercialTask}
+            onUpdateCommercialTask={handleUpdateCommercialTask}
+            onDeleteCommercialTask={handleDeleteCommercialTask}
+            onUpdateCommercialTaskStage={handleUpdateCommercialTaskStage}
             onAddNotification={handleAddNotification}
           />
         )}
