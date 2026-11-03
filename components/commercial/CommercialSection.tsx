@@ -872,70 +872,8 @@ export function CommercialSection({
         </div>
       </div>
 
-      {/* Disponibilidad Operativa del Equipo Comercial */}
-      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200 shadow-2xs space-y-2.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm">👥</span>
-            <span className="text-xs font-bold text-stone-800 uppercase tracking-wider">
-              Disponibilidad Operativa del Equipo Comercial
-            </span>
-          </div>
-          <span className="text-[11px] text-stone-500">
-            Los ejecutivos operando eventos en sitio quedan temporalmente bloqueados para nuevas asignaciones
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          {COMMERCIAL_TEAM.map((exec) => {
-            const status = getExecutiveEventStatus(deals, exec.email || exec.name);
-            const isBlocked = status.isOperating;
-            return (
-              <div
-                key={exec.email}
-                className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 transition-all ${
-                  isBlocked
-                    ? 'bg-rose-50/90 border-rose-300 text-rose-950 shadow-2xs'
-                    : 'bg-stone-50 border-stone-200 text-stone-800'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                    isBlocked ? 'bg-rose-600 text-white' : 'bg-emerald-800 text-white'
-                  }`}>
-                    {exec.initials}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold truncate">{exec.name}</div>
-                    <div className="text-[10px] text-stone-500 truncate">{exec.role}</div>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  {isBlocked && status.activeDeal ? (
-                    <div className="space-y-0.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-extrabold uppercase animate-pulse">
-                        <span>⛔</span> En Evento
-                      </span>
-                      <div className="text-[9px] font-semibold text-rose-800 max-w-[130px] truncate" title={`${status.activeDeal.hotelName} (${status.activeDeal.checkInDate} al ${status.activeDeal.checkOutDate})`}>
-                        {status.activeDeal.hotelName}
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                      Disponible
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Hotel Filter & Action Bar */}
-      {subView !== 'calendario' && (
+      {/* Hotel Filter & Action Bar (Para Pipeline, Tabla y Reportes) */}
+      {subView !== 'calendario' && subView !== 'tareas' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-stone-200 shadow-2xs">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
@@ -956,35 +894,21 @@ export function CommercialSection({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {subView === 'tareas' ? (
-              <button
-                onClick={() => {
-                  setTaskModalError(null);
-                  setIsTaskModalOpen(true);
-                }}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>+ Nueva Tarea Comercial</span>
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={() => setIsCheckerOpen(true)}
-                  className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold transition-all border border-stone-300 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <span>🔍 Consultar Disponibilidad</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setConflictError(null);
-                    setIsDealModalOpen(true);
-                  }}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>+ Nuevo Grupo / Cotización con Espacios</span>
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => setIsCheckerOpen(true)}
+              className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold transition-all border border-stone-300 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <span>🔍 Consultar Disponibilidad</span>
+            </button>
+            <button
+              onClick={() => {
+                setConflictError(null);
+                setIsDealModalOpen(true);
+              }}
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>+ Nuevo Grupo / Cotización con Espacios</span>
+            </button>
           </div>
         </div>
       )}
