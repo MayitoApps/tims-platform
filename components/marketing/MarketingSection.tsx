@@ -183,8 +183,8 @@ export function MarketingSection({
   const [tCategory, setTCategory] = useState<MarketingTaskCategory>('diseno_grafico');
   const [tPriority, setTPriority] = useState<'alta' | 'media' | 'urgente'>('media');
   const [tRequestedBy, setTRequestedBy] = useState('');
-  const [tAssignedTo, setTAssignedTo] = useState(DESIGN_RESPONSIBLES[0].name);
-  const [tAssignedEmail, setTAssignedEmail] = useState(DESIGN_RESPONSIBLES[0].email);
+  const [tAssignedTo, setTAssignedTo] = useState('Por asignar');
+  const [tAssignedEmail, setTAssignedEmail] = useState<string | undefined>(undefined);
   const [tDueDate, setTDueDate] = useState('2026-11-15');
   const [tDesc, setTDesc] = useState('');
   const [tAssetUrl, setTAssetUrl] = useState('');
@@ -312,7 +312,7 @@ export function MarketingSection({
       stage: 'backlog', // Automáticamente a la columna "Solicitudes"
       priority: tPriority,
       requestedBy: tRequestedBy || currentUser?.name || 'Dirección / Gerencia',
-      assignedTo: tAssignedTo,
+      assignedTo: tAssignedTo || 'Por asignar',
       assignedEmail: tAssignedEmail,
       dueDate: tDueDate,
       description: tDesc || 'Requerimiento de diseño / marketing.',
@@ -324,8 +324,8 @@ export function MarketingSection({
     if (onAddNotification) {
       onAddNotification({
         id: `notif-${Date.now()}`,
-        title: `Nuevo requerimiento asignado`,
-        message: `Se asignó '${finalTitle}' a ${tAssignedTo} para entrega el ${tDueDate}.`,
+        title: `Nuevo requerimiento registrado`,
+        message: `Se registró '${finalTitle}' para entrega el ${tDueDate}.`,
         type: 'task_created',
         targetEmail: tAssignedEmail,
         targetName: tAssignedTo,
@@ -341,8 +341,8 @@ export function MarketingSection({
     setTFormat('Historia');
     setTCustomFormat('');
     setTHotelTargets([HOTEL_PROPERTIES[0]]);
-    setTAssignedTo(DESIGN_RESPONSIBLES[0].name);
-    setTAssignedEmail(DESIGN_RESPONSIBLES[0].email);
+    setTAssignedTo('Por asignar');
+    setTAssignedEmail(undefined);
     setTDesc('');
     setTAssetUrl('');
     setTRequestedBy('');
@@ -1609,43 +1609,6 @@ export function MarketingSection({
                         </span>
                         <span className="truncate">{hotel}</span>
                       </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Responsable del Diseño (2 perfiles exactos) */}
-              <div>
-                <label className="block text-stone-800 font-bold mb-1.5 flex items-center gap-1">
-                  <span>👤</span> Responsable del Diseño:
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {DESIGN_RESPONSIBLES.map((resp) => {
-                    const isSelected = tAssignedEmail === resp.email;
-                    return (
-                      <div
-                        key={resp.email}
-                        onClick={() => {
-                          setTAssignedTo(resp.name);
-                          setTAssignedEmail(resp.email);
-                        }}
-                        className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${
-                          isSelected
-                            ? 'bg-purple-50/90 border-purple-600 ring-2 ring-purple-300 shadow-xs'
-                            : 'bg-stone-50 border-stone-200 hover:bg-stone-100'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                          isSelected ? 'bg-purple-800 text-white' : 'bg-stone-300 text-stone-700'
-                        }`}>
-                          {resp.initials}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-stone-900 text-xs">{resp.name}</div>
-                          <div className="text-[10px] text-stone-500 font-mono truncate">{resp.email}</div>
-                          <div className="text-[9px] text-purple-700 font-semibold">{resp.role}</div>
-                        </div>
-                      </div>
                     );
                   })}
                 </div>
