@@ -317,8 +317,8 @@ export interface HotelDeal {
   assignedEmail?: string;
   notes: string;
   comments?: TaskComment[];
-  contactEmail: string;
-  contactPhone: string;
+  contactEmail?: string;
+  contactPhone?: string;
   createdAt: string;
 }
 

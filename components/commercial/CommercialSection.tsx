@@ -711,15 +711,6 @@ export function CommercialSection({
       }
     }
 
-    // Validar disponibilidad del ejecutivo asignado
-    const repStatus = getExecutiveEventStatus(deals, assignedRepEmail || assignedRepName, checkIn);
-    if (repStatus.isOperating && repStatus.activeDeal) {
-      setConflictError(
-        `⛔ ${assignedRepName} no puede ser asignado ya que se encuentra OPERANDO EN SITIO el evento "${repStatus.activeDeal.companyOrAgency}" en ${repStatus.activeDeal.hotelName} (del ${formatDate(repStatus.activeDeal.checkInDate)} al ${formatDate(repStatus.activeDeal.checkOutDate)}). No se le pueden asignar tareas ni eventos mientras esté operando.`
-      );
-      return;
-    }
-
     const requestedRoomsList: RequestedRoomType[] = Object.entries(roomQuantities)
       .filter(([_, count]) => count > 0)
       .map(([roomTypeName, count]) => ({ roomTypeName, count }));
@@ -745,22 +736,22 @@ export function CommercialSection({
       attendeesCount: parseInt(attendees) || 50,
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      assignedRep: assignedRepName,
-      assignedEmail: assignedRepEmail,
+      assignedRep: currentUser?.name || 'Equipo Comercial',
+      assignedEmail: currentUser?.email || 'admin@grupoorganico.com',
       comments: [],
       notes: notes || 'Solicitud de bloqueo de espacios y cotización oficial.',
-      contactEmail: email || 'contacto@empresa.com',
-      contactPhone: phone || '+52 55 0000 0000'
+      contactEmail: email.trim() || undefined,
+      contactPhone: phone.trim() || undefined
     });
 
     if (onAddNotification) {
       onAddNotification({
         id: `notif-${Date.now()}`,
         title: `Nuevo RFP / Evento registrado`,
-        message: `${company} en ${hotel} (${formatCurrency(totalValNum, 'MXN')}). Ejecutivo: ${assignedRepName}`,
+        message: `${company} en ${hotel} (${formatCurrency(totalValNum, 'MXN')}). Registrado por: ${currentUser?.name || 'Comercial'}`,
         type: 'deal_created',
-        targetEmail: assignedRepEmail,
-        targetName: assignedRepName,
+        targetEmail: currentUser?.email || 'admin@grupoorganico.com',
+        targetName: currentUser?.name || 'Administración',
         authorName: currentUser?.name || 'Sistema Comercial',
         authorEmail: currentUser?.email,
         linkSection: 'commercial',
@@ -771,6 +762,8 @@ export function CommercialSection({
 
     setClientName('');
     setCompany('');
+    setEmail('');
+    setPhone('');
     setNotes('');
     setSelectedSpaces([]);
     setRoomQuantities({});
@@ -2031,9 +2024,9 @@ export function CommercialSection({
             )}
 
             <form onSubmit={handleCreateDeal} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-stone-700 font-bold mb-1">Empresa / Nombre del Grupo</label>
+                  <label className="block text-stone-700 font-bold mb-1">Empresa / Nombre del Grupo *</label>
                   <input
                     type="text"
                     required
@@ -2044,13 +2037,37 @@ export function CommercialSection({
                   />
                 </div>
                 <div>
-                  <label className="block text-stone-700 font-bold mb-1">Persona de Contacto</label>
+                  <label className="block text-stone-700 font-bold mb-1">Persona de Contacto *</label>
                   <input
                     type="text"
                     required
                     placeholder="ej. Lic. Andrea Suárez"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Teléfono y Correo Electrónico del Cliente */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Correo Electrónico del Cliente</label>
+                  <input
+                    type="email"
+                    placeholder="ej. cliente@empresa.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-stone-700 font-bold mb-1">Teléfono / WhatsApp del Cliente</label>
+                  <input
+                    type="tel"
+                    placeholder="ej. +52 55 1234 5678"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -2192,13 +2209,13 @@ export function CommercialSection({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-stone-700 font-bold mb-1">Categoría</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as any)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   >
                     <option value="empresarial">Empresarial</option>
                     <option value="social">Social</option>
@@ -2206,16 +2223,14 @@ export function CommercialSection({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-stone-700 font-bold mb-1">Ejecutivo Asignado</label>
-                  <div className="border border-stone-200 bg-stone-100 rounded-xl px-3 py-2 text-stone-800 flex items-center justify-between text-xs font-semibold">
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                      <span className="truncate">{currentUser?.name || 'Ejecutivo Comercial'}</span>
-                    </div>
-                    <span className="text-[9px] uppercase font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
-                      Perfil Activo
-                    </span>
-                  </div>
+                  <label className="block text-stone-700 font-bold mb-1">Asistentes Estimados (Pax)</label>
+                  <input
+                    type="number"
+                    value={attendees}
+                    onChange={(e) => setAttendees(e.target.value)}
+                    placeholder="ej. 80"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
                 </div>
               </div>
 
@@ -2342,61 +2357,6 @@ export function CommercialSection({
                     }}
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />
-                </div>
-              </div>
-
-              {/* Selector de Ejecutivo Comercial Responsable */}
-              <div className="space-y-1.5">
-                <label className="block text-stone-700 font-bold mb-1">
-                  Ejecutivo Comercial Responsable
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {COMMERCIAL_TEAM.map((exec) => {
-                    const isSelected = assignedRepName === exec.name;
-                    const status = getExecutiveEventStatus(deals, exec.email || exec.name, checkIn);
-                    const isBlocked = status.isOperating;
-                    return (
-                      <button
-                        key={exec.email}
-                        type="button"
-                        onClick={() => {
-                          if (isBlocked) {
-                            setConflictError(
-                              `⛔ ${exec.name} no está disponible para asignaciones porque se encuentra OPERANDO EN SITIO el evento "${status.activeDeal?.companyOrAgency}" en ${status.activeDeal?.hotelName} (del ${formatDate(status.activeDeal?.checkInDate || '')} al ${formatDate(status.activeDeal?.checkOutDate || '')}).`
-                            );
-                            return;
-                          }
-                          setAssignedRepName(exec.name);
-                          setAssignedRepEmail(exec.email);
-                          setConflictError(null);
-                        }}
-                        className={`p-2.5 rounded-xl border text-left transition-all relative ${
-                          isSelected
-                            ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600/30'
-                            : isBlocked
-                            ? 'bg-rose-50/70 border-rose-300 opacity-70'
-                            : 'bg-white border-stone-200 hover:bg-stone-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-stone-900">{exec.name}</span>
-                          <span
-                            className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
-                              isBlocked ? 'bg-rose-600 text-white' : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {isBlocked ? '⛔ EN EVENTO' : '🟢 Libre'}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-stone-500 truncate">{exec.role}</div>
-                        {isBlocked && status.activeDeal && (
-                          <div className="text-[9px] text-rose-700 font-semibold mt-1 leading-tight">
-                            Operando en {status.activeDeal.hotelName}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
 
