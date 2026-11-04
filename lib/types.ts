@@ -73,26 +73,7 @@ export interface CommercialExecutive {
   initials: string;
 }
 
-export const COMMERCIAL_TEAM: CommercialExecutive[] = [
-  {
-    name: 'Carlos Mendoza',
-    email: 'comercial1.grupoorganico@gmail.com',
-    role: 'Ejecutivo de Bodas & MICE',
-    initials: 'CM'
-  },
-  {
-    name: 'Valeria Domínguez',
-    email: 'comercial2.grupoorganico@gmail.com',
-    role: 'Ejecutiva de Cuentas Corporativas',
-    initials: 'VD'
-  },
-  {
-    name: 'Gerencia Comercial',
-    email: 'expansioncomercia.gohb@gmail.com',
-    role: 'Dirección Comercial & Eventos',
-    initials: 'GC'
-  }
-];
+export const COMMERCIAL_TEAM: CommercialExecutive[] = [];
 
 export function getExecutiveEventStatus(
   deals: HotelDeal[],

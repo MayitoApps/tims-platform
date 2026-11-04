@@ -10,7 +10,6 @@ import {
   PaymentStatus,
   TaskComment,
   AppNotification,
-  COMMERCIAL_TEAM,
   CommercialExecutive,
   CommercialTask,
   CommercialTaskStage,
@@ -103,8 +102,8 @@ export function CommercialSection({
   const [taskDescription, setTaskDescription] = useState('');
   const [taskHotel, setTaskHotel] = useState(HOTEL_PROPERTIES[0]);
   const [taskDealId, setTaskDealId] = useState('');
-  const [taskAssignedTo, setTaskAssignedTo] = useState(COMMERCIAL_TEAM[0].name);
-  const [taskAssignedEmail, setTaskAssignedEmail] = useState(COMMERCIAL_TEAM[0].email);
+  const [taskAssignedTo, setTaskAssignedTo] = useState(currentUser?.name || '');
+  const [taskAssignedEmail, setTaskAssignedEmail] = useState(currentUser?.email || '');
   const [taskPriority, setTaskPriority] = useState<'urgente' | 'alta' | 'media'>('alta');
   const [taskDueDate, setTaskDueDate] = useState(() => {
     const d = new Date();
@@ -181,8 +180,8 @@ export function CommercialSection({
   const [editNotes, setEditNotes] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  const [editAssignedRepName, setEditAssignedRepName] = useState(COMMERCIAL_TEAM[0].name);
-  const [editAssignedRepEmail, setEditAssignedRepEmail] = useState(COMMERCIAL_TEAM[0].email);
+  const [editAssignedRepName, setEditAssignedRepName] = useState(currentUser?.name || '');
+  const [editAssignedRepEmail, setEditAssignedRepEmail] = useState(currentUser?.email || '');
 
   // Form states - Deal
   const [clientName, setClientName] = useState('');
@@ -203,8 +202,8 @@ export function CommercialSection({
   const [notes, setNotes] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [assignedRepName, setAssignedRepName] = useState(COMMERCIAL_TEAM[0].name);
-  const [assignedRepEmail, setAssignedRepEmail] = useState(COMMERCIAL_TEAM[0].email);
+  const [assignedRepName, setAssignedRepName] = useState(currentUser?.name || '');
+  const [assignedRepEmail, setAssignedRepEmail] = useState(currentUser?.email || '');
 
   const availableSpaces = HOTEL_SPACES[hotel] || [];
   const availableRoomTypes = HOTEL_ROOM_TYPES[hotel] || [];
@@ -343,21 +342,13 @@ export function CommercialSection({
   }, [commercialTasks, selectedHotelFilter]);
 
   // Lista unificada de ejecutivos y usuarios registrados para asignación
+  // Lista unificada de ejecutivos y usuarios registrados reales para asignación
   const combinedTeamList = useMemo(() => {
     const map = new Map<string, { name: string; email: string; role: string; initials: string; avatar?: string }>();
 
-    COMMERCIAL_TEAM.forEach((t) => {
-      map.set(t.email.toLowerCase(), {
-        name: t.name,
-        email: t.email,
-        role: t.role,
-        initials: t.initials
-      });
-    });
-
     if (registeredUsers && registeredUsers.length > 0) {
       registeredUsers.forEach((u) => {
-        const emailKey = u.email.toLowerCase();
+        const emailKey = u.email.toLowerCase().trim();
         if (!map.has(emailKey)) {
           map.set(emailKey, {
             name: u.name,
@@ -370,8 +361,50 @@ export function CommercialSection({
       });
     }
 
+    if (currentUser && currentUser.email) {
+      const curKey = currentUser.email.toLowerCase().trim();
+      if (!map.has(curKey)) {
+        map.set(curKey, {
+          name: currentUser.name || 'Usuario Actual',
+          email: currentUser.email,
+          role: isAdminEmail(currentUser.email) ? 'Administrador' : 'Comercial',
+          initials: (currentUser.name || 'U').slice(0, 2).toUpperCase(),
+          avatar: currentUser.avatar
+        });
+      }
+    }
+
     return Array.from(map.values());
-  }, [registeredUsers]);
+  }, [registeredUsers, currentUser]);
+
+  // Lista de ejecutivos comerciales reales para metas y estadísticas
+  const commercialExecutivesList = useMemo(() => {
+    const map = new Map<string, { name: string; email: string; role: string; initials: string }>();
+
+    if (registeredUsers && registeredUsers.length > 0) {
+      registeredUsers.forEach((u) => {
+        map.set(u.email.toLowerCase().trim(), {
+          name: u.name,
+          email: u.email,
+          role: u.role === 'admin' ? 'Dirección Comercial' : 'Ejecutivo Comercial',
+          initials: u.initials || u.name.slice(0, 2).toUpperCase()
+        });
+      });
+    }
+
+    deals.forEach((d) => {
+      if (d.assignedEmail && !map.has(d.assignedEmail.toLowerCase().trim())) {
+        map.set(d.assignedEmail.toLowerCase().trim(), {
+          name: d.assignedRep || d.assignedEmail,
+          email: d.assignedEmail,
+          role: 'Ejecutivo Comercial',
+          initials: (d.assignedRep || d.assignedEmail).slice(0, 2).toUpperCase()
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [registeredUsers, deals]);
 
   // Verificar si un ejecutivo está operando un evento en sitio actualmente
   const isAssigneeOperatingEvent = (emailOrName: string) => {
@@ -410,6 +443,8 @@ export function CommercialSection({
     }
 
     const linkedDeal = deals.find((d) => d.id === taskDealId);
+    const finalAssignedTo = taskAssignedTo.trim() || currentUser?.name || 'Comercial';
+    const finalAssignedEmail = taskAssignedEmail.trim() || currentUser?.email || '';
 
     if (onAddCommercialTask) {
       onAddCommercialTask({
@@ -418,8 +453,8 @@ export function CommercialSection({
         hotelTarget: taskHotel,
         dealId: linkedDeal ? linkedDeal.id : undefined,
         dealTitle: linkedDeal ? (linkedDeal.companyOrAgency || linkedDeal.clientName) : undefined,
-        assignedTo: taskAssignedTo,
-        assignedEmail: taskAssignedEmail,
+        assignedTo: finalAssignedTo,
+        assignedEmail: finalAssignedEmail,
         priority: taskPriority,
         stage: 'solicitud',
         dueDate: taskDueDate,
@@ -562,8 +597,8 @@ export function CommercialSection({
     setEditNotes(deal.notes || '');
     setEditEmail(deal.contactEmail || '');
     setEditPhone(deal.contactPhone || '');
-    setEditAssignedRepName(deal.assignedRep || COMMERCIAL_TEAM[0].name);
-    setEditAssignedRepEmail(deal.assignedEmail || COMMERCIAL_TEAM[0].email);
+    setEditAssignedRepName(deal.assignedRep || currentUser?.name || '');
+    setEditAssignedRepEmail(deal.assignedEmail || currentUser?.email || '');
     setEditConflictError(null);
 
     const roomMap: Record<string, number> = {};
@@ -1771,116 +1806,126 @@ export function CommercialSection({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {COMMERCIAL_TEAM.map((exec) => {
-                  const execDeals = deals.filter(
-                    (d) =>
-                      (d.assignedEmail && d.assignedEmail.toLowerCase().trim() === exec.email.toLowerCase().trim()) ||
-                      (d.assignedRep && (d.assignedRep.toLowerCase().includes(exec.name.toLowerCase()) || exec.name.toLowerCase().includes(d.assignedRep.toLowerCase())))
-                  );
+                {commercialExecutivesList.length === 0 ? (
+                  <div className="col-span-full p-8 bg-stone-50 border border-stone-200 rounded-2xl text-center space-y-2">
+                    <span className="text-2xl">👥</span>
+                    <h5 className="font-bold text-stone-800 text-sm">Aún no hay ejecutivos registrados</h5>
+                    <p className="text-xs text-stone-500 max-w-md mx-auto">
+                      Los perfiles y sus metas individuales aparecerán aquí automáticamente una vez que el equipo comercial inicie sesión en la plataforma con su cuenta de Google.
+                    </p>
+                  </div>
+                ) : (
+                  commercialExecutivesList.map((exec) => {
+                    const execDeals = deals.filter(
+                      (d) =>
+                        (d.assignedEmail && d.assignedEmail.toLowerCase().trim() === exec.email.toLowerCase().trim()) ||
+                        (d.assignedRep && (d.assignedRep.toLowerCase().includes(exec.name.toLowerCase()) || exec.name.toLowerCase().includes(d.assignedRep.toLowerCase())))
+                    );
 
-                  const execRealVal = execDeals.reduce((acc, d) => acc + getDealRealIncome(d), 0);
-                  const execDeposits = execDeals.reduce((acc, d) => acc + (d.paymentStatus !== 'liquidado' ? (d.depositAmount || 0) : 0), 0);
-                  const execLiquidated = execDeals.reduce((acc, d) => acc + (d.paymentStatus === 'liquidado' ? d.totalValue : 0), 0);
+                    const execRealVal = execDeals.reduce((acc, d) => acc + getDealRealIncome(d), 0);
+                    const execDeposits = execDeals.reduce((acc, d) => acc + (d.paymentStatus !== 'liquidado' ? (d.depositAmount || 0) : 0), 0);
+                    const execLiquidated = execDeals.reduce((acc, d) => acc + (d.paymentStatus === 'liquidado' ? d.totalValue : 0), 0);
 
-                  const pipelineVal = execDeals
-                    .filter((d) => d.stage !== 'perdido')
-                    .reduce((acc, d) => acc + d.totalValue, 0);
+                    const pipelineVal = execDeals
+                      .filter((d) => d.stage !== 'perdido')
+                      .reduce((acc, d) => acc + d.totalValue, 0);
 
-                  const personalGoal = 3000000;
-                  const percent = Math.min(100, (execRealVal / personalGoal) * 100);
+                    const personalGoal = 3000000;
+                    const percent = Math.min(100, (execRealVal / personalGoal) * 100);
 
-                  const status = getExecutiveEventStatus(deals, exec.email || exec.name);
+                    const status = getExecutiveEventStatus(deals, exec.email || exec.name);
 
-                  const progressColor =
-                    percent >= 80
-                      ? 'bg-emerald-600'
-                      : percent >= 40
-                      ? 'bg-amber-500'
-                      : 'bg-blue-600';
+                    const progressColor =
+                      percent >= 80
+                        ? 'bg-emerald-600'
+                        : percent >= 40
+                        ? 'bg-amber-500'
+                        : 'bg-blue-600';
 
-                  return (
-                    <div
-                      key={exec.email}
-                      className="bg-stone-50/70 border border-stone-200 rounded-2xl p-5 space-y-4 shadow-2xs hover:shadow-xs transition-shadow"
-                    >
-                      {/* Header del Ejecutivo */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-emerald-800 to-teal-900 text-white font-bold text-sm flex items-center justify-center shadow-xs">
-                            {exec.initials}
+                    return (
+                      <div
+                        key={exec.email}
+                        className="bg-stone-50/70 border border-stone-200 rounded-2xl p-5 space-y-4 shadow-2xs hover:shadow-xs transition-shadow"
+                      >
+                        {/* Header del Ejecutivo */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-emerald-800 to-teal-900 text-white font-bold text-sm flex items-center justify-center shadow-xs">
+                              {exec.initials}
+                            </div>
+                            <div>
+                              <h5 className="font-bold text-stone-900 text-sm leading-tight">{exec.name}</h5>
+                              <span className="text-[10px] text-stone-500 block">{exec.role}</span>
+                            </div>
                           </div>
-                          <div>
-                            <h5 className="font-bold text-stone-900 text-sm leading-tight">{exec.name}</h5>
-                            <span className="text-[10px] text-stone-500 block">{exec.role}</span>
-                          </div>
+
+                          {status.isOperating ? (
+                            <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-extrabold uppercase animate-pulse">
+                              ⛔ En Evento
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                              🟢 Disponible
+                            </span>
+                          )}
                         </div>
 
-                        {status.isOperating ? (
-                          <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-extrabold uppercase animate-pulse">
-                            ⛔ En Evento
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                            🟢 Disponible
-                          </span>
+                        {/* Notificación de evento en curso si está bloqueado */}
+                        {status.isOperating && status.activeDeal && (
+                          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-950 font-semibold space-y-0.5">
+                            <span className="block text-[10px] uppercase font-bold text-rose-800">
+                              Operando evento en sitio:
+                            </span>
+                            <div>{status.activeDeal.companyOrAgency} · 🏨 {status.activeDeal.hotelName}</div>
+                            <div className="text-[10px] text-rose-700 font-mono">
+                              Del {status.activeDeal.checkInDate} al {status.activeDeal.checkOutDate}
+                            </div>
+                          </div>
                         )}
-                      </div>
 
-                      {/* Notificación de evento en curso si está bloqueado */}
-                      {status.isOperating && status.activeDeal && (
-                        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-950 font-semibold space-y-0.5">
-                          <span className="block text-[10px] uppercase font-bold text-rose-800">
-                            Operando evento en sitio:
-                          </span>
-                          <div>{status.activeDeal.companyOrAgency} · 🏨 {status.activeDeal.hotelName}</div>
-                          <div className="text-[10px] text-rose-700 font-mono">
-                            Del {status.activeDeal.checkInDate} al {status.activeDeal.checkOutDate}
+                        {/* Cifras de Meta Personal */}
+                        <div className="space-y-1">
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-[11px] text-stone-500 font-semibold">Dinero Real Recaudado:</span>
+                            <span className="font-mono text-base font-extrabold text-emerald-900">
+                              {formatCurrency(execRealVal, 'MXN')}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-stone-500 font-mono">
+                            <span>Anticipos: {formatCurrency(execDeposits, 'MXN')}</span>
+                            <span>Liquidados: {formatCurrency(execLiquidated, 'MXN')}</span>
+                          </div>
+                          <div className="flex items-baseline justify-between text-xs pt-1">
+                            <span className="text-stone-400 text-[11px]">Meta Personal:</span>
+                            <span className="font-mono text-stone-500">{formatCurrency(personalGoal, 'MXN')}</span>
                           </div>
                         </div>
-                      )}
 
-                      {/* Cifras de Meta Personal */}
-                      <div className="space-y-1">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-[11px] text-stone-500 font-semibold">Dinero Real Recaudado:</span>
-                          <span className="font-mono text-base font-extrabold text-emerald-900">
-                            {formatCurrency(execRealVal, 'MXN')}
+                        {/* Barra de Progreso Personal */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px] font-bold">
+                            <span className="text-stone-600">Cumplimiento Real:</span>
+                            <span className="font-mono text-stone-900">{percent.toFixed(1)}%</span>
+                          </div>
+                          <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${progressColor} transition-all duration-500`}
+                              style={{ width: `${Math.max(4, percent)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Pipeline Adicional */}
+                        <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[11px]">
+                          <span className="text-stone-500">Pipeline cotizado:</span>
+                          <span className="font-mono font-bold text-amber-800">
+                            {formatCurrency(pipelineVal, 'MXN')} ({execDeals.length} deals)
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-[10px] text-stone-500 font-mono">
-                          <span>Anticipos: {formatCurrency(execDeposits, 'MXN')}</span>
-                          <span>Liquidados: {formatCurrency(execLiquidated, 'MXN')}</span>
-                        </div>
-                        <div className="flex items-baseline justify-between text-xs pt-1">
-                          <span className="text-stone-400 text-[11px]">Meta Personal:</span>
-                          <span className="font-mono text-stone-500">{formatCurrency(personalGoal, 'MXN')}</span>
-                        </div>
                       </div>
-
-                      {/* Barra de Progreso Personal */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px] font-bold">
-                          <span className="text-stone-600">Cumplimiento Real:</span>
-                          <span className="font-mono text-stone-900">{percent.toFixed(1)}%</span>
-                        </div>
-                        <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${progressColor} transition-all duration-500`}
-                            style={{ width: `${Math.max(4, percent)}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Pipeline Adicional */}
-                      <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[11px]">
-                        <span className="text-stone-500">Pipeline cotizado:</span>
-                        <span className="font-mono font-bold text-amber-800">
-                          {formatCurrency(pipelineVal, 'MXN')} ({execDeals.length} deals)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -2836,59 +2881,58 @@ export function CommercialSection({
                 </div>
               </div>
 
-              {/* Selector de Ejecutivo Comercial (Edición) */}
+              {/* Asignación de Ejecutivo Comercial (Edición) */}
               <div className="space-y-1.5">
                 <label className="block text-stone-700 font-bold mb-1">
                   Ejecutivo Comercial Responsable
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {COMMERCIAL_TEAM.map((exec) => {
-                    const isSelected = editAssignedRepName === exec.name;
-                    const status = getExecutiveEventStatus(deals, exec.email || exec.name, editCheckIn);
-                    const isBlocked = status.isOperating && status.activeDeal?.id !== editingDeal.id;
-                    return (
-                      <button
-                        key={exec.email}
-                        type="button"
-                        onClick={() => {
-                          if (isBlocked) {
-                            setEditConflictError(
-                              `⛔ ${exec.name} no está disponible para asignaciones porque se encuentra OPERANDO EN SITIO el evento "${status.activeDeal?.companyOrAgency}" en ${status.activeDeal?.hotelName} (del ${formatDate(status.activeDeal?.checkInDate || '')} al ${formatDate(status.activeDeal?.checkOutDate || '')}).`
-                            );
-                            return;
-                          }
-                          setEditAssignedRepName(exec.name);
-                          setEditAssignedRepEmail(exec.email);
-                          setEditConflictError(null);
-                        }}
-                        className={`p-2.5 rounded-xl border text-left transition-all relative ${
-                          isSelected
-                            ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-600/30'
-                            : isBlocked
-                            ? 'bg-rose-50/70 border-rose-300 opacity-70'
-                            : 'bg-white border-stone-200 hover:bg-stone-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-stone-900">{exec.name}</span>
-                          <span
-                            className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
-                              isBlocked ? 'bg-rose-600 text-white' : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {isBlocked ? '⛔ EN EVENTO' : '🟢 Libre'}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-stone-500 truncate">{exec.role}</div>
-                        {isBlocked && status.activeDeal && (
-                          <div className="text-[9px] text-rose-700 font-semibold mt-1 leading-tight">
-                            Operando en {status.activeDeal.hotelName}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                {combinedTeamList.length > 0 ? (
+                  <select
+                    value={editAssignedRepEmail}
+                    onChange={(e) => {
+                      const found = combinedTeamList.find((m) => m.email.toLowerCase() === e.target.value.toLowerCase());
+                      if (found) {
+                        const status = getExecutiveEventStatus(deals, found.email || found.name, editCheckIn);
+                        const isBlocked = status.isOperating && status.activeDeal?.id !== editingDeal.id;
+                        if (isBlocked) {
+                          setEditConflictError(
+                            `⛔ ${found.name} no está disponible porque se encuentra OPERANDO EN SITIO el evento "${status.activeDeal?.companyOrAgency}" en ${status.activeDeal?.hotelName}.`
+                          );
+                          return;
+                        }
+                        setEditAssignedRepEmail(found.email);
+                        setEditAssignedRepName(found.name);
+                      } else {
+                        setEditAssignedRepEmail('');
+                        setEditAssignedRepName('');
+                      }
+                      setEditConflictError(null);
+                    }}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    <option value="">-- Sin asignar / Equipo General --</option>
+                    {combinedTeamList.map((exec) => {
+                      const status = getExecutiveEventStatus(deals, exec.email || exec.name, editCheckIn);
+                      const isBlocked = status.isOperating && status.activeDeal?.id !== editingDeal.id;
+                      return (
+                        <option key={exec.email} value={exec.email}>
+                          {exec.name} ({exec.role}) {isBlocked ? '⚠️ [EN OPERACIÓN DE EVENTO]' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={editAssignedRepName}
+                    onChange={(e) => {
+                      setEditAssignedRepName(e.target.value);
+                      setEditConflictError(null);
+                    }}
+                    placeholder="Nombre del ejecutivo responsable"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                )}
               </div>
 
               <div>
@@ -3569,27 +3613,44 @@ export function CommercialSection({
               {/* Asignado a */}
               <div>
                 <label className="block text-stone-700 font-bold mb-1">Responsable Asignado *</label>
-                <select
-                  value={taskAssignedEmail}
-                  onChange={(e) => {
-                    const found = combinedTeamList.find((m: any) => m.email.toLowerCase() === e.target.value.toLowerCase());
-                    if (found) {
-                      setTaskAssignedEmail(found.email);
-                      setTaskAssignedTo(found.name);
-                    }
-                    setTaskModalError(null);
-                  }}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                >
-                  {combinedTeamList.map((m: any) => {
-                    const operating = isAssigneeOperatingEvent(m.email);
-                    return (
-                      <option key={m.email} value={m.email}>
-                        {m.name} ({m.role}) {operating ? '⚠️ [EN OPERACIÓN DE EVENTO]' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
+                {combinedTeamList.length > 0 ? (
+                  <select
+                    value={taskAssignedEmail}
+                    onChange={(e) => {
+                      const found = combinedTeamList.find((m: any) => m.email.toLowerCase() === e.target.value.toLowerCase());
+                      if (found) {
+                        setTaskAssignedEmail(found.email);
+                        setTaskAssignedTo(found.name);
+                      } else {
+                        setTaskAssignedEmail('');
+                        setTaskAssignedTo('');
+                      }
+                      setTaskModalError(null);
+                    }}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    <option value="">-- Seleccionar Responsable --</option>
+                    {combinedTeamList.map((m: any) => {
+                      const operating = isAssigneeOperatingEvent(m.email);
+                      return (
+                        <option key={m.email} value={m.email}>
+                          {m.name} ({m.role}) {operating ? '⚠️ [EN OPERACIÓN DE EVENTO]' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={taskAssignedTo}
+                    onChange={(e) => {
+                      setTaskAssignedTo(e.target.value);
+                      setTaskModalError(null);
+                    }}
+                    placeholder={currentUser?.name || 'Nombre del responsable'}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                )}
 
                 {/* Advertencia si el responsable está en evento */}
                 {(() => {
