@@ -57,6 +57,18 @@ const COMMERCIAL_TASK_STAGES: { id: CommercialTaskStage; title: string; colorDot
   { id: 'cancelada', title: 'Cancelada', colorDot: 'bg-rose-500', bgBadge: 'bg-rose-100 text-rose-900 border-rose-300', icon: '🚫' }
 ];
 
+// Helper para calcular el dinero real que entra según si hubo anticipo, liquidación o adelanto
+export const getDealRealIncome = (deal: HotelDeal): number => {
+  if (deal.stage === 'perdido') return 0;
+  if (deal.paymentStatus === 'liquidado') {
+    return Number(deal.totalValue) || 0;
+  }
+  if (deal.paymentStatus === 'anticipo_pagado' || (deal.depositAmount && Number(deal.depositAmount) > 0)) {
+    return Number(deal.depositAmount) || 0;
+  }
+  return 0;
+};
+
 export function CommercialSection({
   deals,
   commercialTasks = [],
@@ -245,6 +257,11 @@ export function CommercialSection({
   const totalPipelineRevenue = filteredDeals
     .filter((d) => d.stage !== 'perdido')
     .reduce((acc, d) => acc + d.totalValue, 0);
+
+  // Dinero real confirmado (anticipos, liquidaciones y adelantos reales)
+  const totalRealIncome = filteredDeals
+    .filter((d) => d.stage !== 'perdido')
+    .reduce((acc, d) => acc + getDealRealIncome(d), 0);
 
   const totalWonRevenue = filteredDeals
     .filter((d) => d.stage === 'contratado')
@@ -647,7 +664,16 @@ export function CommercialSection({
       .map(([roomTypeName, count]) => ({ roomTypeName, count }));
 
     const editValNum = parseFloat(editTotalValue) || editingDeal.totalValue;
-    const editDepNum = parseFloat(editDepositAmount) || 0;
+    let editDepNum = parseFloat(editDepositAmount) || 0;
+    let finalEditPaymentStatus = editPaymentStatus;
+
+    if (editPaymentStatus === 'liquidado') {
+      editDepNum = editValNum;
+    } else if (editDepNum > 0 && editPaymentStatus === 'pendiente') {
+      finalEditPaymentStatus = 'anticipo_pagado';
+    }
+
+    const calculatedEditBalance = finalEditPaymentStatus === 'liquidado' ? 0 : Math.max(0, editValNum - editDepNum);
 
     const updated: HotelDeal = {
       ...editingDeal,
@@ -661,8 +687,8 @@ export function CommercialSection({
       totalValue: editValNum,
       currency: editCurrency,
       depositAmount: editDepNum,
-      paymentStatus: editPaymentStatus,
-      balanceDue: Math.max(0, editValNum - editDepNum),
+      paymentStatus: finalEditPaymentStatus,
+      balanceDue: calculatedEditBalance,
       paymentDueDate: editPaymentDueDate || undefined,
       roomNights: parseInt(editRoomNights) || 0,
       attendeesCount: parseInt(editAttendees) || 0,
@@ -716,7 +742,16 @@ export function CommercialSection({
       .map(([roomTypeName, count]) => ({ roomTypeName, count }));
 
     const totalValNum = parseFloat(totalValue) || 150000;
-    const depValNum = parseFloat(depositAmount) || 0;
+    let depValNum = parseFloat(depositAmount) || 0;
+    let finalPaymentStatus = paymentStatus;
+
+    if (paymentStatus === 'liquidado') {
+      depValNum = totalValNum;
+    } else if (depValNum > 0 && paymentStatus === 'pendiente') {
+      finalPaymentStatus = 'anticipo_pagado';
+    }
+
+    const calculatedBalanceDue = finalPaymentStatus === 'liquidado' ? 0 : Math.max(0, totalValNum - depValNum);
 
     onAddDeal({
       clientName,
@@ -729,8 +764,8 @@ export function CommercialSection({
       totalValue: totalValNum,
       currency,
       depositAmount: depValNum,
-      paymentStatus,
-      balanceDue: Math.max(0, totalValNum - depValNum),
+      paymentStatus: finalPaymentStatus,
+      balanceDue: calculatedBalanceDue,
       paymentDueDate: paymentDueDate || undefined,
       roomNights: parseInt(roomNights) || (requestedRoomsList.reduce((acc, r) => acc + r.count, 0) * getStayNights(checkIn, checkOut)) || 10,
       attendeesCount: parseInt(attendees) || 50,
@@ -1175,7 +1210,6 @@ export function CommercialSection({
           >
             {STAGES.map((col) => {
               const columnDeals = filteredDeals.filter((d) => d.stage === col.id);
-              const colSum = columnDeals.reduce((acc, d) => acc + d.totalValue, 0);
               const isOver = dragOverStage === col.id;
 
               return (
@@ -1213,12 +1247,9 @@ export function CommercialSection({
                       <span className="text-xs font-bold text-stone-800 tracking-tight truncate">
                         {col.title}
                       </span>
-                      <span className="text-[10px] text-stone-500 font-mono shrink-0">
-                        ({columnDeals.length})
-                      </span>
                     </div>
-                    <span className="text-[10px] font-mono font-bold text-stone-800 shrink-0 ml-1">
-                      {formatCurrency(colSum)}
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-stone-200/70 text-stone-700 shrink-0 ml-1">
+                      {columnDeals.length} {columnDeals.length === 1 ? 'evento' : 'eventos'}
                     </span>
                   </div>
 
@@ -1247,7 +1278,7 @@ export function CommercialSection({
                               : 'border-stone-200 hover:border-emerald-400 hover:ring-1 hover:ring-emerald-300/40'
                           }`}
                         >
-                          {/* Fila 1: Código + Hotel + Monto */}
+                          {/* Fila 1: Código + Hotel (Sin conteo de dinero en tarjeta) */}
                           <div className="flex items-center justify-between gap-1">
                             <div className="flex items-center gap-1.5 min-w-0">
                               <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60 shrink-0">
@@ -1257,9 +1288,6 @@ export function CommercialSection({
                                 🏨 {deal.hotelName.replace('Hotel Boutique ', '').replace('Hacienda ', '')}
                               </span>
                             </div>
-                            <span className="font-mono text-xs font-extrabold text-emerald-900 shrink-0">
-                              {formatCurrency(deal.totalValue, deal.currency)}
-                            </span>
                           </div>
 
                           {/* Fila 2: Empresa y Cliente */}
@@ -1509,38 +1537,47 @@ export function CommercialSection({
 
       {/* SUB-VIEW 4: REPORTE & MÉTRICAS VISUALES EN PESOS MEXICANOS (MXN) */}
       {subView === 'reporte' && (() => {
-        const totalDeposits = filteredDeals
+        // Dinero real cobrado / comprometido: solo anticipos, adelantos o liquidaciones
+        const totalRealIncome = filteredDeals
           .filter((d) => d.stage !== 'perdido')
+          .reduce((acc, d) => acc + getDealRealIncome(d), 0);
+
+        const totalDeposits = filteredDeals
+          .filter((d) => d.stage !== 'perdido' && d.paymentStatus !== 'liquidado')
           .reduce((acc, d) => acc + (d.depositAmount || 0), 0);
+
+        const totalLiquidated = filteredDeals
+          .filter((d) => d.stage !== 'perdido' && d.paymentStatus === 'liquidado')
+          .reduce((acc, d) => acc + d.totalValue, 0);
 
         const totalPendingBalance = filteredDeals
           .filter((d) => d.stage !== 'perdido')
-          .reduce((acc, d) => acc + (d.balanceDue || Math.max(0, d.totalValue - (d.depositAmount || 0))), 0);
+          .reduce((acc, d) => acc + (d.paymentStatus === 'liquidado' ? 0 : (d.balanceDue ?? Math.max(0, d.totalValue - (d.depositAmount || 0)))), 0);
 
         const groupAchievementPercent = totalGoalMXN > 0
-          ? Math.min(100, (totalWonRevenue / totalGoalMXN) * 100)
+          ? Math.min(100, (totalRealIncome / totalGoalMXN) * 100)
           : 0;
 
         const maxStageValue = Math.max(
           ...STAGES.map((s) =>
             filteredDeals
               .filter((d) => d.stage === s.id)
-              .reduce((acc, d) => acc + d.totalValue, 0)
+              .reduce((acc, d) => acc + getDealRealIncome(d), 0)
           ),
           1
         );
 
         const hotelMetrics = HOTEL_PROPERTIES.map((hotelName) => {
           const hDeals = deals.filter((d) => d.hotelName === hotelName && d.stage !== 'perdido');
-          const won = hDeals
-            .filter((d) => d.stage === 'contratado')
-            .reduce((acc, d) => acc + d.totalValue, 0);
+          const realIncome = hDeals.reduce((acc, d) => acc + getDealRealIncome(d), 0);
+          const deposits = hDeals.reduce((acc, d) => acc + (d.paymentStatus !== 'liquidado' ? (d.depositAmount || 0) : 0), 0);
+          const liquidated = hDeals.reduce((acc, d) => acc + (d.paymentStatus === 'liquidado' ? d.totalValue : 0), 0);
           const pipeline = hDeals.reduce((acc, d) => acc + d.totalValue, 0);
           const rn = hDeals.reduce((acc, d) => acc + d.roomNights, 0);
-          return { hotelName, dealsCount: hDeals.length, won, pipeline, rn };
+          return { hotelName, dealsCount: hDeals.length, realIncome, deposits, liquidated, pipeline, rn };
         });
 
-        const maxHotelRevenue = Math.max(...hotelMetrics.map((h) => h.pipeline), 1);
+        const maxHotelRevenue = Math.max(...hotelMetrics.map((h) => h.realIncome), 1);
 
         return (
           <div className="space-y-6">
@@ -1552,14 +1589,14 @@ export function CommercialSection({
                     🇲🇽 Moneda Oficial: Pesos Mexicanos (MXN)
                   </span>
                   <span className="text-[10px] text-stone-300">
-                    Todas las métricas y cotizaciones en $ MXN
+                    Control estricto de dinero real ingresado (anticipos, liquidaciones y adelantos)
                   </span>
                 </div>
                 <h3 className="font-editorial text-2xl sm:text-3xl font-bold tracking-tight">
                   Tablero de Inteligencia Financiera & Comercial
                 </h3>
                 <p className="text-xs text-stone-300 max-w-xl">
-                  Seguimiento de meta total del grupo hotelero, metas personales por ejecutivo y balance de cobranza.
+                  Seguimiento de meta total del grupo hotelero, metas personales por ejecutivo y balance de cobranza real.
                 </p>
               </div>
 
@@ -1610,7 +1647,7 @@ export function CommercialSection({
               </div>
             </div>
 
-            {/* SECCIÓN 1: META TOTAL DEL GRUPO (GRAN BARRA DE ESTADO) */}
+            {/* SECCIÓN 1: META TOTAL DEL GRUPO (GRAN BARRA DE ESTADO BASADA EN DINERO REAL) */}
             <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1">
@@ -1624,7 +1661,7 @@ export function CommercialSection({
                     {groupAchievementPercent.toFixed(1)}% de la Meta Alcanzada
                   </h4>
                   <p className="text-xs text-stone-500">
-                    Progreso basado en contratos cerrados y anticipos confirmados
+                    Progreso calculado exclusivamente sobre dinero real confirmado en caja (anticipos, liquidaciones y adelantos)
                   </p>
                 </div>
 
@@ -1634,7 +1671,7 @@ export function CommercialSection({
                       Brecha Restante:
                     </span>
                     <span className="font-mono text-lg sm:text-xl font-extrabold text-amber-900">
-                      {formatCurrency(Math.max(0, totalGoalMXN - totalWonRevenue), 'MXN')}
+                      {formatCurrency(Math.max(0, totalGoalMXN - totalRealIncome), 'MXN')}
                     </span>
                   </div>
                 </div>
@@ -1661,46 +1698,58 @@ export function CommercialSection({
                 </div>
               </div>
 
-              {/* Tarjetas Resumen de Apoyo */}
+              {/* Tarjetas Resumen de Apoyo de Dinero Real */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 pt-2">
                 <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
-                    ✓ Contratado / Cerrado
+                    ✓ Total Dinero Real Ingresado
                   </span>
                   <div className="font-mono text-xl font-extrabold text-emerald-950">
-                    {formatCurrency(totalWonRevenue, 'MXN')}
+                    {formatCurrency(totalRealIncome, 'MXN')}
                   </div>
-                  <span className="text-[10px] text-emerald-700">Contratos firmados y asegurados</span>
-                </div>
-
-                <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
-                    ⏳ Pipeline en Negociación
-                  </span>
-                  <div className="font-mono text-xl font-extrabold text-amber-950">
-                    {formatCurrency(totalPipelineRevenue, 'MXN')}
-                  </div>
-                  <span className="text-[10px] text-amber-700">Cotizaciones activas con clientes</span>
-                </div>
-
-                <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-stone-700 tracking-wider block">
-                    🛏️ Total Room Nights
-                  </span>
-                  <div className="font-mono text-xl font-extrabold text-stone-900">
-                    {totalRoomNights} <span className="text-xs font-sans text-stone-500 font-normal">RN</span>
-                  </div>
-                  <span className="text-[10px] text-stone-500">Noches habitación de grupos</span>
+                  <span className="text-[10px] text-emerald-700">Anticipos + liquidaciones confirmadas</span>
                 </div>
 
                 <div className="bg-teal-50/70 border border-teal-200 rounded-2xl p-4 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-teal-800 tracking-wider block">
-                    💳 Anticipos Cobrados
+                    💳 Anticipos & Adelantos
                   </span>
                   <div className="font-mono text-xl font-extrabold text-teal-950">
                     {formatCurrency(totalDeposits, 'MXN')}
                   </div>
-                  <span className="text-[10px] text-teal-700">Flujo efectivo en caja</span>
+                  <span className="text-[10px] text-teal-700">Flujo parcial recibido de reservas</span>
+                </div>
+
+                <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">
+                    ✨ Totalmente Liquidados
+                  </span>
+                  <div className="font-mono text-xl font-extrabold text-blue-950">
+                    {formatCurrency(totalLiquidated, 'MXN')}
+                  </div>
+                  <span className="text-[10px] text-blue-700">Eventos con 100% de pago completado</span>
+                </div>
+
+                <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
+                    ⏳ Saldo Pendiente por Cobrar
+                  </span>
+                  <div className="font-mono text-xl font-extrabold text-amber-950">
+                    {formatCurrency(totalPendingBalance, 'MXN')}
+                  </div>
+                  <span className="text-[10px] text-amber-700">Restante por ingresar de eventos</span>
+                </div>
+              </div>
+
+              {/* Fila Informativa de Respaldo */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-stone-500 bg-stone-50/80 px-4 py-2.5 rounded-xl border border-stone-200">
+                <div className="flex items-center gap-2">
+                  <span>📊</span>
+                  <span>Pipeline Bruto Cotizado en Cartera (Referencia sin cobrar): <strong className="font-mono font-bold text-stone-800">{formatCurrency(totalPipelineRevenue, 'MXN')}</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>🛏️</span>
+                  <span>Room Nights de Grupos: <strong className="font-mono font-bold text-stone-800">{totalRoomNights} RN</strong></span>
                 </div>
               </div>
             </div>
@@ -1713,7 +1762,7 @@ export function CommercialSection({
                     Metas Personales por Ejecutivo Comercial
                   </h4>
                   <p className="text-xs text-stone-500">
-                    Desempeño individual en pesos mexicanos ($ MXN) y disponibilidad operativa en eventos
+                    Desempeño individual en pesos mexicanos ($ MXN) medido por dinero real cobrado (anticipos y liquidaciones)
                   </p>
                 </div>
                 <span className="text-[11px] font-mono bg-stone-100 text-stone-700 px-3 py-1 rounded-full font-bold">
@@ -1729,16 +1778,16 @@ export function CommercialSection({
                       (d.assignedRep && (d.assignedRep.toLowerCase().includes(exec.name.toLowerCase()) || exec.name.toLowerCase().includes(d.assignedRep.toLowerCase())))
                   );
 
-                  const wonVal = execDeals
-                    .filter((d) => d.stage === 'contratado')
-                    .reduce((acc, d) => acc + d.totalValue, 0);
+                  const execRealVal = execDeals.reduce((acc, d) => acc + getDealRealIncome(d), 0);
+                  const execDeposits = execDeals.reduce((acc, d) => acc + (d.paymentStatus !== 'liquidado' ? (d.depositAmount || 0) : 0), 0);
+                  const execLiquidated = execDeals.reduce((acc, d) => acc + (d.paymentStatus === 'liquidado' ? d.totalValue : 0), 0);
 
                   const pipelineVal = execDeals
                     .filter((d) => d.stage !== 'perdido')
                     .reduce((acc, d) => acc + d.totalValue, 0);
 
                   const personalGoal = 3000000;
-                  const percent = Math.min(100, (wonVal / personalGoal) * 100);
+                  const percent = Math.min(100, (execRealVal / personalGoal) * 100);
 
                   const status = getExecutiveEventStatus(deals, exec.email || exec.name);
 
@@ -1793,12 +1842,16 @@ export function CommercialSection({
                       {/* Cifras de Meta Personal */}
                       <div className="space-y-1">
                         <div className="flex items-baseline justify-between">
-                          <span className="text-[11px] text-stone-500 font-semibold">Cierre Confirmado:</span>
-                          <span className="font-mono text-base font-extrabold text-stone-900">
-                            {formatCurrency(wonVal, 'MXN')}
+                          <span className="text-[11px] text-stone-500 font-semibold">Dinero Real Recaudado:</span>
+                          <span className="font-mono text-base font-extrabold text-emerald-900">
+                            {formatCurrency(execRealVal, 'MXN')}
                           </span>
                         </div>
-                        <div className="flex items-baseline justify-between text-xs">
+                        <div className="flex items-center justify-between text-[10px] text-stone-500 font-mono">
+                          <span>Anticipos: {formatCurrency(execDeposits, 'MXN')}</span>
+                          <span>Liquidados: {formatCurrency(execLiquidated, 'MXN')}</span>
+                        </div>
+                        <div className="flex items-baseline justify-between text-xs pt-1">
                           <span className="text-stone-400 text-[11px]">Meta Personal:</span>
                           <span className="font-mono text-stone-500">{formatCurrency(personalGoal, 'MXN')}</span>
                         </div>
@@ -1807,7 +1860,7 @@ export function CommercialSection({
                       {/* Barra de Progreso Personal */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[11px] font-bold">
-                          <span className="text-stone-600">Cumplimiento:</span>
+                          <span className="text-stone-600">Cumplimiento Real:</span>
                           <span className="font-mono text-stone-900">{percent.toFixed(1)}%</span>
                         </div>
                         <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
@@ -1820,7 +1873,7 @@ export function CommercialSection({
 
                       {/* Pipeline Adicional */}
                       <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[11px]">
-                        <span className="text-stone-500">Pipeline en curso:</span>
+                        <span className="text-stone-500">Pipeline cotizado:</span>
                         <span className="font-mono font-bold text-amber-800">
                           {formatCurrency(pipelineVal, 'MXN')} ({execDeals.length} deals)
                         </span>
@@ -1838,17 +1891,18 @@ export function CommercialSection({
                   Volumen y Embudo por Fases del Pipeline (MXN)
                 </h4>
                 <p className="text-xs text-stone-500">
-                  Distribución del valor económico y número de eventos en cada etapa de negociación
+                  Dinero real recaudado y eventos en cada etapa de negociación
                 </p>
               </div>
 
               <div className="space-y-3.5">
                 {STAGES.map((stage) => {
                   const stageDeals = filteredDeals.filter((d) => d.stage === stage.id);
-                  const stageSum = stageDeals.reduce((acc, d) => acc + d.totalValue, 0);
-                  const percentOfMax = (stageSum / maxStageValue) * 100;
-                  const totalPipelineSum = totalPipelineRevenue || 1;
-                  const shareOfPipeline = ((stageSum / totalPipelineSum) * 100).toFixed(1);
+                  const stageRealSum = stageDeals.reduce((acc, d) => acc + getDealRealIncome(d), 0);
+                  const stageTotalVal = stageDeals.reduce((acc, d) => acc + d.totalValue, 0);
+                  const percentOfMax = (stageRealSum / maxStageValue) * 100;
+                  const totalRealSum = totalRealIncome || 1;
+                  const shareOfReal = ((stageRealSum / totalRealSum) * 100).toFixed(1);
 
                   return (
                     <div key={stage.id} className="space-y-1.5 bg-stone-50/60 p-3.5 rounded-2xl border border-stone-200/80">
@@ -1863,11 +1917,18 @@ export function CommercialSection({
 
                         <div className="flex items-center gap-3">
                           <span className="text-[11px] text-stone-500 font-mono">
-                            {shareOfPipeline}% del pipeline
+                            {shareOfReal}% del dinero real
                           </span>
-                          <span className="font-mono text-sm font-extrabold text-stone-900">
-                            {formatCurrency(stageSum, 'MXN')}
-                          </span>
+                          <div className="text-right">
+                            <span className="font-mono text-sm font-extrabold text-stone-900 block">
+                              {formatCurrency(stageRealSum, 'MXN')}
+                            </span>
+                            {stageTotalVal > stageRealSum && (
+                              <span className="text-[10px] text-stone-400 font-mono block">
+                                Cotizado: {formatCurrency(stageTotalVal, 'MXN')}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -1875,7 +1936,7 @@ export function CommercialSection({
                       <div className="h-3 w-full bg-stone-200/80 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${stage.colorDot}`}
-                          style={{ width: `${Math.max(stageSum > 0 ? 3 : 0, percentOfMax)}%` }}
+                          style={{ width: `${Math.max(stageRealSum > 0 ? 3 : 0, percentOfMax)}%` }}
                         />
                       </div>
                     </div>
@@ -1888,16 +1949,16 @@ export function CommercialSection({
             <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
               <div className="border-b border-stone-200 pb-3">
                 <h4 className="font-editorial text-2xl font-bold text-stone-900">
-                  Rendimiento e Ingresos por Hotel (6 Propiedades de Grupo Orgánico)
+                  Rendimiento e Ingresos Reales por Hotel (6 Propiedades de Grupo Orgánico)
                 </h4>
                 <p className="text-xs text-stone-500">
-                  Comparativa de facturación confirmada y room nights en pesos mexicanos ($ MXN)
+                  Ingresos reales ingresados en caja (anticipos y liquidaciones) y room nights en pesos mexicanos ($ MXN)
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {hotelMetrics.map((hm) => {
-                  const percentOfMaxHotel = (hm.pipeline / maxHotelRevenue) * 100;
+                  const percentOfMaxHotel = (hm.realIncome / maxHotelRevenue) * 100;
                   return (
                     <div
                       key={hm.hotelName}
@@ -1916,7 +1977,7 @@ export function CommercialSection({
 
                         <div className="text-right">
                           <div className="font-mono text-sm font-extrabold text-emerald-900">
-                            {formatCurrency(hm.won, 'MXN')}
+                            {formatCurrency(hm.realIncome, 'MXN')}
                           </div>
                           <span className="text-[10px] text-stone-500 font-mono">
                             {hm.rn} Room Nights
@@ -1925,15 +1986,18 @@ export function CommercialSection({
                       </div>
 
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-stone-400">
-                          <span>Volumen total en negociación:</span>
-                          <span className="font-mono font-bold text-stone-700">{formatCurrency(hm.pipeline, 'MXN')}</span>
+                        <div className="flex items-center justify-between text-[10px] text-stone-500 font-mono">
+                          <span>Anticipos: {formatCurrency(hm.deposits, 'MXN')} · Liquidados: {formatCurrency(hm.liquidated, 'MXN')}</span>
+                          <span className="font-bold text-stone-700 font-sans">Dinero Real</span>
                         </div>
                         <div className="h-2 w-full bg-stone-200 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full bg-emerald-700 transition-all duration-500"
-                            style={{ width: `${Math.max(hm.pipeline > 0 ? 4 : 0, percentOfMaxHotel)}%` }}
+                            style={{ width: `${Math.max(hm.realIncome > 0 ? 4 : 0, percentOfMaxHotel)}%` }}
                           />
+                        </div>
+                        <div className="text-[10px] text-stone-400 font-mono text-right">
+                          Cotizado en cartera: {formatCurrency(hm.pipeline, 'MXN')}
                         </div>
                       </div>
                     </div>
@@ -1949,15 +2013,15 @@ export function CommercialSection({
                   <span className="text-xl">💳</span>
                   <div>
                     <h4 className="font-bold text-amber-950 text-sm uppercase tracking-wider">
-                      Estado General de Cobranza & Anticipos
+                      Estado General de Cobranza & Dinero Real
                     </h4>
                     <span className="text-xs text-amber-800">
-                      Balance en tiempo real entre anticipos ingresados y cuentas por cobrar
+                      Balance en tiempo real entre dinero real ingresado (anticipos + liquidaciones) y cuentas por cobrar
                     </span>
                   </div>
                 </div>
                 <span className="text-xs font-mono font-bold text-amber-900">
-                  {((totalDeposits / ((totalDeposits + totalPendingBalance) || 1)) * 100).toFixed(1)}% Cobrado
+                  {((totalRealIncome / ((totalRealIncome + totalPendingBalance) || 1)) * 100).toFixed(1)}% Ingresado
                 </span>
               </div>
 
@@ -1966,14 +2030,14 @@ export function CommercialSection({
                   <div
                     className="h-full bg-emerald-600 transition-all duration-500"
                     style={{
-                      width: `${((totalDeposits / ((totalDeposits + totalPendingBalance) || 1)) * 100)}%`
+                      width: `${((totalRealIncome / ((totalRealIncome + totalPendingBalance) || 1)) * 100)}%`
                     }}
                     title="Cobrado"
                   />
                   <div
                     className="h-full bg-amber-400 transition-all duration-500"
                     style={{
-                      width: `${((totalPendingBalance / ((totalDeposits + totalPendingBalance) || 1)) * 100)}%`
+                      width: `${((totalPendingBalance / ((totalRealIncome + totalPendingBalance) || 1)) * 100)}%`
                     }}
                     title="Saldo por Cobrar"
                   />
@@ -1982,8 +2046,8 @@ export function CommercialSection({
                 <div className="flex items-center justify-between text-xs pt-1">
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-emerald-600" />
-                    <span className="text-stone-700">Anticipos Recibidos:</span>
-                    <strong className="font-mono text-emerald-900">{formatCurrency(totalDeposits, 'MXN')}</strong>
+                    <span className="text-stone-700">Dinero Real Ingresado:</span>
+                    <strong className="font-mono text-emerald-900">{formatCurrency(totalRealIncome, 'MXN')}</strong>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -2270,23 +2334,30 @@ export function CommercialSection({
               <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                    <span>💳</span> Control de Anticipos & Liquidación
+                    <span>💳</span> Control de Anticipos, Adelantos & Liquidación
                   </h4>
                   <span className="text-[11px] text-amber-800 font-semibold font-mono">
-                    Saldo Restante: {formatCurrency(Math.max(0, (parseFloat(totalValue) || 0) - (parseFloat(depositAmount) || 0)), currency)}
+                    Saldo Restante: {formatCurrency(paymentStatus === 'liquidado' ? 0 : Math.max(0, (parseFloat(totalValue) || 0) - (parseFloat(depositAmount) || 0)), currency)}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                      Anticipo Pagado / Recibido
+                      Anticipo / Adelanto Recibido ($)
                     </label>
                     <input
                       type="number"
                       min="0"
                       value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDepositAmount(val);
+                        const num = parseFloat(val) || 0;
+                        if (num > 0 && paymentStatus === 'pendiente') {
+                          setPaymentStatus('anticipo_pagado');
+                        }
+                      }}
                       placeholder="0"
                       className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-bold font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
@@ -2298,12 +2369,20 @@ export function CommercialSection({
                     </label>
                     <select
                       value={paymentStatus}
-                      onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}
+                      onChange={(e) => {
+                        const val = e.target.value as PaymentStatus;
+                        setPaymentStatus(val);
+                        if (val === 'liquidado') {
+                          setDepositAmount(totalValue || '0');
+                        } else if (val === 'pendiente' && depositAmount === totalValue) {
+                          setDepositAmount('0');
+                        }
+                      }}
                       className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     >
-                      <option value="pendiente">Pendiente (Sin anticipo)</option>
-                      <option value="anticipo_pagado">Anticipo Pagado (Reserva Firme)</option>
-                      <option value="liquidado">Liquidado 100%</option>
+                      <option value="pendiente">Pendiente (Sin anticipo ni adelanto)</option>
+                      <option value="anticipo_pagado">Anticipo / Adelanto Pagado</option>
+                      <option value="liquidado">Liquidado 100% (Pago Total)</option>
                     </select>
                   </div>
 
@@ -2669,23 +2748,30 @@ export function CommercialSection({
               <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                    <span>💳</span> Control de Anticipos & Liquidación
+                    <span>💳</span> Control de Anticipos, Adelantos & Liquidación
                   </h4>
                   <span className="text-[11px] text-amber-800 font-semibold font-mono">
-                    Saldo Restante: {formatCurrency(Math.max(0, (parseFloat(editTotalValue) || 0) - (parseFloat(editDepositAmount) || 0)), editCurrency)}
+                    Saldo Restante: {formatCurrency(editPaymentStatus === 'liquidado' ? 0 : Math.max(0, (parseFloat(editTotalValue) || 0) - (parseFloat(editDepositAmount) || 0)), editCurrency)}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                      Anticipo Pagado / Recibido
+                      Anticipo / Adelanto Recibido ($)
                     </label>
                     <input
                       type="number"
                       min="0"
                       value={editDepositAmount}
-                      onChange={(e) => setEditDepositAmount(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditDepositAmount(val);
+                        const num = parseFloat(val) || 0;
+                        if (num > 0 && editPaymentStatus === 'pendiente') {
+                          setEditPaymentStatus('anticipo_pagado');
+                        }
+                      }}
                       placeholder="0"
                       className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-bold font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
@@ -2697,12 +2783,20 @@ export function CommercialSection({
                     </label>
                     <select
                       value={editPaymentStatus}
-                      onChange={(e) => setEditPaymentStatus(e.target.value as PaymentStatus)}
+                      onChange={(e) => {
+                        const val = e.target.value as PaymentStatus;
+                        setEditPaymentStatus(val);
+                        if (val === 'liquidado') {
+                          setEditDepositAmount(editTotalValue || '0');
+                        } else if (val === 'pendiente' && editDepositAmount === editTotalValue) {
+                          setEditDepositAmount('0');
+                        }
+                      }}
                       className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     >
-                      <option value="pendiente">Pendiente (Sin anticipo)</option>
-                      <option value="anticipo_pagado">Anticipo Pagado (Reserva Firme)</option>
-                      <option value="liquidado">Liquidado 100%</option>
+                      <option value="pendiente">Pendiente (Sin anticipo ni adelanto)</option>
+                      <option value="anticipo_pagado">Anticipo / Adelanto Pagado</option>
+                      <option value="liquidado">Liquidado 100% (Pago Total)</option>
                     </select>
                   </div>
 
@@ -3147,16 +3241,16 @@ export function CommercialSection({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
                 <div className="bg-white p-3 rounded-xl border border-amber-200/80">
-                  <span className="text-[10px] text-stone-500 uppercase font-semibold block">Anticipo Recibido:</span>
+                  <span className="text-[10px] text-stone-500 uppercase font-semibold block">Anticipo / Pago Recibido:</span>
                   <span className="font-mono text-base font-extrabold text-stone-900">
-                    {formatCurrency(viewingDeal.depositAmount || 0, viewingDeal.currency)}
+                    {formatCurrency(viewingDeal.paymentStatus === 'liquidado' ? viewingDeal.totalValue : (viewingDeal.depositAmount || 0), viewingDeal.currency)}
                   </span>
                 </div>
 
                 <div className="bg-white p-3 rounded-xl border border-amber-200/80">
                   <span className="text-[10px] text-stone-500 uppercase font-semibold block">Saldo Pendiente:</span>
                   <span className="font-mono text-base font-extrabold text-emerald-950">
-                    {formatCurrency(Math.max(0, viewingDeal.totalValue - (viewingDeal.depositAmount || 0)), viewingDeal.currency)}
+                    {formatCurrency(viewingDeal.paymentStatus === 'liquidado' ? 0 : Math.max(0, viewingDeal.totalValue - (viewingDeal.depositAmount || 0)), viewingDeal.currency)}
                   </span>
                 </div>
 
