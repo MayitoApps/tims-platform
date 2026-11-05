@@ -282,6 +282,22 @@ export interface DealRequirement {
   createdAt?: string;
 }
 
+export interface DealInvoice {
+  id: string;
+  folio: string;               // Folio fiscal o interno (ej. FAC-1002, UUID)
+  concept?: string;            // Concepto (ej. 'Anticipo 50%', 'Liquidación Total', etc.)
+  amount?: number;             // Monto de la factura
+  currency?: 'MXN' | 'USD';
+  invoiceDate: string;         // Fecha de la factura
+  fileUrl: string;             // Imagen Base64 o Enlace Web (Drive, Dropbox, etc.)
+  fileType: 'image' | 'pdf' | 'link';
+  fileName?: string;           // Nombre del archivo
+  status?: 'emitida' | 'pagada' | 'cancelada';
+  notes?: string;              // Observaciones
+  uploadedBy?: string;         // Usuario que adjuntó la factura
+  createdAt: string;
+}
+
 export interface HotelDeal {
   id: string;
   code: string;
@@ -309,6 +325,7 @@ export interface HotelDeal {
   contactEmail?: string;
   contactPhone?: string;
   requirements?: DealRequirement[];
+  invoices?: DealInvoice[];
   createdAt: string;
 }
 

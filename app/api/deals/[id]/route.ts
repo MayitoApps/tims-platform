@@ -52,6 +52,7 @@ export async function PUT(
           contact_email = COALESCE(${updates.contactEmail}, contact_email),
           contact_phone = COALESCE(${updates.contactPhone}, contact_phone),
           requirements = COALESCE(${updates.requirements ? JSON.stringify(updates.requirements) : null}::jsonb, requirements),
+          invoices = COALESCE(${updates.invoices ? JSON.stringify(updates.invoices) : null}::jsonb, invoices),
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id};
       `;

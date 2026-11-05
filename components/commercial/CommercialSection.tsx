@@ -23,6 +23,7 @@ import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabe
 import { SharedCalendar } from '@/components/SharedCalendar';
 import { QuotationPrintModal } from './QuotationPrintModal';
 import { AvailabilityCheckerModal } from './AvailabilityCheckerModal';
+import { InvoicesTab } from './InvoicesTab';
 
 interface CommercialSectionProps {
   deals: HotelDeal[];
@@ -88,8 +89,12 @@ export function CommercialSection({
 }: CommercialSectionProps) {
   const isCurrentUserAdmin = isAdminEmail(currentUser?.email);
 
-  const [subView, setSubView] = useState<'pipeline' | 'tareas' | 'calendario' | 'tabla' | 'reporte'>('pipeline');
+  const [subView, setSubView] = useState<'pipeline' | 'tareas' | 'calendario' | 'tabla' | 'reporte' | 'facturas'>('pipeline');
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
+
+  const totalInvoicesCount = useMemo(() => {
+    return deals.reduce((acc, d) => acc + (d.invoices?.length || 0), 0);
+  }, [deals]);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<HotelDealStage | null>(null);
   const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
@@ -138,7 +143,7 @@ export function CommercialSection({
 
   // Modal - Ver Detalle Completo en Grande & Cotización PDF & Checker
   const [viewingDeal, setViewingDeal] = useState<HotelDeal | null>(null);
-  const [viewingTab, setViewingTab] = useState<'info' | 'comments'>('info');
+  const [viewingTab, setViewingTab] = useState<'info' | 'comments' | 'invoices'>('info');
   const [dealCommentText, setDealCommentText] = useState('');
   const [quotationDeal, setQuotationDeal] = useState<HotelDeal | null>(null);
   const [isCheckerOpen, setIsCheckerOpen] = useState(false);
@@ -1029,12 +1034,27 @@ export function CommercialSection({
             >
               Métricas
             </button>
+            <button
+              onClick={() => setSubView('facturas')}
+              className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
+                subView === 'facturas'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span>🧾 Facturas</span>
+              {totalInvoicesCount > 0 && (
+                <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full">
+                  {totalInvoicesCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </div>
 
       {/* Hotel Filter & Action Bar (Para Pipeline, Tabla y Reportes) */}
-      {subView !== 'calendario' && subView !== 'tareas' && (
+      {subView !== 'calendario' && subView !== 'tareas' && subView !== 'facturas' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-stone-200 shadow-2xs">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
@@ -2279,6 +2299,16 @@ export function CommercialSection({
         );
       })()}
 
+      {/* SUB-VIEW 5: GESTIÓN DE FACTURAS VINCULADAS A EVENTOS (EN CURSO O CONCLUIDOS) */}
+      {subView === 'facturas' && (
+        <InvoicesTab
+          deals={deals}
+          currentUser={currentUser}
+          selectedHotelFilter={selectedHotelFilter}
+          onUpdateDeal={onUpdateDeal}
+        />
+      )}
+
       {/* MODAL: NUEVA COTIZACIÓN / RFP CON PREVENCIÓN DE CONFLICTO DE FECHAS */}
       {isDealModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4">
@@ -3453,9 +3483,102 @@ export function CommercialSection({
                   {(viewingDeal.comments || []).length}
                 </span>
               </button>
+              <button
+                type="button"
+                onClick={() => setViewingTab('invoices')}
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewingTab === 'invoices'
+                    ? 'border-emerald-700 text-emerald-900 bg-emerald-50/60 rounded-t-lg'
+                    : 'border-transparent text-stone-500 hover:text-stone-900'
+                }`}
+              >
+                <span>🧾 Facturas ({viewingDeal.invoices?.length || 0})</span>
+              </button>
             </div>
 
-            {viewingTab === 'comments' ? (
+            {viewingTab === 'invoices' ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">
+                      Facturas Vinculadas al Evento ({viewingDeal.invoices?.length || 0})
+                    </h4>
+                    <p className="text-xs text-stone-500">
+                      Comprobantes fiscales e imágenes asociadas a esta contratación
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewingDeal(null);
+                      setSubView('facturas');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    <span>Ir al Gestor de Facturas ➔</span>
+                  </button>
+                </div>
+
+                {(!viewingDeal.invoices || viewingDeal.invoices.length === 0) ? (
+                  <div className="p-8 bg-stone-50 rounded-2xl border border-dashed border-stone-300 text-center space-y-3">
+                    <span className="text-3xl block">🧾</span>
+                    <p className="text-xs text-stone-600 font-medium">
+                      Este evento aún no tiene facturas adjuntas registradas.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewingDeal(null);
+                        setSubView('facturas');
+                      }}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
+                    >
+                      + Adjuntar Factura en la Sección Facturas
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {viewingDeal.invoices.map((inv) => (
+                      <div key={inv.id} className="p-4 bg-stone-50 border border-stone-200 rounded-2xl space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{inv.fileType === 'image' ? '🖼️' : '🔗'}</span>
+                            <span className="font-bold text-xs text-slate-900">Folio: {inv.folio}</span>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                            {inv.concept || 'Factura'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-stone-500 flex items-center justify-between">
+                          <span>Fecha: {formatDate(inv.invoiceDate)}</span>
+                          {inv.amount && (
+                            <span className="font-bold text-slate-900 font-editorial text-sm">
+                              {formatCurrency(inv.amount)} {inv.currency || 'MXN'}
+                            </span>
+                          )}
+                        </div>
+                        {inv.notes && (
+                          <p className="text-[11px] text-stone-600 bg-white p-2 rounded-lg border border-stone-200/60">
+                            {inv.notes}
+                          </p>
+                        )}
+                        <div className="pt-2 border-t border-stone-200/80 flex items-center justify-between">
+                          <a
+                            href={inv.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
+                          >
+                            <span>Abrir Comprobante</span>
+                            <span>↗</span>
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : viewingTab === 'comments' ? (
               <div className="space-y-4">
                 {/* Aviso Informativo de Seguridad y Permisos */}
                 <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 flex items-start gap-2.5">
