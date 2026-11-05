@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         selected_spaces, requested_rooms, stage, total_value, currency,
         deposit_amount, payment_status, payment_due_date,
         room_nights, attendees_count, check_in_date, check_out_date,
-        assigned_rep, assigned_email, notes, comments, contact_email, contact_phone, created_at
+        assigned_rep, assigned_email, notes, comments, contact_email, contact_phone, requirements, created_at
       ) VALUES (
         ${deal.id}, ${deal.code}, ${deal.clientName}, ${deal.companyOrAgency || deal.clientName},
         ${deal.hotelName}, ${deal.category || 'bodas_sociales'},
@@ -67,6 +67,7 @@ export async function POST(request: Request) {
         ${deal.notes || ''},
         ${JSON.stringify(deal.comments || [])}::jsonb,
         ${deal.contactEmail || ''}, ${deal.contactPhone || ''},
+        ${JSON.stringify(deal.requirements || [])}::jsonb,
         ${deal.createdAt}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
         comments = EXCLUDED.comments,
         contact_email = EXCLUDED.contact_email,
         contact_phone = EXCLUDED.contact_phone,
+        requirements = EXCLUDED.requirements,
         updated_at = CURRENT_TIMESTAMP;
     `;
 

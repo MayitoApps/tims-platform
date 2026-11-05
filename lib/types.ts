@@ -274,6 +274,13 @@ export interface RequestedRoomType {
   count: number;
 }
 
+export interface DealRequirement {
+  id: string;
+  text: string;
+  completed: boolean;
+  createdAt?: string;
+}
+
 export interface HotelDeal {
   id: string;
   code: string;
@@ -300,6 +307,7 @@ export interface HotelDeal {
   comments?: TaskComment[];
   contactEmail?: string;
   contactPhone?: string;
+  requirements?: DealRequirement[];
   createdAt: string;
 }
 

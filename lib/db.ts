@@ -66,6 +66,7 @@ export async function ensureTables(): Promise<boolean> {
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS payment_due_date TEXT;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS assigned_email TEXT;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS requirements JSONB DEFAULT '[]'::jsonb;`;
 
     // 2. Marketing Tasks Table
     await sql`
@@ -243,6 +244,7 @@ export function mapRowToDeal(row: any): HotelDeal {
     comments: typeof row.comments === 'string' ? JSON.parse(row.comments) : (row.comments || []),
     contactEmail: row.contact_email || '',
     contactPhone: row.contact_phone || '',
+    requirements: typeof row.requirements === 'string' ? JSON.parse(row.requirements) : (row.requirements || []),
     createdAt: row.created_at
   };
 }

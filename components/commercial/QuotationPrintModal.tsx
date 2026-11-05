@@ -282,6 +282,29 @@ export function QuotationPrintModal({ deal, onClose }: QuotationPrintModalProps)
             </div>
           </div>
 
+          {/* Requerimientos Específicos del Evento */}
+          {deal.requirements && deal.requirements.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider border-b border-stone-200 pb-1">
+                ☑️ Requerimientos Específicos & Montaje
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {deal.requirements.map((req, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 bg-stone-50 rounded-lg border border-stone-200 text-xs">
+                    <span className={`w-4 h-4 rounded text-[10px] font-bold flex items-center justify-center shrink-0 ${
+                      req.completed ? 'bg-emerald-600 text-white' : 'border border-stone-400 text-transparent'
+                    }`}>
+                      {req.completed ? '✓' : ''}
+                    </span>
+                    <span className={req.completed ? 'line-through text-stone-500' : 'text-stone-800'}>
+                      {req.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Notes Section */}
           {deal.notes && (
             <div className="space-y-1 bg-stone-50 p-4 rounded-lg border border-stone-200">

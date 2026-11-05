@@ -5,6 +5,7 @@ import {
   HotelDeal,
   HotelDealStage,
   DealCategory,
+  DealRequirement,
   UserProfile,
   RequestedRoomType,
   PaymentStatus,
@@ -182,6 +183,8 @@ export function CommercialSection({
   const [editPhone, setEditPhone] = useState('');
   const [editAssignedRepName, setEditAssignedRepName] = useState(currentUser?.name || '');
   const [editAssignedRepEmail, setEditAssignedRepEmail] = useState(currentUser?.email || '');
+  const [editRequirements, setEditRequirements] = useState<DealRequirement[]>([]);
+  const [editReqInput, setEditReqInput] = useState('');
 
   // Form states - Deal
   const [clientName, setClientName] = useState('');
@@ -204,6 +207,11 @@ export function CommercialSection({
   const [phone, setPhone] = useState('');
   const [assignedRepName, setAssignedRepName] = useState(currentUser?.name || '');
   const [assignedRepEmail, setAssignedRepEmail] = useState(currentUser?.email || '');
+  const [dealRequirements, setDealRequirements] = useState<DealRequirement[]>([]);
+  const [dealReqInput, setDealReqInput] = useState('');
+
+  // Quick requirement input in viewingDeal modal
+  const [viewingReqInput, setViewingReqInput] = useState('');
 
   const availableSpaces = HOTEL_SPACES[hotel] || [];
   const availableRoomTypes = HOTEL_ROOM_TYPES[hotel] || [];
@@ -599,6 +607,8 @@ export function CommercialSection({
     setEditPhone(deal.contactPhone || '');
     setEditAssignedRepName(deal.assignedRep || currentUser?.name || '');
     setEditAssignedRepEmail(deal.assignedEmail || currentUser?.email || '');
+    setEditRequirements(deal.requirements ? [...deal.requirements] : []);
+    setEditReqInput('');
     setEditConflictError(null);
 
     const roomMap: Record<string, number> = {};
@@ -609,6 +619,90 @@ export function CommercialSection({
     }
     setEditRoomQuantities(roomMap);
     setIsEditModalOpen(true);
+  };
+
+  // Requerimientos en el modal de nuevo evento
+  const handleAddDealRequirement = () => {
+    if (!dealReqInput.trim()) return;
+    const newReq: DealRequirement = {
+      id: `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      text: dealReqInput.trim(),
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+    setDealRequirements((prev) => [...prev, newReq]);
+    setDealReqInput('');
+  };
+
+  const handleRemoveDealRequirement = (reqId: string) => {
+    setDealRequirements((prev) => prev.filter((r) => r.id !== reqId));
+  };
+
+  // Requerimientos en el modal de editar evento
+  const handleAddEditRequirement = () => {
+    if (!editReqInput.trim()) return;
+    const newReq: DealRequirement = {
+      id: `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      text: editReqInput.trim(),
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+    setEditRequirements((prev) => [...prev, newReq]);
+    setEditReqInput('');
+  };
+
+  const handleRemoveEditRequirement = (reqId: string) => {
+    setEditRequirements((prev) => prev.filter((r) => r.id !== reqId));
+  };
+
+  const handleToggleEditRequirement = (reqId: string) => {
+    setEditRequirements((prev) =>
+      prev.map((r) => (r.id === reqId ? { ...r, completed: !r.completed } : r))
+    );
+  };
+
+  // Palomear requerimiento directamente en la tarjeta o modal de vista
+  const handleToggleDealRequirement = (targetDeal: HotelDeal, reqId: string) => {
+    const updatedReqs = (targetDeal.requirements || []).map((r) =>
+      r.id === reqId ? { ...r, completed: !r.completed } : r
+    );
+    const updatedDeal: HotelDeal = {
+      ...targetDeal,
+      requirements: updatedReqs
+    };
+    onUpdateDeal(updatedDeal);
+    if (viewingDeal && viewingDeal.id === targetDeal.id) {
+      setViewingDeal(updatedDeal);
+    }
+  };
+
+  // Agregar requerimiento sobre la marcha en el modal de visualización de evento
+  const handleAddRequirementToViewingDeal = () => {
+    if (!viewingDeal || !viewingReqInput.trim()) return;
+    const newReq: DealRequirement = {
+      id: `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      text: viewingReqInput.trim(),
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+    const updatedDeal: HotelDeal = {
+      ...viewingDeal,
+      requirements: [...(viewingDeal.requirements || []), newReq]
+    };
+    setViewingDeal(updatedDeal);
+    onUpdateDeal(updatedDeal);
+    setViewingReqInput('');
+  };
+
+  // Eliminar requerimiento en el modal de visualización de evento
+  const handleDeleteRequirementFromViewingDeal = (reqId: string) => {
+    if (!viewingDeal) return;
+    const updatedDeal: HotelDeal = {
+      ...viewingDeal,
+      requirements: (viewingDeal.requirements || []).filter((r) => r.id !== reqId)
+    };
+    setViewingDeal(updatedDeal);
+    onUpdateDeal(updatedDeal);
   };
 
   const handleToggleEditSpace = (spaceName: string) => {
@@ -733,7 +827,8 @@ export function CommercialSection({
       assignedEmail: editAssignedRepEmail,
       notes: editNotes,
       contactEmail: editEmail,
-      contactPhone: editPhone
+      contactPhone: editPhone,
+      requirements: editRequirements
     };
 
     onUpdateDeal(updated);
@@ -811,7 +906,8 @@ export function CommercialSection({
       comments: [],
       notes: notes || 'Solicitud de bloqueo de espacios y cotización oficial.',
       contactEmail: email.trim() || undefined,
-      contactPhone: phone.trim() || undefined
+      contactPhone: phone.trim() || undefined,
+      requirements: dealRequirements
     });
 
     if (onAddNotification) {
@@ -840,6 +936,8 @@ export function CommercialSection({
     setDepositAmount('0');
     setPaymentStatus('pendiente');
     setPaymentDueDate('');
+    setDealRequirements([]);
+    setDealReqInput('');
     setIsDealModalOpen(false);
   };
 
@@ -1352,6 +1450,69 @@ export function CommercialSection({
                             </div>
                           </div>
 
+                          {/* Fila Requerimientos (Palomeables 1 por 1) */}
+                          {deal.requirements && deal.requirements.length > 0 && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-stone-50 rounded-lg p-2 border border-stone-200/90 space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="font-bold text-stone-700 flex items-center gap-1">
+                                  <span>☑️</span> Requerimientos:
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-bold ${
+                                    deal.requirements.every((r) => r.completed)
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                      : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  }`}
+                                >
+                                  {deal.requirements.filter((r) => r.completed).length}/{deal.requirements.length}
+                                </span>
+                              </div>
+
+                              {/* Barra de progreso */}
+                              <div className="h-1.5 w-full bg-stone-200 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full transition-all duration-300 ${
+                                    deal.requirements.every((r) => r.completed) ? 'bg-emerald-600' : 'bg-emerald-500'
+                                  }`}
+                                  style={{
+                                    width: `${Math.round(
+                                      (deal.requirements.filter((r) => r.completed).length / deal.requirements.length) * 100
+                                    )}%`
+                                  }}
+                                />
+                              </div>
+
+                              {/* Lista de requerimientos interactiva */}
+                              <div className="space-y-1 pt-0.5 max-h-28 overflow-y-auto pr-0.5">
+                                {deal.requirements.map((req) => (
+                                  <label
+                                    key={req.id}
+                                    className="flex items-start gap-1.5 text-[10px] cursor-pointer hover:bg-white p-1 rounded transition-colors group select-none"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={req.completed}
+                                      onChange={() => handleToggleDealRequirement(deal, req.id)}
+                                      className="mt-0.5 h-3.5 w-3.5 accent-emerald-600 rounded cursor-pointer shrink-0"
+                                    />
+                                    <span
+                                      className={`leading-tight flex-1 text-left ${
+                                        req.completed
+                                          ? 'line-through text-stone-400 font-normal'
+                                          : 'text-stone-800 font-medium'
+                                      }`}
+                                    >
+                                      {req.text}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Fila 4: Estado de Pago + Acciones Rápidas */}
                           <div className="flex items-center justify-between pt-1 border-t border-stone-100 text-[10px]">
                             {/* Estado de pago pill & Botón rápido PDF */}
@@ -1461,7 +1622,18 @@ export function CommercialSection({
                       onClick={() => setViewingDeal(deal)}
                       className="hover:bg-emerald-50/60 cursor-pointer transition-colors"
                     >
-                      <td className="py-3 px-4 font-mono font-bold text-emerald-800">{deal.code}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-emerald-800">
+                        <div>{deal.code}</div>
+                        {deal.requirements && deal.requirements.length > 0 && (
+                          <span className={`inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded font-sans font-bold border ${
+                            deal.requirements.every((r) => r.completed)
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            ✓ {deal.requirements.filter((r) => r.completed).length}/{deal.requirements.length} reqs
+                          </span>
+                        )}
+                      </td>
                       <td className="py-3 px-4">
                         <div className="font-bold text-stone-900">{deal.companyOrAgency}</div>
                         <div className="text-[11px] text-stone-500">{deal.clientName}</div>
@@ -2484,11 +2656,88 @@ export function CommercialSection({
                 </div>
               </div>
 
+              {/* Sección de Requerimientos Específicos (1 por 1 para checklist de la tarjeta) */}
+              <div className="bg-emerald-50/60 border border-emerald-200/90 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>☑️</span> Requerimientos del Evento (1 por 1)
+                    </label>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      Registra cada requerimiento técnico, de montaje o banquete. Se generará una lista interactiva en la tarjeta para palomearlos.
+                    </p>
+                  </div>
+                  {dealRequirements.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-mono font-bold border border-emerald-300">
+                      {dealRequirements.length} {dealRequirements.length === 1 ? 'requerimiento' : 'requerimientos'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Input y botón para agregar 1 por 1 */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={dealReqInput}
+                    onChange={(e) => setDealReqInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddDealRequirement();
+                      }
+                    }}
+                    placeholder="Ej. Proyector y cable HDMI, Coffee break 11:00 AM, Montaje herradura..."
+                    className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddDealRequirement}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1 shrink-0 cursor-pointer"
+                  >
+                    <span>+</span>
+                    <span>Agregar</span>
+                  </button>
+                </div>
+
+                {/* Lista interactiva de requerimientos agregados */}
+                {dealRequirements.length > 0 ? (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {dealRequirements.map((req, idx) => (
+                      <div
+                        key={req.id}
+                        className="flex items-center justify-between gap-2 p-2 bg-white rounded-xl border border-stone-200 text-xs shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="text-stone-800 font-medium break-words">
+                            {req.text}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDealRequirement(req.id)}
+                          className="text-stone-400 hover:text-rose-600 p-1 rounded-md transition-colors shrink-0 text-sm"
+                          title="Eliminar de la lista"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-stone-400 italic bg-white/60 p-2.5 rounded-xl border border-dashed border-stone-200 text-center">
+                    Aún no has agregado requerimientos. Escribe uno arriba y presiona "Agregar" o la tecla Enter.
+                  </div>
+                )}
+              </div>
+
               <div>
-                <label className="block text-stone-700 font-bold mb-1">Detalles de Montaje / Requerimientos</label>
+                <label className="block text-stone-700 font-bold mb-1">Notas u Observaciones Adicionales</label>
                 <textarea
                   rows={2}
-                  placeholder="Detalles sobre banquete, montaje de salón, requerimientos técnicos..."
+                  placeholder="Detalles adicionales sobre el cliente o evento..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
@@ -2935,8 +3184,94 @@ export function CommercialSection({
                 )}
               </div>
 
+              {/* Sección de Requerimientos del Evento (Edición 1 por 1) */}
+              <div className="bg-emerald-50/60 border border-emerald-200/90 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>☑️</span> Requerimientos del Evento (Lista para Palomear)
+                    </label>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      Agrega o palomea requerimientos para la tarjeta y la ficha del evento.
+                    </p>
+                  </div>
+                  {editRequirements.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-mono font-bold border border-emerald-300">
+                      {editRequirements.filter((r) => r.completed).length}/{editRequirements.length} cumplidos
+                    </span>
+                  )}
+                </div>
+
+                {/* Input y botón para agregar en edición */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={editReqInput}
+                    onChange={(e) => setEditReqInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddEditRequirement();
+                      }
+                    }}
+                    placeholder="Ej. Proyector y cable HDMI, Coffee break 11:00 AM..."
+                    className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddEditRequirement}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1 shrink-0 cursor-pointer"
+                  >
+                    <span>+</span>
+                    <span>Agregar</span>
+                  </button>
+                </div>
+
+                {/* Lista interactiva en edición */}
+                {editRequirements.length > 0 ? (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {editRequirements.map((req) => (
+                      <div
+                        key={req.id}
+                        className="flex items-center justify-between gap-2 p-2 bg-white rounded-xl border border-stone-200 text-xs shadow-2xs"
+                      >
+                        <label className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={req.completed}
+                            onChange={() => handleToggleEditRequirement(req.id)}
+                            className="h-4 w-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+                          />
+                          <span
+                            className={`break-words ${
+                              req.completed
+                                ? 'line-through text-stone-400 font-normal'
+                                : 'text-stone-800 font-medium'
+                            }`}
+                          >
+                            {req.text}
+                          </span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditRequirement(req.id)}
+                          className="text-stone-400 hover:text-rose-600 p-1 rounded-md transition-colors shrink-0 text-sm"
+                          title="Eliminar requerimiento"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-stone-400 italic bg-white/60 p-2.5 rounded-xl border border-dashed border-stone-200 text-center">
+                    No hay requerimientos en la lista. Escribe uno arriba para agregarlo.
+                  </div>
+                )}
+              </div>
+
               <div>
-                <label className="block text-stone-700 font-bold mb-1">Notas / Requerimientos</label>
+                <label className="block text-stone-700 font-bold mb-1">Notas u Observaciones</label>
                 <textarea
                   rows={2}
                   value={editNotes}
@@ -3431,15 +3766,145 @@ export function CommercialSection({
               </div>
             </div>
 
-            {/* Notas y Requerimientos Especiales */}
-            <div className="space-y-1.5">
-              <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <span>📝</span> Requerimientos Especiales, Banquete y Notas:
-              </h4>
-              <div className="bg-white p-4 rounded-2xl border border-stone-200 text-stone-700 text-xs leading-relaxed whitespace-pre-wrap">
-                {viewingDeal.notes || 'Sin especificaciones ni notas adicionales registradas en este evento.'}
+            {/* Lista de Requerimientos Interactiva para Palomear */}
+            <div className="bg-emerald-50/50 border border-emerald-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/70 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">☑️</span>
+                  <div>
+                    <h4 className="font-bold text-stone-900 text-xs sm:text-sm uppercase tracking-wider">
+                      Lista de Requerimientos del Evento
+                    </h4>
+                    <span className="text-[11px] text-stone-500">
+                      Palomea cada requerimiento conforme se prepare o cumpla en el hotel
+                    </span>
+                  </div>
+                </div>
+
+                {viewingDeal.requirements && viewingDeal.requirements.length > 0 && (
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${
+                        viewingDeal.requirements.every((r) => r.completed)
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : 'bg-amber-100 text-amber-800 border-amber-300'
+                      }`}
+                    >
+                      {viewingDeal.requirements.filter((r) => r.completed).length} de {viewingDeal.requirements.length} cumplidos
+                      {viewingDeal.requirements.every((r) => r.completed) && ' (100% Listo)'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Barra de Progreso Global de Requerimientos */}
+              {viewingDeal.requirements && viewingDeal.requirements.length > 0 && (
+                <div className="space-y-1">
+                  <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        viewingDeal.requirements.every((r) => r.completed) ? 'bg-emerald-600' : 'bg-emerald-500'
+                      }`}
+                      style={{
+                        width: `${Math.round(
+                          (viewingDeal.requirements.filter((r) => r.completed).length / viewingDeal.requirements.length) * 100
+                        )}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Items de Requerimientos */}
+              <div className="space-y-2">
+                {viewingDeal.requirements && viewingDeal.requirements.length > 0 ? (
+                  viewingDeal.requirements.map((req, idx) => (
+                    <div
+                      key={req.id}
+                      className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${
+                        req.completed
+                          ? 'bg-emerald-50/80 border-emerald-200'
+                          : 'bg-white border-stone-200 shadow-2xs hover:border-emerald-300'
+                      }`}
+                    >
+                      <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={req.completed}
+                          onChange={() => handleToggleDealRequirement(viewingDeal, req.id)}
+                          className="h-4 w-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+                        />
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold shrink-0 ${
+                            req.completed ? 'bg-emerald-200/80 text-emerald-900' : 'bg-stone-100 text-stone-600'
+                          }`}>
+                            #{idx + 1}
+                          </span>
+                          <span
+                            className={`text-xs break-words leading-snug ${
+                              req.completed
+                                ? 'line-through text-stone-400 font-normal'
+                                : 'text-stone-900 font-semibold'
+                            }`}
+                          >
+                            {req.text}
+                          </span>
+                        </div>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRequirementFromViewingDeal(req.id)}
+                        className="text-stone-300 hover:text-rose-600 p-1.5 rounded-lg transition-colors shrink-0"
+                        title="Eliminar requerimiento"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-xs text-stone-400 italic bg-white/70 rounded-xl border border-dashed border-stone-200">
+                    No hay requerimientos específicos dados de alta en este evento.
+                  </div>
+                )}
+              </div>
+
+              {/* Input rápido para agregar un requerimiento adicional sobre la marcha */}
+              <div className="flex gap-2 pt-1 border-t border-emerald-200/60">
+                <input
+                  type="text"
+                  value={viewingReqInput}
+                  onChange={(e) => setViewingReqInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddRequirementToViewingDeal();
+                    }
+                  }}
+                  placeholder="+ Agregar requerimiento rápido (ej. Proyector extra, Coffee break a las 16:00)..."
+                  className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddRequirementToViewingDeal}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
+                >
+                  + Agregar
+                </button>
               </div>
             </div>
+
+            {/* Notas Generales Adicionales */}
+            {viewingDeal.notes && (
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <span>📝</span> Notas y Observaciones Adicionales:
+                </h4>
+                <div className="bg-white p-4 rounded-2xl border border-stone-200 text-stone-700 text-xs leading-relaxed whitespace-pre-wrap">
+                  {viewingDeal.notes}
+                </div>
+              </div>
+            )}
 
             {/* Fase y Control de Pipeline */}
             <div className="space-y-2 pt-2 border-t border-stone-200">
