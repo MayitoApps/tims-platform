@@ -1539,9 +1539,9 @@ export function CommercialSection({
                                   setQuotationDeal(deal);
                                 }}
                                 className="px-1.5 py-0.2 rounded bg-stone-100 hover:bg-emerald-50 text-stone-600 hover:text-emerald-800 border border-stone-200 hover:border-emerald-300 font-bold text-[9px] flex items-center gap-0.5 cursor-pointer"
-                                title="Cotización / PDF"
+                                title="Orden de Servicio / PDF"
                               >
-                                <span>📄 PDF</span>
+                                <span>📄 Orden de Servicio</span>
                               </button>
                             </div>
 
@@ -1698,9 +1698,9 @@ export function CommercialSection({
                               setQuotationDeal(deal);
                             }}
                             className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Generar e Imprimir Cotización / PDF"
+                            title="Generar e Imprimir Orden de Servicio / PDF"
                           >
-                            <span>📄</span> PDF
+                            <span>📄</span> Orden de Servicio
                           </button>
                           <button
                             onClick={(e) => {
@@ -3412,9 +3412,9 @@ export function CommercialSection({
                 <button
                   onClick={() => setQuotationDeal(viewingDeal)}
                   className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Generar Vista de Impresión y Descargar PDF"
+                  title="Generar Orden de Servicio y Descargar PDF"
                 >
-                  <span>📄 Generar Cotización / PDF</span>
+                  <span>📄 Generar Orden de Servicio (PDF)</span>
                 </button>
                 <button
                   onClick={() => setViewingDeal(null)}
@@ -3979,11 +3979,12 @@ export function CommercialSection({
           </div>
         </div>
       )}
-      {/* MODAL DE COTIZACIÓN IMPRIMIBLE EN PDF */}
+      {/* MODAL DE ORDEN DE SERVICIO IMPRIMIBLE EN PDF */}
       {quotationDeal && (
         <QuotationPrintModal
           deal={quotationDeal}
           onClose={() => setQuotationDeal(null)}
+          onUpdateDeal={onUpdateDeal}
         />
       )}
 
