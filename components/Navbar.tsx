@@ -6,8 +6,8 @@ import { UpcomingEventsNotification } from './UpcomingEventsNotification';
 
 interface NavbarProps {
   currentUser: UserProfile;
-  activeSection: 'marketing' | 'commercial';
-  onSectionChange: (section: 'marketing' | 'commercial') => void;
+  activeSection: 'marketing' | 'commercial' | 'sales';
+  onSectionChange: (section: 'marketing' | 'commercial' | 'sales') => void;
   onLogout: () => void;
   deals?: HotelDeal[];
   notifications?: AppNotification[];
@@ -42,13 +42,13 @@ export function Navbar({
             </span>
           </div>
 
-          {/* Master 2-Section Switcher (Marketing vs Comercialización) */}
+          {/* Master Section Switcher (Marketing vs Comercialización vs Ventas) */}
           <div className="flex items-center p-1 rounded-xl bg-stone-100 border border-stone-200 text-xs font-semibold">
             <button
               onClick={() => onSectionChange('marketing')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all ${
                 activeSection === 'marketing'
-                  ? 'bg-linear-to-r from-rose-600 to-indigo-600 text-white shadow-xs'
+                  ? 'bg-linear-to-r from-rose-600 to-indigo-600 text-white shadow-xs font-bold'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
@@ -58,11 +58,21 @@ export function Navbar({
               onClick={() => onSectionChange('commercial')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all ${
                 activeSection === 'commercial'
-                  ? 'bg-linear-to-r from-emerald-700 to-teal-800 text-white shadow-xs'
+                  ? 'bg-linear-to-r from-emerald-700 to-teal-800 text-white shadow-xs font-bold'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
               <span>🏨 Comercialización</span>
+            </button>
+            <button
+              onClick={() => onSectionChange('sales')}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all ${
+                activeSection === 'sales'
+                  ? 'bg-linear-to-r from-blue-700 to-indigo-800 text-white shadow-xs font-bold'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <span>💼 Ventas</span>
             </button>
           </div>
         </div>

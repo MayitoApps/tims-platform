@@ -1,5 +1,5 @@
 import { neon, NeonQueryFunction } from '@neondatabase/serverless';
-import { HotelDeal, MarketingTask, MarketingCampaign, ContentPublication, CreativeBrief, CommercialTask } from './types';
+import { HotelDeal, MarketingTask, MarketingCampaign, ContentPublication, CreativeBrief, CommercialTask, SalesActivity } from './types';
 import { INITIAL_DEALS, INITIAL_MARKETING_TASKS, INITIAL_CAMPAIGNS, INITIAL_PUBLICATIONS, INITIAL_BRIEFS } from './initial-data';
 
 // Helper to get neon SQL client
@@ -206,6 +206,51 @@ export async function ensureTables(): Promise<boolean> {
       );
     `;
 
+    // 9. Sales Activities Table (Tablero de Ventas: Llamadas, Prospectos, Seguimiento, Cotizaciones, Visitas, Reuniones)
+    await sql`
+      CREATE TABLE IF NOT EXISTS sales_activities (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        executive_name TEXT NOT NULL,
+        executive_email TEXT,
+        date TEXT NOT NULL,
+        time TEXT,
+        phone TEXT,
+        client_name TEXT,
+        answered BOOLEAN,
+        notes TEXT,
+        company TEXT,
+        email TEXT,
+        acquisition_date TEXT,
+        subject TEXT,
+        contact_method TEXT,
+        client_feedback TEXT,
+        next_date TEXT,
+        evidence_url TEXT,
+        folio TEXT,
+        hotel TEXT,
+        event_dates TEXT,
+        quantity INTEGER,
+        service TEXT,
+        amount NUMERIC,
+        valid_until TEXT,
+        proof_url TEXT,
+        scheduled_date TEXT,
+        receiver_name TEXT,
+        receiver_role TEXT,
+        minutes TEXT,
+        attendance_proof_url TEXT,
+        invitation_proof_url TEXT,
+        attendees TEXT,
+        topic TEXT,
+        agreements TEXT,
+        next_action TEXT,
+        assigned_rep TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
     tablesInitialized = true;
     return true;
   } catch (error) {
@@ -341,6 +386,50 @@ export function mapRowToCommercialTask(row: any): CommercialTask {
     dueDate: row.due_date,
     createdBy: row.created_by,
     comments: typeof row.comments === 'string' ? JSON.parse(row.comments) : (row.comments || []),
+    createdAt: row.created_at
+  };
+}
+
+// Convert DB row to SalesActivity interface
+export function mapRowToSalesActivity(row: any): SalesActivity {
+  return {
+    id: row.id,
+    type: row.type,
+    executiveName: row.executive_name,
+    executiveEmail: row.executive_email || undefined,
+    date: row.date,
+    time: row.time || undefined,
+    phone: row.phone || undefined,
+    clientName: row.client_name || undefined,
+    answered: row.answered === true || row.answered === 'true' || row.answered === 1,
+    notes: row.notes || undefined,
+    company: row.company || undefined,
+    email: row.email || undefined,
+    acquisitionDate: row.acquisition_date || undefined,
+    subject: row.subject || undefined,
+    contactMethod: row.contact_method || undefined,
+    clientFeedback: row.client_feedback || undefined,
+    nextDate: row.next_date || undefined,
+    evidenceUrl: row.evidence_url || undefined,
+    folio: row.folio || undefined,
+    hotel: row.hotel || undefined,
+    eventDates: row.event_dates || undefined,
+    quantity: row.quantity != null ? Number(row.quantity) : undefined,
+    service: row.service || undefined,
+    amount: row.amount != null ? Number(row.amount) : undefined,
+    validUntil: row.valid_until || undefined,
+    proofUrl: row.proof_url || undefined,
+    scheduledDate: row.scheduled_date || undefined,
+    receiverName: row.receiver_name || undefined,
+    receiverRole: row.receiver_role || undefined,
+    minutes: row.minutes || undefined,
+    attendanceProofUrl: row.attendance_proof_url || undefined,
+    invitationProofUrl: row.invitation_proof_url || undefined,
+    attendees: row.attendees || undefined,
+    topic: row.topic || undefined,
+    agreements: row.agreements || undefined,
+    nextAction: row.next_action || undefined,
+    assignedRep: row.assigned_rep || undefined,
     createdAt: row.created_at
   };
 }

@@ -5,6 +5,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { Navbar } from '@/components/Navbar';
 import { MarketingSection } from '@/components/marketing/MarketingSection';
 import { CommercialSection } from '@/components/commercial/CommercialSection';
+import { SalesSection } from '@/components/sales/SalesSection';
 
 import {
   INITIAL_CAMPAIGNS,
@@ -27,13 +28,14 @@ import {
   MarketingTaskStage,
   CommercialTaskStage,
   AppNotification,
+  SalesActivity,
   isAdminEmail
 } from '@/lib/types';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [activeSection, setActiveSection] = useState<'marketing' | 'commercial'>('marketing');
+  const [activeSection, setActiveSection] = useState<'marketing' | 'commercial' | 'sales'>('marketing');
 
   // Real data state
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>(INITIAL_CAMPAIGNS);
@@ -42,6 +44,7 @@ export default function Home() {
   const [deals, setDeals] = useState<HotelDeal[]>(INITIAL_DEALS);
   const [marketingTasks, setMarketingTasks] = useState<MarketingTask[]>(INITIAL_MARKETING_TASKS);
   const [commercialTasks, setCommercialTasks] = useState<CommercialTask[]>([]);
+  const [salesActivities, setSalesActivities] = useState<SalesActivity[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
@@ -110,6 +113,11 @@ export default function Home() {
       if (cachedNotifs) {
         const parsed = JSON.parse(cachedNotifs);
         if (Array.isArray(parsed)) setNotifications(parsed);
+      }
+      const cachedActivities = localStorage.getItem('tims_sales_activities');
+      if (cachedActivities) {
+        const parsed = JSON.parse(cachedActivities);
+        if (Array.isArray(parsed)) setSalesActivities(parsed);
       }
     } catch {}
 
@@ -229,6 +237,19 @@ export default function Home() {
             setBriefs(data.briefs);
             try {
               localStorage.setItem('tims_briefs', JSON.stringify(data.briefs));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+
+      // Sync Sales Activities
+      fetch('/api/sales-activities')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && Array.isArray(data.activities)) {
+            setSalesActivities(data.activities);
+            try {
+              localStorage.setItem('tims_sales_activities', JSON.stringify(data.activities));
             } catch {}
           }
         })
@@ -747,6 +768,69 @@ export default function Home() {
     }
   };
 
+  // Sales Activities Handlers (Tablero de Tareas y Cierre de Ventas)
+  const handleAddSalesActivity = async (activity: Omit<SalesActivity, 'id' | 'createdAt'>) => {
+    try {
+      const res = await fetch('/api/sales-activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(activity)
+      });
+      const data = await res.json();
+      if (data?.activity) {
+        setSalesActivities((prev) => [data.activity, ...prev]);
+        try {
+          localStorage.setItem('tims_sales_activities', JSON.stringify([data.activity, ...salesActivities]));
+        } catch {}
+        showToast('Actividad registrada correctamente');
+      }
+    } catch (err) {
+      console.error('Error adding sales activity:', err);
+      showToast('Error al registrar actividad');
+    }
+  };
+
+  const handleUpdateSalesActivity = async (activity: SalesActivity) => {
+    try {
+      const res = await fetch('/api/sales-activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(activity)
+      });
+      const data = await res.json();
+      if (data?.activity) {
+        setSalesActivities((prev) => {
+          const updated = prev.map((a) => (a.id === activity.id ? data.activity : a));
+          try {
+            localStorage.setItem('tims_sales_activities', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+        showToast('Actividad actualizada');
+      }
+    } catch (err) {
+      console.error('Error updating sales activity:', err);
+    }
+  };
+
+  const handleDeleteSalesActivity = async (activityId: string) => {
+    try {
+      setSalesActivities((prev) => {
+        const filtered = prev.filter((a) => a.id !== activityId);
+        try {
+          localStorage.setItem('tims_sales_activities', JSON.stringify(filtered));
+        } catch {}
+        return filtered;
+      });
+      showToast('Actividad eliminada');
+      await fetch(`/api/sales-activities/${activityId}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.error('Error deleting sales activity:', err);
+    }
+  };
+
   // Loading state
   if (isLoadingAuth) {
     return (
@@ -814,7 +898,7 @@ export default function Home() {
             onUpdateMarketingTaskStage={handleUpdateMarketingTaskStage}
             onAddNotification={handleAddNotification}
           />
-        ) : (
+        ) : activeSection === 'commercial' ? (
           <CommercialSection
             deals={deals}
             commercialTasks={commercialTasks}
@@ -831,6 +915,16 @@ export default function Home() {
             onDeleteCommercialTask={handleDeleteCommercialTask}
             onUpdateCommercialTaskStage={handleUpdateCommercialTaskStage}
             onAddNotification={handleAddNotification}
+          />
+        ) : (
+          <SalesSection
+            activities={salesActivities}
+            currentUser={currentUser}
+            registeredUsers={registeredUsers}
+            deals={deals}
+            onAddActivity={handleAddSalesActivity}
+            onUpdateActivity={handleUpdateSalesActivity}
+            onDeleteActivity={handleDeleteSalesActivity}
           />
         )}
       </main>

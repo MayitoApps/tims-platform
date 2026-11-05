@@ -321,3 +321,176 @@ export interface HotelFactsheet {
   updatedAt: string;
   version: string;
 }
+
+// -------------------------------------------------------------
+// SECCIÓN 3: VENTAS Y ACTIVIDADES DIARIAS / SEMANALES
+// -------------------------------------------------------------
+export type SalesActivityType =
+  | 'llamada'          // 5 Llamadas diarias
+  | 'prospecto'        // 2 nuevos prospectos cada semana y media
+  | 'seguimiento'      // Seguimiento a clientes con evidencia
+  | 'cotizacion'       // 3 cotizaciones por semana
+  | 'visita'           // Visitas presenciales
+  | 'reunion';         // 2 reuniones comerciales por mes (Ale o Fer)
+
+export interface SalesActivity {
+  id: string;
+  type: SalesActivityType;
+  executiveName: string; // 'Ale', 'Fer', etc.
+  executiveEmail?: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:mm
+  createdAt: string;
+
+  // Llamadas
+  phone?: string;
+  clientName?: string;
+  answered?: boolean; // ¿Contestó o no?
+  notes?: string; // Comentarios / Minuta / ¿Qué dijo el cliente?
+
+  // Prospectos Nuevos
+  company?: string;
+  email?: string;
+  acquisitionDate?: string; // Fecha en la que lo consiguió
+
+  // Seguimiento
+  subject?: string; // Asunto previo
+  contactMethod?: string; // Medio de contacto
+  clientFeedback?: string; // Información de la llamada / ¿Qué dijo el cliente?
+  nextDate?: string; // Siguiente fecha
+  evidenceUrl?: string; // Evidencia del contacto (fotografía / comprobante)
+
+  // Cotizaciones
+  folio?: string; // Documento con folio
+  hotel?: string;
+  eventDates?: string; // Fechas
+  quantity?: number; // Cantidad
+  service?: string; // Servicio
+  amount?: number; // Importe ($)
+  validUntil?: string; // Vigencia
+  proofUrl?: string; // Comprobante de envío
+
+  // Visitas Presenciales
+  scheduledDate?: string; // Cita previa
+  receiverName?: string; // Nombre de quien recibió
+  receiverRole?: string; // Cargo de quien recibió
+  minutes?: string; // Minuta
+  attendanceProofUrl?: string; // Constancia de asistencia
+
+  // Reunión Comercial
+  invitationProofUrl?: string; // Invitación o confirmación
+  attendees?: string; // Asistentes
+  topic?: string; // Tema
+  agreements?: string; // Acuerdos
+  nextAction?: string; // Siguiente acción
+  assignedRep?: 'Ale' | 'Fer' | string; // Quién va a ir (Ale o Fer)
+}
+
+export interface SalesExecutive {
+  id: string;
+  name: string;
+  email?: string;
+  role: string;
+  avatar?: string;
+  initials?: string;
+}
+
+export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
+  { id: 'exec-ale', name: 'Ale', role: 'Ejecutiva de Ventas', email: 'ale@grupoorganico.com', initials: 'AL' },
+  { id: 'exec-fer', name: 'Fer', role: 'Ejecutivo de Ventas', email: 'fer@grupoorganico.com', initials: 'FE' }
+];
+
+export interface SalesTaskCategoryDef {
+  type: SalesActivityType;
+  title: string;
+  shortTitle: string;
+  icon: string;
+  cadence: 'diaria' | 'semanal' | 'mensual';
+  targetCount: number;
+  targetLabel: string;
+  description: string;
+  color: string;
+  accentBg: string;
+  borderColor: string;
+}
+
+export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
+  {
+    type: 'llamada',
+    title: 'Llamadas Diarias',
+    shortTitle: 'Llamadas',
+    icon: '📞',
+    cadence: 'diaria',
+    targetCount: 5,
+    targetLabel: '5 llamadas diarias',
+    description: 'Registro diario de llamadas a clientes: hora, fecha, número, cliente, si contestó y comentarios.',
+    color: 'text-blue-700',
+    accentBg: 'bg-blue-50',
+    borderColor: 'border-blue-200'
+  },
+  {
+    type: 'prospecto',
+    title: 'Prospectos Nuevos',
+    shortTitle: 'Prospectos',
+    icon: '🎯',
+    cadence: 'semanal',
+    targetCount: 2,
+    targetLabel: '2 nuevos cada semana y media',
+    description: 'Captación de prospectos: nombre, teléfono, empresa, correo electrónico y fecha de adquisición.',
+    color: 'text-emerald-700',
+    accentBg: 'bg-emerald-50',
+    borderColor: 'border-emerald-200'
+  },
+  {
+    type: 'seguimiento',
+    title: 'Seguimiento de Clientes',
+    shortTitle: 'Seguimiento',
+    icon: '🔄',
+    cadence: 'semanal',
+    targetCount: 5,
+    targetLabel: 'Seguimiento y evidencia',
+    description: 'Nombre del cliente, asunto previo, medio de contacto, respuesta del cliente, siguiente fecha y evidencia.',
+    color: 'text-amber-700',
+    accentBg: 'bg-amber-50',
+    borderColor: 'border-amber-200'
+  },
+  {
+    type: 'cotizacion',
+    title: 'Cotizaciones',
+    shortTitle: 'Cotizaciones',
+    icon: '📑',
+    cadence: 'semanal',
+    targetCount: 3,
+    targetLabel: '3 por semana',
+    description: 'Documento con folio, cliente, hotel, fechas, cantidad, servicio, importe, vigencia y comprobante de envío.',
+    color: 'text-purple-700',
+    accentBg: 'bg-purple-50',
+    borderColor: 'border-purple-200'
+  },
+  {
+    type: 'visita',
+    title: 'Visitas Presenciales',
+    shortTitle: 'Visitas',
+    icon: '📍',
+    cadence: 'semanal',
+    targetCount: 1,
+    targetLabel: 'Inspección en sitio',
+    description: 'Cita previa, nombre y cargo de quien recibió, minuta y constancia de asistencia.',
+    color: 'text-rose-700',
+    accentBg: 'bg-rose-50',
+    borderColor: 'border-rose-200'
+  },
+  {
+    type: 'reunion',
+    title: 'Reunión Comercial',
+    shortTitle: 'Reunión Comercial',
+    icon: '🤝',
+    cadence: 'mensual',
+    targetCount: 2,
+    targetLabel: '2 por mes (Ale o Fer)',
+    description: 'Invitación/confirmación, asistentes, hora, tema, acuerdos y siguiente acción (indicando si va Ale o Fer).',
+    color: 'text-indigo-700',
+    accentBg: 'bg-indigo-50',
+    borderColor: 'border-indigo-200'
+  }
+];
