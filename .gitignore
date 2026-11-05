@@ -43,3 +43,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# uploads
+/public/uploads/*
+!/public/uploads/.gitkeep

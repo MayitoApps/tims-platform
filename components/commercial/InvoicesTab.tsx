@@ -60,6 +60,8 @@ export function InvoicesTab({
   const [formFileName, setFormFileName] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadSource, setUploadSource] = useState<string | null>(null);
 
   // Lightbox / Image Preview Modal
   const [previewInvoice, setPreviewInvoice] = useState<{
@@ -220,29 +222,44 @@ export function InvoicesTab({
     setIsModalOpen(true);
   };
 
-  // Handle file upload conversion to base64
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle file upload to Cloud Storage (Vercel Blob / API)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check size limit (max 8MB for DataURL)
-    if (file.size > 8 * 1024 * 1024) {
-      setFormError('El archivo es demasiado grande. Máximo permitido: 8MB.');
+    // Check size limit (max 25MB)
+    if (file.size > 25 * 1024 * 1024) {
+      setFormError('El archivo es demasiado grande. Máximo permitido: 25MB.');
       return;
     }
 
-    setFormFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setFormFileUrl(reader.result);
-        setFormError(null);
+    try {
+      setIsUploadingFile(true);
+      setFormError(null);
+      setFormFileName(file.name);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Error al subir el archivo');
       }
-    };
-    reader.onerror = () => {
-      setFormError('Hubo un error al procesar el archivo.');
-    };
-    reader.readAsDataURL(file);
+
+      setFormFileUrl(data.url);
+      setUploadSource(data.source === 'vercel_blob' ? 'Vercel Cloud Blob' : 'Almacenamiento Local');
+    } catch (err) {
+      console.error('Error al subir archivo:', err);
+      setFormError('No se pudo subir el archivo. Por favor intenta nuevamente.');
+    } finally {
+      setIsUploadingFile(false);
+    }
   };
 
   // Handle Save Invoice
@@ -1099,37 +1116,58 @@ export function InvoicesTab({
                         accept="image/*,application/pdf"
                         onChange={handleFileUpload}
                         id="invoice-file-input"
+                        disabled={isUploadingFile}
                         className="hidden"
                       />
                       <label
                         htmlFor="invoice-file-input"
                         className="cursor-pointer flex flex-col items-center justify-center gap-2"
                       >
-                        <span className="text-3xl">📁</span>
-                        <span className="text-xs font-bold text-emerald-800 hover:underline">
-                          Seleccionar archivo de factura (PNG, JPG, PDF)
-                        </span>
-                        <span className="text-[10px] text-stone-400">
-                          Máximo 8MB
-                        </span>
+                        {isUploadingFile ? (
+                          <div className="flex flex-col items-center gap-2 py-2">
+                            <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs font-bold text-emerald-800">
+                              Subiendo archivo al almacenamiento en la nube...
+                            </span>
+                            <span className="text-[10px] text-stone-400">
+                              Optimizando y generando enlace CDN
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-3xl">📁</span>
+                            <span className="text-xs font-bold text-emerald-800 hover:underline">
+                              Seleccionar archivo de factura (PNG, JPG, PDF)
+                            </span>
+                            <span className="text-[10px] text-stone-400">
+                              Almacenamiento seguro en la nube (Hasta 25MB)
+                            </span>
+                          </>
+                        )}
                       </label>
                     </div>
 
-                    {formFileUrl && (
+                    {formFileUrl && !isUploadingFile && (
                       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <span className="text-base">✅</span>
-                          <span className="text-xs font-bold text-emerald-900 truncate">
-                            {formFileName || 'Factura cargada'}
-                          </span>
+                        <div className="flex items-center gap-2.5 overflow-hidden">
+                          <span className="text-base shrink-0">☁️</span>
+                          <div className="overflow-hidden">
+                            <span className="text-xs font-bold text-emerald-950 truncate block">
+                              {formFileName || 'Factura cargada'}
+                            </span>
+                            <span className="text-[10px] text-emerald-700 font-semibold block">
+                              {uploadSource ? `Alojado en: ${uploadSource}` : 'Enlace en la nube listo'}
+                            </span>
+                          </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => {
                             setFormFileUrl('');
                             setFormFileName('');
+                            setUploadSource(null);
                           }}
-                          className="text-xs text-rose-600 hover:underline font-semibold"
+                          className="text-xs text-rose-600 hover:underline font-semibold shrink-0 ml-2"
                         >
                           Quitar
                         </button>
@@ -1179,9 +1217,14 @@ export function InvoicesTab({
               <button
                 type="button"
                 onClick={handleSaveInvoice}
-                className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors"
+                disabled={isUploadingFile}
+                className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-xs transition-colors ${
+                  isUploadingFile
+                    ? 'bg-stone-400 cursor-not-allowed'
+                    : 'bg-emerald-700 hover:bg-emerald-800'
+                }`}
               >
-                {editingInvoiceId ? 'Guardar Cambios' : 'Vincular Factura'}
+                {isUploadingFile ? 'Subiendo archivo...' : editingInvoiceId ? 'Guardar Cambios' : 'Vincular Factura'}
               </button>
             </div>
           </div>
