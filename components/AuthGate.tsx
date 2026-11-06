@@ -70,22 +70,24 @@ export function AuthGate() {
               <span>Continuar con Google</span>
             </a>
 
-            {/* Acceso Rápido Local para Desarrollo */}
-            <div className="pt-1 flex items-center justify-center gap-2 text-[11px] text-stone-400">
-              <span>Acceso directo local:</span>
-              <a
-                href="/api/auth/dev-login?role=marketing"
-                className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-rose-300 font-semibold border border-white/10 transition-colors"
-              >
-                Marketing
-              </a>
-              <a
-                href="/api/auth/dev-login?role=sales"
-                className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-emerald-300 font-semibold border border-white/10 transition-colors"
-              >
-                Comercialización
-              </a>
-            </div>
+            {/* Acceso Rápido Local para Desarrollo (Oculto en Producción) */}
+            {process.env.NODE_ENV !== 'production' && (
+              <div className="pt-1 flex items-center justify-center gap-2 text-[11px] text-stone-400">
+                <span>Acceso directo local:</span>
+                <a
+                  href="/api/auth/dev-login?role=marketing"
+                  className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-rose-300 font-semibold border border-white/10 transition-colors"
+                >
+                  Marketing
+                </a>
+                <a
+                  href="/api/auth/dev-login?role=sales"
+                  className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-emerald-300 font-semibold border border-white/10 transition-colors"
+                >
+                  Comercialización
+                </a>
+              </div>
+            )}
           </div>
 
           <div className="pt-2 text-center border-t border-white/5">

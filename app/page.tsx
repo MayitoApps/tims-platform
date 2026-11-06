@@ -138,8 +138,12 @@ export default function Home() {
       .finally(() => {
         setIsLoadingAuth(false);
       });
+  }, []);
 
-    // 3. Función de Sincronización en Tiempo Real con Postgres
+  // 3. Sincronización en Tiempo Real con Postgres (solo para usuarios autenticados)
+  useEffect(() => {
+    if (!currentUser) return;
+
     const syncDataFromCloud = () => {
       // Sync Notifications
       fetch('/api/notifications')
@@ -256,7 +260,7 @@ export default function Home() {
         .catch(() => {});
     };
 
-    // Consulta inicial inmediata
+    // Consulta inicial inmediata al autenticarse
     syncDataFromCloud();
 
     // Sincronización recurrente en segundo plano (cada 8 segundos y cuando la ventana toma foco)
@@ -268,7 +272,7 @@ export default function Home() {
       clearInterval(syncInterval);
       window.removeEventListener('focus', onWindowFocus);
     };
-  }, []);
+  }, [currentUser]);
 
   const handleLogout = async () => {
     setCurrentUser(null);

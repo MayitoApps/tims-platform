@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
 import { UserProfile } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
-
-export async function GET() {
+export async function GET(request: Request) {
+  // Request header access signals Next.js dynamic execution
+  request.headers.get('host');
   const sql = getDb();
   if (!sql) {
     return NextResponse.json({ success: true, source: 'local', users: [] });
