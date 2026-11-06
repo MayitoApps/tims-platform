@@ -273,6 +273,17 @@ export default function Home() {
   const handleLogout = async () => {
     setCurrentUser(null);
     try {
+      // Limpiar datos sensibles y PII en caché local
+      localStorage.removeItem('tims_deals');
+      localStorage.removeItem('tims_mkt_tasks');
+      localStorage.removeItem('tims_commercial_tasks');
+      localStorage.removeItem('tims_campaigns');
+      localStorage.removeItem('tims_publications');
+      localStorage.removeItem('tims_briefs');
+      localStorage.removeItem('tims_notifications');
+      localStorage.removeItem('tims_sales_activities');
+    } catch {}
+    try {
       await fetch('/api/auth/logout');
     } catch {}
     window.location.href = '/';

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
 import { UserProfile } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const sql = getDb();
   if (!sql) {

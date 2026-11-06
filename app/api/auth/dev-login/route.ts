@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSessionCookie } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
+  // Bloquear estrictamente en entorno de producción
+  if (process.env.NODE_ENV === 'production') {
+    return new NextResponse('Not Found', { status: 404 });
+  }
+
   const role = request.nextUrl.searchParams.get('role') || 'marketing';
   
   let email = 'marketinggrupoorganico@gmail.com';
