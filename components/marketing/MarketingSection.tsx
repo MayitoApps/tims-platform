@@ -20,7 +20,7 @@ import {
   getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS } from '@/lib/initial-data';
-import { formatCurrency, formatDate, getMarketingStatusBadge } from '@/lib/utils';
+import { formatCurrency, formatDate, getMarketingStatusBadge, safeExternalUrl } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 
 interface MarketingSectionProps {
@@ -1086,7 +1086,7 @@ export function MarketingSection({
                           {c.externalLinks.map((lnk) => (
                             <a
                               key={lnk.id}
-                              href={lnk.url}
+                              href={safeExternalUrl(lnk.url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-[10px] px-2 py-0.5 rounded-sm border border-stone-200 text-stone-700 hover:bg-stone-100 font-semibold"
@@ -2706,7 +2706,7 @@ export function MarketingSection({
                       <span className="text-indigo-800 text-[11px] truncate block max-w-sm">{viewingTask.assetUrl}</span>
                     </div>
                     <a
-                      href={viewingTask.assetUrl}
+                      href={safeExternalUrl(viewingTask.assetUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0 shadow-xs"
@@ -3074,7 +3074,7 @@ export function MarketingSection({
                       {viewingCampaign.externalLinks.map((lnk) => (
                         <a
                           key={lnk.id}
-                          href={lnk.url}
+                          href={safeExternalUrl(lnk.url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="px-3.5 py-1.5 rounded-xl bg-white border border-stone-300 text-stone-800 hover:bg-stone-50 font-bold text-xs flex items-center gap-1.5 shadow-2xs"
@@ -3284,7 +3284,7 @@ export function MarketingSection({
               <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3 flex items-center justify-between gap-2 text-xs">
                 <span className="text-indigo-900 font-medium truncate">{viewingPub.assetUrl}</span>
                 <a
-                  href={viewingPub.assetUrl}
+                  href={safeExternalUrl(viewingPub.assetUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 shrink-0"

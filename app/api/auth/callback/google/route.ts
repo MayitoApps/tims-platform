@@ -5,14 +5,26 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const error = searchParams.get('error');
+  const state = searchParams.get('state');
 
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'tims-platform-tau.vercel.app';
   const protocol = host.includes('localhost') ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
   const redirectUri = `${baseUrl}/api/auth/callback/google`;
 
+  // Validación de estado Anti-CSRF
+  const storedState = request.cookies.get('tims_oauth_state')?.value;
+  if (storedState && state && storedState !== state) {
+    console.error('Alerta de seguridad: Discrepancia en el parámetro state de OAuth (posible CSRF).');
+    const res = NextResponse.redirect(`${baseUrl}?auth_error=csrf_validation_failed`);
+    res.cookies.delete('tims_oauth_state');
+    return res;
+  }
+
   if (error || !code) {
-    return NextResponse.redirect(`${baseUrl}?auth_error=${encodeURIComponent(error || 'missing_code')}`);
+    const res = NextResponse.redirect(`${baseUrl}?auth_error=${encodeURIComponent(error || 'missing_code')}`);
+    res.cookies.delete('tims_oauth_state');
+    return res;
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -101,11 +113,15 @@ export async function GET(request: NextRequest) {
       avatar: userData.picture
     });
 
-    // 5. Redirigir a la app autenticado
-    return NextResponse.redirect(`${baseUrl}?auth_success=true`);
+    // 5. Redirigir a la app autenticado y limpiar cookie de estado CSRF
+    const successRes = NextResponse.redirect(`${baseUrl}?auth_success=true`);
+    successRes.cookies.delete('tims_oauth_state');
+    return successRes;
   } catch (err) {
     console.error('Error en autenticación OAuth:', err);
-    return NextResponse.redirect(`${baseUrl}?auth_error=internal_error`);
+    const errRes = NextResponse.redirect(`${baseUrl}?auth_error=internal_error`);
+    errRes.cookies.delete('tims_oauth_state');
+    return errRes;
   }
 }
 

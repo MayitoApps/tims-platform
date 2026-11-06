@@ -8,11 +8,22 @@ export interface AuthSession {
   avatar?: string;
   role: 'marketing' | 'sales' | 'admin';
   initials: string;
+  iat?: number;
+  exp?: number;
 }
 
 export const COOKIE_NAME = 'tims_auth_session';
 
-const SECRET_KEY = process.env.AUTH_SECRET || 'tims-hospitality-platform-secure-jwt-hmac-secret-2026';
+function getSecretKey(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[SECURITY WARNING] AUTH_SECRET no está configurada en las variables de entorno de producción. Se recomienda definirla en Vercel.');
+    }
+    return 'tims-hospitality-platform-secure-jwt-hmac-secret-2026';
+  }
+  return secret;
+}
 
 // Helper to get initials
 export function getInitials(name: string): string {
@@ -48,7 +59,7 @@ async function getHmacKey(): Promise<CryptoKey> {
   const enc = new TextEncoder();
   return crypto.subtle.importKey(
     'raw',
-    enc.encode(SECRET_KEY),
+    enc.encode(getSecretKey()),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign', 'verify']
@@ -91,7 +102,17 @@ export async function verifySessionToken(token?: string | null): Promise<AuthSes
     const dec = new TextDecoder();
     const payloadBytes = fromBase64Url(payloadBase64);
     const jsonStr = dec.decode(payloadBytes);
-    return JSON.parse(jsonStr) as AuthSession;
+    const parsed = JSON.parse(jsonStr) as AuthSession;
+
+    // Validación estricta de tiempo de expiración
+    if (parsed.exp) {
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (nowSec > parsed.exp) {
+        return null; // Token expirado
+      }
+    }
+
+    return parsed;
   } catch {
     return null;
   }
@@ -99,6 +120,9 @@ export async function verifySessionToken(token?: string | null): Promise<AuthSes
 
 // Create cryptographically signed session cookie
 export async function createSessionCookie(user: { id: string; name: string; email: string; avatar?: string }) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const maxAgeSec = 60 * 60 * 24 * 7; // 7 días
+
   const session: AuthSession = {
     id: user.id,
     name: user.name,
@@ -109,7 +133,9 @@ export async function createSessionCookie(user: { id: string; name: string; emai
       : user.email.includes('sales') || user.email.includes('comercial')
       ? 'sales'
       : 'marketing',
-    initials: getInitials(user.name)
+    initials: getInitials(user.name),
+    iat: nowSec,
+    exp: nowSec + maxAgeSec
   };
 
   const token = await signSession(session);
@@ -120,7 +146,7 @@ export async function createSessionCookie(user: { id: string; name: string; emai
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7 // 7 days
+    maxAge: maxAgeSec
   });
 
   return session;
@@ -139,4 +165,11 @@ export async function getSession(): Promise<AuthSession | null> {
 export async function clearSession() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
+}
+
+// Helper to check if request is from an authorized administrator
+export function isAuthorizedAdmin(request: Request): boolean {
+  const role = request.headers.get('x-user-role');
+  const email = request.headers.get('x-user-email');
+  return role === 'admin' || isAdminEmail(email);
 }

@@ -21,15 +21,19 @@ export function getDb(): NeonQueryFunction<false, false> | null {
   }
 }
 
-// Auto-migration & Table initialization
+// Auto-migration & Table initialization with concurrency lock
 let tablesInitialized = false;
+let initializingPromise: Promise<boolean> | null = null;
 
 export async function ensureTables(): Promise<boolean> {
   if (tablesInitialized) return true;
+  if (initializingPromise) return initializingPromise;
+
   const sql = getDb();
   if (!sql) return false;
 
-  try {
+  initializingPromise = (async () => {
+    try {
     // 1. Hotel Deals Table
     await sql`
       CREATE TABLE IF NOT EXISTS hotel_deals (
@@ -257,7 +261,12 @@ export async function ensureTables(): Promise<boolean> {
   } catch (error) {
     console.error('Error running ensureTables migration:', error);
     return false;
+  } finally {
+    initializingPromise = null;
   }
+})();
+
+return initializingPromise;
 }
 
 // Convert DB row to HotelDeal interface

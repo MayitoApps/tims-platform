@@ -14,11 +14,21 @@ export async function GET(request: NextRequest) {
   const protocol = host.includes('localhost') ? 'http' : 'https';
   const redirectUri = `${protocol}://${host}/api/auth/callback/google`;
 
+  const state = crypto.randomUUID();
   const scope = encodeURIComponent('openid email profile');
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
     redirectUri
-  )}&scope=${scope}&access_type=offline&prompt=consent`;
+  )}&scope=${scope}&state=${encodeURIComponent(state)}&access_type=offline&prompt=consent`;
 
-  return NextResponse.redirect(googleAuthUrl);
+  const response = NextResponse.redirect(googleAuthUrl);
+  response.cookies.set('tims_oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 15 // 15 minutos
+  });
+
+  return response;
 }
 

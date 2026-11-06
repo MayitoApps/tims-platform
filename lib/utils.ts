@@ -161,3 +161,26 @@ export function getDealCategoryLabel(category: DealCategory | string): { label: 
       return { label: category || 'Social', badge: 'bg-stone-100 text-stone-700 border-stone-200' };
   }
 }
+
+/**
+ * Sanitiza URLs externas provistas por usuarios para prevenir ejecución de código malicioso
+ * (p. ej. pseudo-protocolos javascript: o data:). Solo permite https://, http://, mailto:, tel: o rutas relativas /.
+ */
+export function safeExternalUrl(url?: string | null): string {
+  if (!url) return '#';
+  const trimmed = url.trim();
+  if (
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('mailto:') ||
+    trimmed.startsWith('tel:')
+  ) {
+    return trimmed;
+  }
+  // Si no tiene protocolo pero parece un dominio web (ej. drive.google.com/...)
+  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return '#';
+}

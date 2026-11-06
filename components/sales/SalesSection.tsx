@@ -11,7 +11,7 @@ import {
   HotelDeal
 } from '@/lib/types';
 import { HOTEL_PROPERTIES } from '@/lib/initial-data';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, safeExternalUrl } from '@/lib/utils';
 
 interface SalesSectionProps {
   activities: SalesActivity[];
@@ -1580,7 +1580,7 @@ export function SalesSection({
                                 <div className="text-[10px] text-blue-700 pt-1 font-semibold flex items-center gap-1.5">
                                   <span>📎 Evidencia / Comprobante:</span>
                                   <a
-                                    href={act.evidenceUrl || act.proofUrl || act.attendanceProofUrl || act.invitationProofUrl}
+                                    href={safeExternalUrl(act.evidenceUrl || act.proofUrl || act.attendanceProofUrl || act.invitationProofUrl)}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="underline truncate max-w-md hover:text-blue-900"

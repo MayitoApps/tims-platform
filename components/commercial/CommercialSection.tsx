@@ -19,7 +19,7 @@ import {
   getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
-import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel } from '@/lib/utils';
+import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel, safeExternalUrl } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 import { QuotationPrintModal } from './QuotationPrintModal';
 import { AvailabilityCheckerModal } from './AvailabilityCheckerModal';
@@ -3564,7 +3564,7 @@ export function CommercialSection({
                         )}
                         <div className="pt-2 border-t border-stone-200/80 flex items-center justify-between">
                           <a
-                            href={inv.fileUrl}
+                            href={safeExternalUrl(inv.fileUrl)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
+import { isAuthorizedAdmin } from '@/lib/auth';
 import { CreativeBrief } from '@/lib/types';
 
 export async function PUT(
@@ -37,10 +38,17 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!isAuthorizedAdmin(request)) {
+      return NextResponse.json(
+        { success: false, error: 'Acceso denegado. Solo administradores autorizados pueden eliminar briefs.' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const sql = getDb();
 

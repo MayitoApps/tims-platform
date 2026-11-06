@@ -9,7 +9,7 @@ import {
   isAdminEmail
 } from '@/lib/types';
 import { HOTEL_PROPERTIES } from '@/lib/initial-data';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, safeExternalUrl } from '@/lib/utils';
 
 interface InvoicesTabProps {
   deals: HotelDeal[];
@@ -769,7 +769,7 @@ export function InvoicesTab({
                                   </button>
                                 ) : (
                                   <a
-                                    href={inv.fileUrl}
+                                    href={safeExternalUrl(inv.fileUrl)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-700 hover:text-blue-900 font-semibold flex items-center gap-1"
@@ -884,7 +884,7 @@ export function InvoicesTab({
                             </button>
                           ) : (
                             <a
-                              href={invoice.fileUrl}
+                              href={safeExternalUrl(invoice.fileUrl)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-[11px] font-bold inline-flex items-center gap-1"
@@ -1254,7 +1254,7 @@ export function InvoicesTab({
 
               <div className="flex items-center gap-2">
                 <a
-                  href={previewInvoice.invoice.fileUrl}
+                  href={safeExternalUrl(previewInvoice.invoice.fileUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   download={`Factura-${previewInvoice.invoice.folio}`}
@@ -1283,7 +1283,7 @@ export function InvoicesTab({
                 <div className="text-center p-12 text-white">
                   <p className="text-sm mb-3">Este archivo es un documento o enlace externo.</p>
                   <a
-                    href={previewInvoice.invoice.fileUrl}
+                    href={safeExternalUrl(previewInvoice.invoice.fileUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs inline-block"
