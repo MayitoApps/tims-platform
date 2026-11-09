@@ -67,7 +67,9 @@ export async function GET(request: NextRequest) {
 
     const userData = await userinfoResponse.json();
 
-    // 3. Registrar / Actualizar perfil en Postgres para recopilar la base de usuarios
+    // 3. Registrar / Sincronizar perfil en Postgres (reconociendo pre-alta de usuario)
+    let userRole: 'marketing' | 'sales' | 'admin' = 'sales';
+
     try {
       const { getDb, ensureTables } = await import('@/lib/db');
       const { isAdminEmail } = await import('@/lib/types');
@@ -75,11 +77,24 @@ export async function GET(request: NextRequest) {
       const sql = getDb();
       if (sql) {
         await ensureTables();
-        const role = isAdminEmail(userData.email)
-          ? 'admin'
-          : userData.email.includes('sales') || userData.email.includes('comercial')
-          ? 'sales'
-          : 'marketing';
+
+        // Verificar si el usuario ya estaba pre-registrado por un administrador
+        const existingRows = await sql`
+          SELECT role, name FROM user_profiles
+          WHERE LOWER(email) = LOWER(${userData.email})
+          LIMIT 1;
+        `;
+
+        if (isAdminEmail(userData.email)) {
+          userRole = 'admin';
+        } else if (existingRows.length > 0 && existingRows[0].role) {
+          userRole = existingRows[0].role as 'marketing' | 'sales' | 'admin';
+        } else if (userData.email.includes('sales') || userData.email.includes('comercial')) {
+          userRole = 'sales';
+        } else {
+          userRole = 'sales';
+        }
+
         const initials = getInitials(userData.name || userData.email);
 
         await sql`
@@ -89,15 +104,18 @@ export async function GET(request: NextRequest) {
             ${userData.name || userData.email.split('@')[0]},
             ${userData.email},
             ${userData.picture || null},
-            ${role},
+            ${userRole},
             ${initials},
             CURRENT_TIMESTAMP
           )
           ON CONFLICT (email) DO UPDATE SET
-            name = EXCLUDED.name,
-            avatar = EXCLUDED.avatar,
-            role = EXCLUDED.role,
-            initials = EXCLUDED.initials,
+            avatar = COALESCE(EXCLUDED.avatar, user_profiles.avatar),
+            name = COALESCE(EXCLUDED.name, user_profiles.name),
+            role = CASE 
+              WHEN ${isAdminEmail(userData.email)} THEN 'admin'
+              ELSE COALESCE(user_profiles.role, EXCLUDED.role)
+            END,
+            initials = COALESCE(EXCLUDED.initials, user_profiles.initials),
             last_login = CURRENT_TIMESTAMP;
         `;
       }
@@ -105,12 +123,13 @@ export async function GET(request: NextRequest) {
       console.error('Error guardando perfil de usuario en base de datos:', dbErr);
     }
 
-    // 4. Crear sesión en cookie segura
+    // 4. Crear sesión en cookie segura con el rol sincronizado
     await createSessionCookie({
       id: userData.sub,
       name: userData.name || userData.email.split('@')[0],
       email: userData.email,
-      avatar: userData.picture
+      avatar: userData.picture,
+      role: userRole
     });
 
     // 5. Redirigir a la app autenticado y limpiar cookie de estado CSRF

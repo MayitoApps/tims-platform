@@ -119,20 +119,30 @@ export async function verifySessionToken(token?: string | null): Promise<AuthSes
 }
 
 // Create cryptographically signed session cookie
-export async function createSessionCookie(user: { id: string; name: string; email: string; avatar?: string }) {
+export async function createSessionCookie(user: {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  role?: 'marketing' | 'sales' | 'admin';
+}) {
   const nowSec = Math.floor(Date.now() / 1000);
   const maxAgeSec = 60 * 60 * 24 * 7; // 7 días
+
+  const role: 'marketing' | 'sales' | 'admin' =
+    user.role ||
+    (isAdminEmail(user.email)
+      ? 'admin'
+      : user.email.includes('sales') || user.email.includes('comercial')
+      ? 'sales'
+      : 'marketing');
 
   const session: AuthSession = {
     id: user.id,
     name: user.name,
     email: user.email,
     avatar: user.avatar,
-    role: isAdminEmail(user.email)
-      ? 'admin'
-      : user.email.includes('sales') || user.email.includes('comercial')
-      ? 'sales'
-      : 'marketing',
+    role,
     initials: getInitials(user.name),
     iat: nowSec,
     exp: nowSec + maxAgeSec
