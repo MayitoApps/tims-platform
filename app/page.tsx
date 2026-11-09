@@ -785,23 +785,39 @@ export default function Home() {
 
   // Sales Activities Handlers (Tablero de Tareas y Cierre de Ventas)
   const handleAddSalesActivity = async (activity: Omit<SalesActivity, 'id' | 'createdAt'>) => {
+    const created: SalesActivity = {
+      ...activity,
+      id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: new Date().toISOString()
+    };
+
+    setSalesActivities((prev) => {
+      const nextList = [created, ...prev];
+      try {
+        localStorage.setItem('tims_sales_activities', JSON.stringify(nextList));
+      } catch {}
+      return nextList;
+    });
+    showToast('Actividad registrada correctamente');
+
     try {
       const res = await fetch('/api/sales-activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(activity)
+        body: JSON.stringify(created)
       });
       const data = await res.json();
       if (data?.activity) {
-        setSalesActivities((prev) => [data.activity, ...prev]);
-        try {
-          localStorage.setItem('tims_sales_activities', JSON.stringify([data.activity, ...salesActivities]));
-        } catch {}
-        showToast('Actividad registrada correctamente');
+        setSalesActivities((prev) => {
+          const updated = prev.map((a) => (a.id === created.id ? data.activity : a));
+          try {
+            localStorage.setItem('tims_sales_activities', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
       }
     } catch (err) {
-      console.error('Error adding sales activity:', err);
-      showToast('Error al registrar actividad');
+      console.error('Error adding sales activity to DB:', err);
     }
   };
 

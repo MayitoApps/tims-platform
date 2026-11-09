@@ -23,6 +23,13 @@ interface SalesSectionProps {
   onDeleteActivity: (activityId: string) => void;
 }
 
+function getLocalDateStr(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function SalesSection({
   activities = [],
   currentUser,
@@ -73,7 +80,7 @@ export function SalesSection({
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
 
   // Shared form inputs
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateStr();
   const nowTimeStr = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
   const [formDate, setFormDate] = useState(todayStr);
   const [formTime, setFormTime] = useState(nowTimeStr);
@@ -135,9 +142,9 @@ export function SalesSection({
     sunday.setHours(23, 59, 59, 999);
 
     return {
-      mondayStr: monday.toISOString().split('T')[0],
-      fridayStr: friday.toISOString().split('T')[0],
-      sundayStr: sunday.toISOString().split('T')[0],
+      mondayStr: getLocalDateStr(monday),
+      fridayStr: getLocalDateStr(friday),
+      sundayStr: getLocalDateStr(sunday),
       isFriday: day === 5
     };
   }, []);
@@ -148,7 +155,7 @@ export function SalesSection({
       (a) => a.executiveName.toLowerCase() === execName.toLowerCase() && a.type === catType
     );
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateStr();
     const categoryDef = SALES_TASK_CATEGORIES.find((c) => c.type === catType);
     const target = categoryDef?.targetCount || 1;
 
@@ -186,7 +193,7 @@ export function SalesSection({
   };
 
   const resetFormFields = (execName?: string) => {
-    setFormDate(new Date().toISOString().split('T')[0]);
+    setFormDate(getLocalDateStr());
     setFormTime(new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false }));
     setClientName('');
     setPhone('');
@@ -194,7 +201,7 @@ export function SalesSection({
     setNotes('');
     setCompany('');
     setEmail('');
-    setAcquisitionDate(new Date().toISOString().split('T')[0]);
+    setAcquisitionDate(getLocalDateStr());
     setSubject('');
     setContactMethod('Llamada');
     setClientFeedback('');

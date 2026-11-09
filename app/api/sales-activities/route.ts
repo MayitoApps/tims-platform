@@ -24,7 +24,19 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const activity: SalesActivity = await request.json();
+    const raw: Partial<SalesActivity> = await request.json();
+    const activityId = raw.id || `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const createdAt = raw.createdAt || new Date().toISOString();
+
+    const activity: SalesActivity = {
+      ...raw,
+      id: activityId,
+      type: raw.type || 'llamada',
+      executiveName: raw.executiveName || 'Ejecutivo',
+      date: raw.date || new Date().toISOString().split('T')[0],
+      createdAt
+    };
+
     const sql = getDb();
 
     if (!sql) {
