@@ -92,3 +92,66 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const sql = getDb();
+    if (!sql) {
+      return NextResponse.json({ success: true, source: 'local' });
+    }
+
+    await ensureTables();
+
+    if (body.all) {
+      await sql`
+        UPDATE app_notifications
+        SET read = true;
+      `;
+      return NextResponse.json({ success: true, message: 'Todas marcadas como leídas' });
+    }
+
+    if (body.id) {
+      const isRead = body.read !== undefined ? Boolean(body.read) : true;
+      await sql`
+        UPDATE app_notifications
+        SET read = ${isRead}
+        WHERE id = ${body.id};
+      `;
+      return NextResponse.json({ success: true, id: body.id, read: isRead });
+    }
+
+    return NextResponse.json({ success: false, error: 'Parámetros no válidos' }, { status: 400 });
+  } catch (error) {
+    console.error('Error updating notification read status:', error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const sql = getDb();
+    if (!sql) {
+      return NextResponse.json({ success: true, source: 'local' });
+    }
+
+    await ensureTables();
+    if (id) {
+      await sql`DELETE FROM app_notifications WHERE id = ${id}`;
+    } else {
+      await sql`DELETE FROM app_notifications WHERE read = true`;
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting notifications:', error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+

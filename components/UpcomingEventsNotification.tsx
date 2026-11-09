@@ -89,22 +89,18 @@ export function UpcomingEventsNotification({
         onClick={() => setIsOpen(!isOpen)}
         title="Centro de Notificaciones & Eventos"
         className={`relative p-2 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
-          unreadCount > 0 || eventCount > 0
+          unreadCount > 0
             ? 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 ring-2 ring-amber-400/30'
             : 'bg-stone-100 text-stone-600 hover:text-stone-900 hover:bg-stone-200 border border-stone-200'
         }`}
       >
         <span className="text-base sm:text-lg">🔔</span>
 
-        {unreadCount > 0 ? (
+        {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white font-extrabold text-[10px] flex items-center justify-center shadow-xs animate-bounce">
             {unreadCount}
           </span>
-        ) : eventCount > 0 ? (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-600 text-white font-extrabold text-[10px] flex items-center justify-center shadow-xs">
-            {eventCount}
-          </span>
-        ) : null}
+        )}
       </button>
 
       {/* Notifications Dropdown */}

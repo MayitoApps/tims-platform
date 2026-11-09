@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { Navbar } from '@/components/Navbar';
 import { MarketingSection } from '@/components/marketing/MarketingSection';
@@ -146,15 +146,22 @@ export default function Home() {
     if (!currentUser) return;
 
     const syncDataFromCloud = () => {
-      // Sync Notifications
+      // Sync Notifications con preservación de lectura local
       fetch('/api/notifications')
         .then((res) => res.json())
         .then((data) => {
           if (data && Array.isArray(data.notifications)) {
-            setNotifications(data.notifications);
-            try {
-              localStorage.setItem('tims_notifications', JSON.stringify(data.notifications));
-            } catch {}
+            setNotifications((prev) => {
+              const localReadSet = new Set(prev.filter((n) => n.read).map((n) => n.id));
+              const merged = data.notifications.map((n: AppNotification) => ({
+                ...n,
+                read: localReadSet.has(n.id) ? true : n.read
+              }));
+              try {
+                localStorage.setItem('tims_notifications', JSON.stringify(merged));
+              } catch {}
+              return merged;
+            });
           }
         })
         .catch(() => {});
@@ -295,20 +302,31 @@ export default function Home() {
   };
 
   // -----------------------------------------------------------------
-  // NOTIFICATIONS ACTIONS (PERSONAL & ADMIN)
+  // NOTIFICATIONS ACTIONS (PERSONAL & ADMIN) CON DEDUPLICACIÓN ESTRICTA
   // -----------------------------------------------------------------
+  // Registro de notificaciones a las que ya se les mostró Toast para que NUNCA se repitan
+  const displayedToastIdsRef = useRef<Set<string>>(new Set());
+
   const handleAddNotification = async (notif: AppNotification) => {
+    // Si ya existe en la lista, no duplicarla jamás
+    if (notifications.some((n) => n.id === notif.id)) {
+      return;
+    }
+
     const nextList = [notif, ...notifications];
     setNotifications(nextList);
     try {
       localStorage.setItem('tims_notifications', JSON.stringify(nextList));
     } catch {}
 
-    // Toast visible para el usuario si es el destinatario personal o si es administrador
-    const isTarget = notif.targetEmail && currentUser?.email && notif.targetEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim();
-    const isAdmin = isAdminEmail(currentUser?.email);
-    if (isTarget || isAdmin) {
-      showToast(`🔔 ${notif.title}: ${notif.message.slice(0, 55)}...`);
+    // Toast visible para el usuario si es destinatario o admin (SOLO UNA VEZ POR NOTIFICACIÓN)
+    if (!displayedToastIdsRef.current.has(notif.id)) {
+      displayedToastIdsRef.current.add(notif.id);
+      const isTarget = notif.targetEmail && currentUser?.email && notif.targetEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim();
+      const isAdmin = isAdminEmail(currentUser?.email);
+      if (isTarget || isAdmin) {
+        showToast(`🔔 ${notif.title}: ${notif.message.slice(0, 55)}...`);
+      }
     }
 
     try {
@@ -322,15 +340,26 @@ export default function Home() {
     }
   };
 
-  const handleSelectNotification = (notif: AppNotification) => {
-    // Marcar como leída
+  const handleSelectNotification = async (notif: AppNotification) => {
+    // 1. Marcar como leída de inmediato en estado y local
     const nextList = notifications.map((n) => (n.id === notif.id ? { ...n, read: true } : n));
     setNotifications(nextList);
     try {
       localStorage.setItem('tims_notifications', JSON.stringify(nextList));
     } catch {}
 
-    // Navegar y enfocar el elemento correspondiente
+    // 2. Persistir permanentemente en base de datos para que no vuelva a aparecer como no leída
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: notif.id, read: true })
+      });
+    } catch (err) {
+      console.error('Error updating notification read in DB:', err);
+    }
+
+    // 3. Navegar y enfocar el elemento correspondiente
     if (notif.linkSection === 'commercial') {
       setActiveSection('commercial');
       if (notif.targetId) {
@@ -341,14 +370,89 @@ export default function Home() {
     }
   };
 
-  const handleMarkAllNotificationsRead = () => {
+  const handleMarkAllNotificationsRead = async () => {
     const nextList = notifications.map((n) => ({ ...n, read: true }));
     setNotifications(nextList);
     try {
       localStorage.setItem('tims_notifications', JSON.stringify(nextList));
     } catch {}
     showToast('Todas las notificaciones marcadas como leídas');
+
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true })
+      });
+    } catch (err) {
+      console.error('Error marking all notifications read in DB:', err);
+    }
   };
+
+  // Notificaciones automáticas ÚNICAS para eventos próximos a suceder (dentro de los próximos 7 días)
+  const notifiedEventsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!currentUser || deals.length === 0) return;
+
+    try {
+      const saved = localStorage.getItem('tims_notified_upcoming_events');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((id: string) => notifiedEventsRef.current.add(id));
+        }
+      }
+    } catch {}
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayMs = new Date(todayStr).getTime();
+
+    deals.forEach((deal) => {
+      if (deal.stage === 'perdido') return;
+      if (!deal.checkInDate) return;
+
+      const checkInMs = new Date(deal.checkInDate).getTime();
+      const diffDays = Math.ceil((checkInMs - todayMs) / (1000 * 3600 * 24));
+
+      // Solo si el evento está pronto a suceder (entre hoy y los próximos 7 días)
+      if (diffDays >= 0 && diffDays <= 7) {
+        const notifUniqueId = `upcoming-event-${deal.id}-${deal.checkInDate}`;
+
+        if (notifiedEventsRef.current.has(notifUniqueId)) return;
+        if (notifications.some((n) => n.id === notifUniqueId)) {
+          notifiedEventsRef.current.add(notifUniqueId);
+          return;
+        }
+
+        notifiedEventsRef.current.add(notifUniqueId);
+        try {
+          localStorage.setItem(
+            'tims_notified_upcoming_events',
+            JSON.stringify(Array.from(notifiedEventsRef.current))
+          );
+        } catch {}
+
+        const daysLabel = diffDays === 0 ? '¡HOY!' : diffDays === 1 ? '¡Mañana!' : `en ${diffDays} días (${deal.checkInDate})`;
+
+        const upcomingNotif: AppNotification = {
+          id: notifUniqueId,
+          title: `⏰ Evento próximo: ${deal.companyOrAgency}`,
+          message: `El evento "${deal.companyOrAgency}" en ${deal.hotelName} inicia ${daysLabel}. Verifica logística y anticipos.`,
+          type: 'event_active',
+          targetEmail: deal.assignedEmail || 'expansioncomercia.gohb@gmail.com',
+          targetName: deal.assignedRep || 'Comercialización',
+          authorName: 'Sistema TIMS',
+          linkSection: 'commercial',
+          targetId: deal.id,
+          createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+          read: false
+        };
+
+        handleAddNotification(upcomingNotif);
+      }
+    });
+  }, [deals, currentUser]);
 
   // -----------------------------------------------------------------
   // MARKETING ACTIONS (WITH DB PERSISTENCE)
