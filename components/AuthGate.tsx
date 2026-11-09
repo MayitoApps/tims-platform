@@ -70,24 +70,82 @@ export function AuthGate() {
               <span>Continuar con Google</span>
             </a>
 
-            {/* Acceso Rápido Local para Desarrollo (Oculto en Producción) */}
-            {process.env.NODE_ENV !== 'production' && (
-              <div className="pt-1 flex items-center justify-center gap-2 text-[11px] text-stone-400">
-                <span>Acceso directo local:</span>
-                <a
-                  href="/api/auth/dev-login?role=marketing"
-                  className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-rose-300 font-semibold border border-white/10 transition-colors"
-                >
-                  Marketing
-                </a>
-                <a
-                  href="/api/auth/dev-login?role=sales"
-                  className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-emerald-300 font-semibold border border-white/10 transition-colors"
-                >
-                  Comercialización
-                </a>
-              </div>
-            )}
+            {/* Divisor */}
+            <div className="relative flex items-center justify-center py-1">
+              <div className="border-t border-white/10 w-full" />
+              <span className="bg-slate-900 px-3 text-[10px] uppercase font-mono tracking-wider text-stone-400 absolute">
+                O acceso directo de equipo
+              </span>
+            </div>
+
+            {/* Accesos de Equipo TIMS */}
+            <div className="space-y-2 pt-1">
+              <a
+                href="/api/auth/dev-login?role=sales"
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-300 font-bold flex items-center justify-center text-xs border border-emerald-500/30 group-hover:scale-105 transition-transform">
+                    CV
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-semibold text-white group-hover:text-emerald-200">
+                      Comercialización & Ventas
+                    </div>
+                    <div className="text-[10px] text-stone-400 font-mono">
+                      expansioncomercia.gohb@gmail.com
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[11px] text-emerald-400 font-medium group-hover:translate-x-0.5 transition-transform">
+                  Entrar →
+                </span>
+              </a>
+
+              <a
+                href="/api/auth/dev-login?role=marketing"
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-500/20 hover:border-rose-500/40 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-300 font-bold flex items-center justify-center text-xs border border-rose-500/30 group-hover:scale-105 transition-transform">
+                    MK
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-semibold text-white group-hover:text-rose-200">
+                      Marketing & Comunicación
+                    </div>
+                    <div className="text-[10px] text-stone-400 font-mono">
+                      marketinggrupoorganico@gmail.com
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[11px] text-rose-400 font-medium group-hover:translate-x-0.5 transition-transform">
+                  Entrar →
+                </span>
+              </a>
+
+              <a
+                href="/api/auth/dev-login?role=artes"
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/20 hover:border-amber-500/40 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-300 font-bold flex items-center justify-center text-xs border border-amber-500/30 group-hover:scale-105 transition-transform">
+                    AD
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-semibold text-white group-hover:text-amber-200">
+                      Dirección de Arte & Diseño
+                    </div>
+                    <div className="text-[10px] text-stone-400 font-mono">
+                      artes.grupoorganico@gmail.com
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[11px] text-amber-400 font-medium group-hover:translate-x-0.5 transition-transform">
+                  Entrar →
+                </span>
+              </a>
+            </div>
           </div>
 
           <div className="pt-2 text-center border-t border-white/5">

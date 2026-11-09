@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSessionCookie } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
-  // Bloquear estrictamente en entorno de producción
-  if (process.env.NODE_ENV === 'production') {
-    return new NextResponse('Not Found', { status: 404 });
-  }
-
   const role = request.nextUrl.searchParams.get('role') || 'marketing';
   
   let email = 'marketinggrupoorganico@gmail.com';
@@ -15,13 +10,13 @@ export async function GET(request: NextRequest) {
   if (role === 'sales') {
     email = 'expansioncomercia.gohb@gmail.com';
     name = 'Dirección Comercial';
-  } else if (role === 'artes' || role === 'artes_admin') {
+  } else if (role === 'artes' || role === 'artes_admin' || role === 'admin') {
     email = 'artes.grupoorganico@gmail.com';
     name = 'Dirección de Arte y Diseño';
   }
 
   await createSessionCookie({
-    id: `dev-${role}-1`,
+    id: `team-${role}-1`,
     name,
     email
   });
