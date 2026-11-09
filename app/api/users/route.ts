@@ -3,7 +3,7 @@ import { getDb, ensureTables } from '@/lib/db';
 import { UserProfile } from '@/lib/types';
 
 export async function GET(request: Request) {
-  // Request header access signals Next.js dynamic execution
+  // Request header access signals dynamic execution
   request.headers.get('host');
   const sql = getDb();
   if (!sql) {
@@ -28,7 +28,10 @@ export async function GET(request: Request) {
       lastLogin: r.last_login
     }));
 
-    return NextResponse.json({ success: true, source: 'postgres', users });
+    return NextResponse.json(
+      { success: true, source: 'postgres', users },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+    );
   } catch (error) {
     console.error('Error fetching users from DB:', error);
     return NextResponse.json({ success: false, users: [] });
