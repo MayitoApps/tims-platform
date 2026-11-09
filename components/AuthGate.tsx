@@ -78,19 +78,20 @@ export function AuthGate() {
               </span>
             </div>
 
-            {/* Accesos de Equipo TIMS */}
-            <div className="space-y-2 pt-1">
+            {/* Accesos Directos de Administradores */}
+            <div className="space-y-2.5 pt-1">
               <a
                 href="/api/auth/dev-login?role=sales"
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 transition-all group"
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 transition-all group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-300 font-bold flex items-center justify-center text-xs border border-emerald-500/30 group-hover:scale-105 transition-transform">
-                    CV
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-300 font-bold flex items-center justify-center text-xs border border-emerald-500/30 group-hover:scale-105 transition-transform">
+                    FL
                   </div>
                   <div className="text-left">
-                    <div className="text-xs font-semibold text-white group-hover:text-emerald-200">
-                      Comercialización & Ventas
+                    <div className="text-xs font-semibold text-white group-hover:text-emerald-200 flex items-center gap-1.5">
+                      <span>Fernanda Langárica</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono font-medium">ADMIN</span>
                     </div>
                     <div className="text-[10px] text-stone-400 font-mono">
                       expansioncomercia.gohb@gmail.com
@@ -103,38 +104,17 @@ export function AuthGate() {
               </a>
 
               <a
-                href="/api/auth/dev-login?role=marketing"
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-500/20 hover:border-rose-500/40 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-300 font-bold flex items-center justify-center text-xs border border-rose-500/30 group-hover:scale-105 transition-transform">
-                    MK
-                  </div>
-                  <div className="text-left">
-                    <div className="text-xs font-semibold text-white group-hover:text-rose-200">
-                      Marketing & Comunicación
-                    </div>
-                    <div className="text-[10px] text-stone-400 font-mono">
-                      marketinggrupoorganico@gmail.com
-                    </div>
-                  </div>
-                </div>
-                <span className="text-[11px] text-rose-400 font-medium group-hover:translate-x-0.5 transition-transform">
-                  Entrar →
-                </span>
-              </a>
-
-              <a
                 href="/api/auth/dev-login?role=artes"
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/20 hover:border-amber-500/40 transition-all group"
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/20 hover:border-amber-500/40 transition-all group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-300 font-bold flex items-center justify-center text-xs border border-amber-500/30 group-hover:scale-105 transition-transform">
-                    AD
+                  <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-300 font-bold flex items-center justify-center text-xs border border-amber-500/30 group-hover:scale-105 transition-transform">
+                    MA
                   </div>
                   <div className="text-left">
-                    <div className="text-xs font-semibold text-white group-hover:text-amber-200">
-                      Dirección de Arte & Diseño
+                    <div className="text-xs font-semibold text-white group-hover:text-amber-200 flex items-center gap-1.5">
+                      <span>Mario Avalos</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono font-medium">ADMIN</span>
                     </div>
                     <div className="text-[10px] text-stone-400 font-mono">
                       artes.grupoorganico@gmail.com

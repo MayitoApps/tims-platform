@@ -93,7 +93,7 @@ export function MarketingSection({
   const [dragOverStage, setDragOverStage] = useState<MarketingTaskStage | null>(null);
   const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
 
-  // Current user admin check (expansioncomercia.gohb@gmail.com, marketinggrupoorganico@gmail.com, artes.grupoorganico@gmail.com)
+  // Current user admin check (expansioncomercia.gohb@gmail.com, artes.grupoorganico@gmail.com)
   const currentUserEmail = (currentUser?.email || '').toLowerCase().trim();
   const isCurrentUserAdmin = ADMIN_EMAILS.some((adm) => adm.toLowerCase() === currentUserEmail);
 

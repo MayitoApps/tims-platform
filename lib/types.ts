@@ -42,7 +42,6 @@ export interface TaskComment {
 
 export const ADMIN_EMAILS = [
   'expansioncomercia.gohb@gmail.com',
-  'marketinggrupoorganico@gmail.com',
   'artes.grupoorganico@gmail.com'
 ];
 

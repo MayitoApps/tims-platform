@@ -441,7 +441,7 @@ export default function Home() {
           message: `El evento "${deal.companyOrAgency}" en ${deal.hotelName} inicia ${daysLabel}. Verifica logística y anticipos.`,
           type: 'event_active',
           targetEmail: deal.assignedEmail || 'expansioncomercia.gohb@gmail.com',
-          targetName: deal.assignedRep || 'Comercialización',
+          targetName: deal.assignedRep || 'Fernanda Langárica',
           authorName: 'Sistema TIMS',
           linkSection: 'commercial',
           targetId: deal.id,
