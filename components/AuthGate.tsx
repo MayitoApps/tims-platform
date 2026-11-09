@@ -67,65 +67,8 @@ export function AuthGate() {
                   d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                 />
               </svg>
-              <span>Continuar con Google</span>
+              <span className="font-semibold">Entrar con Google</span>
             </a>
-
-            {/* Divisor */}
-            <div className="relative flex items-center justify-center py-1">
-              <div className="border-t border-white/10 w-full" />
-              <span className="bg-slate-900 px-3 text-[10px] uppercase font-mono tracking-wider text-stone-400 absolute">
-                O acceso directo de equipo
-              </span>
-            </div>
-
-            {/* Accesos Directos de Administradores */}
-            <div className="space-y-2.5 pt-1">
-              <a
-                href="/api/auth/dev-login?role=sales"
-                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/20 hover:border-emerald-500/40 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-300 font-bold flex items-center justify-center text-xs border border-emerald-500/30 group-hover:scale-105 transition-transform">
-                    FL
-                  </div>
-                  <div className="text-left">
-                    <div className="text-xs font-semibold text-white group-hover:text-emerald-200 flex items-center gap-1.5">
-                      <span>Fernanda Langárica</span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono font-medium">ADMIN</span>
-                    </div>
-                    <div className="text-[10px] text-stone-400 font-mono">
-                      expansioncomercia.gohb@gmail.com
-                    </div>
-                  </div>
-                </div>
-                <span className="text-[11px] text-emerald-400 font-medium group-hover:translate-x-0.5 transition-transform">
-                  Entrar →
-                </span>
-              </a>
-
-              <a
-                href="/api/auth/dev-login?role=artes"
-                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/20 hover:border-amber-500/40 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-300 font-bold flex items-center justify-center text-xs border border-amber-500/30 group-hover:scale-105 transition-transform">
-                    MA
-                  </div>
-                  <div className="text-left">
-                    <div className="text-xs font-semibold text-white group-hover:text-amber-200 flex items-center gap-1.5">
-                      <span>Mario Avalos</span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono font-medium">ADMIN</span>
-                    </div>
-                    <div className="text-[10px] text-stone-400 font-mono">
-                      artes.grupoorganico@gmail.com
-                    </div>
-                  </div>
-                </div>
-                <span className="text-[11px] text-amber-400 font-medium group-hover:translate-x-0.5 transition-transform">
-                  Entrar →
-                </span>
-              </a>
-            </div>
           </div>
 
           <div className="pt-2 text-center border-t border-white/5">
