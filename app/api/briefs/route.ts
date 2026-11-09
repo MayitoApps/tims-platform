@@ -25,7 +25,24 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const brief: CreativeBrief = await request.json();
+    const raw: Partial<CreativeBrief> = await request.json();
+    const briefId = raw.id || `brf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const date = (raw.date || new Date().toISOString().split('T')[0]).slice(0, 10);
+
+    const brief: CreativeBrief = {
+      ...raw,
+      id: briefId,
+      title: raw.title || 'Nuevo Brief Creativo',
+      hotelTarget: raw.hotelTarget || 'Orgánico Ajusco',
+      category: raw.category || 'campana_digital',
+      objective: raw.objective || '',
+      targetAudience: raw.targetAudience || '',
+      keyMessage: raw.keyMessage || '',
+      deliverables: Array.isArray(raw.deliverables) ? raw.deliverables : [],
+      author: raw.author || 'Marketing',
+      date
+    };
+
     const sql = getDb();
     if (!sql) {
       return NextResponse.json({ success: true, source: 'local', brief });

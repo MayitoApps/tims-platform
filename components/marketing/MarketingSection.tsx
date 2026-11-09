@@ -20,7 +20,7 @@ import {
   getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS } from '@/lib/initial-data';
-import { formatCurrency, formatDate, getMarketingStatusBadge, safeExternalUrl } from '@/lib/utils';
+import { formatCurrency, formatDate, getMarketingStatusBadge, safeExternalUrl, getLocalDateStr } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 
 interface MarketingSectionProps {
@@ -117,13 +117,17 @@ export function MarketingSection({
   const [editTFormat, setEditTFormat] = useState<string>('Historia');
   const [editTCustomFormat, setEditTCustomFormat] = useState('');
   const [editTHotelTargets, setEditTHotelTargets] = useState<string[]>([HOTEL_PROPERTIES[0]]);
+  const mktTodayStr = getLocalDateStr();
+  const mktNextWeekStr = getLocalDateStr(new Date(Date.now() + 7 * 86400000));
+  const mktNextMonthStr = getLocalDateStr(new Date(Date.now() + 30 * 86400000));
+
   const [editTCategory, setEditTCategory] = useState<MarketingTaskCategory>('diseno_grafico');
   const [editTPriority, setEditTPriority] = useState<'alta' | 'media' | 'urgente'>('alta');
   const [editTStage, setEditTStage] = useState<MarketingTaskStage>('backlog');
   const [editTRequestedBy, setEditTRequestedBy] = useState('');
   const [editTAssignedTo, setEditTAssignedTo] = useState(DESIGN_RESPONSIBLES[0].name);
   const [editTAssignedEmail, setEditTAssignedEmail] = useState(DESIGN_RESPONSIBLES[0].email);
-  const [editTDueDate, setEditTDueDate] = useState('2026-11-15');
+  const [editTDueDate, setEditTDueDate] = useState(mktNextWeekStr);
   const [editTDesc, setEditTDesc] = useState('');
   const [editTAssetUrl, setEditTAssetUrl] = useState('');
   const [editTChecklist, setEditTChecklist] = useState<TaskChecklistItem[]>([]);
@@ -139,8 +143,8 @@ export function MarketingSection({
   const [editCType, setEditCType] = useState<MarketingCampaign['type']>('temporada');
   const [editCStatus, setEditCStatus] = useState<MarketingCampaignStatus>('planificacion');
   const [editCBudget, setEditCBudget] = useState('45000');
-  const [editCStart, setEditCStart] = useState('2026-10-20');
-  const [editCEnd, setEditCEnd] = useState('2026-12-31');
+  const [editCStart, setEditCStart] = useState(mktTodayStr);
+  const [editCEnd, setEditCEnd] = useState(mktNextMonthStr);
   const [editCChannels, setEditCChannels] = useState('Instagram Ads, Meta Ads');
   const [editCDesc, setEditCDesc] = useState('');
 
@@ -152,7 +156,7 @@ export function MarketingSection({
   const [editPTitle, setEditPTitle] = useState('');
   const [editPHotel, setEditPHotel] = useState(HOTEL_PROPERTIES[0]);
   const [editPChannel, setEditPChannel] = useState<ContentPublication['channel']>('instagram');
-  const [editPDate, setEditPDate] = useState('2026-11-10');
+  const [editPDate, setEditPDate] = useState(mktTodayStr);
   const [editPResponsible, setEditPResponsible] = useState('Equipo Creativo');
   const [editPStatus, setEditPStatus] = useState<ContentPublication['status']>('programado');
 
@@ -185,7 +189,7 @@ export function MarketingSection({
   const [tRequestedBy, setTRequestedBy] = useState('');
   const [tAssignedTo, setTAssignedTo] = useState('Por asignar');
   const [tAssignedEmail, setTAssignedEmail] = useState<string | undefined>(undefined);
-  const [tDueDate, setTDueDate] = useState('2026-11-15');
+  const [tDueDate, setTDueDate] = useState(mktNextWeekStr);
   const [tDesc, setTDesc] = useState('');
   const [tAssetUrl, setTAssetUrl] = useState('');
   const [tChecklist, setTChecklist] = useState<TaskChecklistItem[]>([]);
@@ -196,8 +200,8 @@ export function MarketingSection({
   const [cHotel, setCHotel] = useState<string>(CAMPAIGN_HOTEL_TARGETS[0]);
   const [cType, setCType] = useState<MarketingCampaign['type']>('temporada');
   const [cBudget, setCBudget] = useState('45000');
-  const [cStart, setCStart] = useState('2026-10-20');
-  const [cEnd, setCEnd] = useState('2026-12-31');
+  const [cStart, setCStart] = useState(mktTodayStr);
+  const [cEnd, setCEnd] = useState(mktNextMonthStr);
   const [cChannels, setCChannels] = useState('Instagram Ads, Meta Ads, Google Ads');
   const [cDesc, setCDesc] = useState('');
 
@@ -205,7 +209,7 @@ export function MarketingSection({
   const [pTitle, setPTitle] = useState('');
   const [pHotel, setPHotel] = useState(HOTEL_PROPERTIES[0]);
   const [pChannel, setPChannel] = useState<ContentPublication['channel']>('instagram');
-  const [pDate, setPDate] = useState('2026-11-10');
+  const [pDate, setPDate] = useState(mktTodayStr);
   const [pResponsible, setPResponsible] = useState('Equipo Creativo');
 
   // Form states - Brief

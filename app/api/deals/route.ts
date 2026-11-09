@@ -38,8 +38,44 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const deal: HotelDeal = await request.json();
+    const raw: Partial<HotelDeal> = await request.json();
     const sql = getDb();
+
+    const dealId = raw.id || `deal-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const createdAt = raw.createdAt || new Date().toISOString().split('T')[0];
+    const totalValNum = Number(raw.totalValue) || 0;
+    const depValNum = Number(raw.depositAmount) || 0;
+
+    const deal: HotelDeal = {
+      ...raw,
+      id: dealId,
+      code: raw.code || `RFP-${Date.now().toString().slice(-4)}`,
+      clientName: raw.clientName || 'Cliente',
+      companyOrAgency: raw.companyOrAgency || raw.clientName || 'Sin Empresa',
+      hotelName: raw.hotelName || 'Orgánico Ajusco',
+      category: raw.category || 'bodas_sociales',
+      selectedSpaces: Array.isArray(raw.selectedSpaces) ? raw.selectedSpaces : [],
+      requestedRooms: Array.isArray(raw.requestedRooms) ? raw.requestedRooms : [],
+      stage: raw.stage || 'rfp_recibido',
+      totalValue: totalValNum,
+      currency: raw.currency || 'MXN',
+      depositAmount: depValNum,
+      paymentStatus: raw.paymentStatus || 'pendiente',
+      paymentDueDate: raw.paymentDueDate || undefined,
+      roomNights: Number(raw.roomNights) || 0,
+      attendeesCount: Number(raw.attendeesCount) || 0,
+      checkInDate: (raw.checkInDate || new Date().toISOString().split('T')[0]).slice(0, 10),
+      checkOutDate: (raw.checkOutDate || new Date().toISOString().split('T')[0]).slice(0, 10),
+      assignedRep: raw.assignedRep || 'Equipo Comercial',
+      assignedEmail: raw.assignedEmail || undefined,
+      notes: raw.notes || '',
+      comments: Array.isArray(raw.comments) ? raw.comments : [],
+      contactEmail: raw.contactEmail || '',
+      contactPhone: raw.contactPhone || '',
+      requirements: Array.isArray(raw.requirements) ? raw.requirements : [],
+      invoices: Array.isArray(raw.invoices) ? raw.invoices : [],
+      createdAt
+    };
 
     if (!sql) {
       // Offline/local fallback
@@ -55,20 +91,20 @@ export async function POST(request: Request) {
         room_nights, attendees_count, check_in_date, check_out_date,
         assigned_rep, assigned_email, notes, comments, contact_email, contact_phone, requirements, invoices, created_at
       ) VALUES (
-        ${deal.id}, ${deal.code}, ${deal.clientName}, ${deal.companyOrAgency || deal.clientName},
-        ${deal.hotelName}, ${deal.category || 'bodas_sociales'},
-        ${JSON.stringify(deal.selectedSpaces || [])}::jsonb,
-        ${JSON.stringify(deal.requestedRooms || [])}::jsonb,
-        ${deal.stage}, ${deal.totalValue}, ${deal.currency || 'MXN'},
+        ${deal.id}, ${deal.code}, ${deal.clientName}, ${deal.companyOrAgency},
+        ${deal.hotelName}, ${deal.category},
+        ${JSON.stringify(deal.selectedSpaces)}::jsonb,
+        ${JSON.stringify(deal.requestedRooms)}::jsonb,
+        ${deal.stage}, ${deal.totalValue}, ${deal.currency},
         ${deal.depositAmount || 0}, ${deal.paymentStatus || 'pendiente'}, ${deal.paymentDueDate || null},
         ${deal.roomNights || 0}, ${deal.attendeesCount || 0},
         ${deal.checkInDate}, ${deal.checkOutDate}, ${deal.assignedRep},
         ${deal.assignedEmail || null},
         ${deal.notes || ''},
-        ${JSON.stringify(deal.comments || [])}::jsonb,
+        ${JSON.stringify(deal.comments)}::jsonb,
         ${deal.contactEmail || ''}, ${deal.contactPhone || ''},
-        ${JSON.stringify(deal.requirements || [])}::jsonb,
-        ${JSON.stringify(deal.invoices || [])}::jsonb,
+        ${JSON.stringify(deal.requirements)}::jsonb,
+        ${JSON.stringify(deal.invoices)}::jsonb,
         ${deal.createdAt}
       )
       ON CONFLICT (id) DO UPDATE SET

@@ -24,7 +24,29 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const task: CommercialTask = await request.json();
+    const raw: Partial<CommercialTask> = await request.json();
+    const taskId = raw.id || `ctask-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const createdAt = raw.createdAt || new Date().toISOString().split('T')[0];
+
+    const task: CommercialTask = {
+      ...raw,
+      id: taskId,
+      code: raw.code || `TK-${Date.now().toString().slice(-4)}`,
+      title: raw.title || 'Nueva Tarea Comercial',
+      description: raw.description || '',
+      hotelTarget: raw.hotelTarget || 'Orgánico Ajusco',
+      dealId: raw.dealId || undefined,
+      dealTitle: raw.dealTitle || undefined,
+      assignedTo: raw.assignedTo || 'Comercial',
+      assignedEmail: raw.assignedEmail || undefined,
+      priority: raw.priority || 'alta',
+      stage: raw.stage || 'solicitud',
+      dueDate: (raw.dueDate || new Date().toISOString().split('T')[0]).slice(0, 10),
+      createdBy: raw.createdBy || 'Sistema',
+      comments: Array.isArray(raw.comments) ? raw.comments : [],
+      createdAt
+    };
+
     const sql = getDb();
 
     if (!sql) {

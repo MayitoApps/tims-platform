@@ -40,7 +40,26 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const notif: AppNotification = await request.json();
+    const raw: Partial<AppNotification> = await request.json();
+    const notifId = raw.id || `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const createdAt = raw.createdAt || new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+    const notif: AppNotification = {
+      ...raw,
+      id: notifId,
+      title: raw.title || 'Notificación del Sistema',
+      message: raw.message || '',
+      type: raw.type || 'deal_created',
+      targetEmail: raw.targetEmail || undefined,
+      targetName: raw.targetName || undefined,
+      authorName: raw.authorName || undefined,
+      authorEmail: raw.authorEmail || undefined,
+      linkSection: raw.linkSection || 'marketing',
+      targetId: raw.targetId || undefined,
+      createdAt,
+      read: Boolean(raw.read)
+    };
+
     const sql = getDb();
 
     if (!sql) {

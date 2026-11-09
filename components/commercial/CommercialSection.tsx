@@ -19,7 +19,7 @@ import {
   getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
-import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel, safeExternalUrl } from '@/lib/utils';
+import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel, safeExternalUrl, getLocalDateStr } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 import { QuotationPrintModal } from './QuotationPrintModal';
 import { AvailabilityCheckerModal } from './AvailabilityCheckerModal';
@@ -177,12 +177,16 @@ export function CommercialSection({
   const [editTotalValue, setEditTotalValue] = useState('350000');
   const [editCurrency, setEditCurrency] = useState<'MXN' | 'USD'>('MXN');
   const [editDepositAmount, setEditDepositAmount] = useState('0');
+  const todayStr = getLocalDateStr();
+  const defaultOutStr = getLocalDateStr(new Date(Date.now() + 2 * 86400000));
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+
   const [editPaymentStatus, setEditPaymentStatus] = useState<PaymentStatus>('pendiente');
   const [editPaymentDueDate, setEditPaymentDueDate] = useState('');
   const [editRoomNights, setEditRoomNights] = useState('24');
   const [editAttendees, setEditAttendees] = useState('120');
-  const [editCheckIn, setEditCheckIn] = useState('2026-05-15');
-  const [editCheckOut, setEditCheckOut] = useState('2026-05-17');
+  const [editCheckIn, setEditCheckIn] = useState(todayStr);
+  const [editCheckOut, setEditCheckOut] = useState(defaultOutStr);
   const [editNotes, setEditNotes] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -205,8 +209,8 @@ export function CommercialSection({
   const [paymentDueDate, setPaymentDueDate] = useState('');
   const [roomNights, setRoomNights] = useState('24');
   const [attendees, setAttendees] = useState('120');
-  const [checkIn, setCheckIn] = useState('2026-05-15');
-  const [checkOut, setCheckOut] = useState('2026-05-17');
+  const [checkIn, setCheckIn] = useState(todayStr);
+  const [checkOut, setCheckOut] = useState(defaultOutStr);
   const [notes, setNotes] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -931,6 +935,14 @@ export function CommercialSection({
       });
     }
 
+    // Auto-enfocar el calendario en la fecha del nuevo evento
+    if (checkIn) {
+      const parts = checkIn.split('-').map(Number);
+      if (parts[0] && parts[1]) {
+        setCalendarDate(new Date(parts[0], parts[1] - 1, parts[2] || 1));
+      }
+    }
+
     setClientName('');
     setCompany('');
     setEmail('');
@@ -943,7 +955,26 @@ export function CommercialSection({
     setPaymentDueDate('');
     setDealRequirements([]);
     setDealReqInput('');
+    setCheckIn(getLocalDateStr());
+    setCheckOut(getLocalDateStr(new Date(Date.now() + 2 * 86400000)));
     setIsDealModalOpen(false);
+  };
+
+  const openAddDealModal = (targetDate?: string) => {
+    setConflictError(null);
+    if (targetDate) {
+      setCheckIn(targetDate);
+      const parts = targetDate.split('-').map(Number);
+      if (parts[0] && parts[1] && parts[2]) {
+        const nextD = new Date(parts[0], parts[1] - 1, parts[2] + 2);
+        setCheckOut(getLocalDateStr(nextD));
+        setCalendarDate(new Date(parts[0], parts[1] - 1, parts[2]));
+      }
+    } else {
+      setCheckIn(getLocalDateStr());
+      setCheckOut(getLocalDateStr(new Date(Date.now() + 2 * 86400000)));
+    }
+    setIsDealModalOpen(true);
   };
 
   const handleBookAvailable = (targetHotel: string, targetIn: string, targetOut: string, targetSpaces: string[]) => {
@@ -1082,10 +1113,7 @@ export function CommercialSection({
               <span>🔍 Consultar Disponibilidad</span>
             </button>
             <button
-              onClick={() => {
-                setConflictError(null);
-                setIsDealModalOpen(true);
-              }}
+              onClick={() => openAddDealModal()}
               className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>+ Nuevo Grupo / Cotización con Espacios</span>
@@ -1099,10 +1127,9 @@ export function CommercialSection({
         <SharedCalendar
           mode="commercial"
           deals={deals}
-          onAddDealClick={() => {
-            setConflictError(null);
-            setIsDealModalOpen(true);
-          }}
+          calendarDate={calendarDate}
+          onCalendarDateChange={setCalendarDate}
+          onAddDealClick={(targetDate) => openAddDealModal(targetDate)}
           onEditDealClick={openEditModal}
           onDeleteDealClick={(d) => setDealToDelete(d)}
         />

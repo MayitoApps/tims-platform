@@ -25,7 +25,30 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const campaign: MarketingCampaign = await request.json();
+    const raw: Partial<MarketingCampaign> = await request.json();
+    const campaignId = raw.id || `camp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const startDate = (raw.startDate || new Date().toISOString().split('T')[0]).slice(0, 10);
+    const endDate = (raw.endDate || startDate).slice(0, 10);
+
+    const campaign: MarketingCampaign = {
+      ...raw,
+      id: campaignId,
+      code: raw.code || `CMP-${Date.now().toString().slice(-4)}`,
+      title: raw.title || 'Nueva Campaña',
+      hotelTarget: raw.hotelTarget || 'Orgánico Ajusco',
+      type: raw.type || 'temporada',
+      status: raw.status || 'planificacion',
+      budget: Number(raw.budget) || 0,
+      spent: Number(raw.spent) || 0,
+      startDate,
+      endDate,
+      channels: Array.isArray(raw.channels) ? raw.channels : [],
+      externalLinks: Array.isArray(raw.externalLinks) ? raw.externalLinks : [],
+      leadOwner: raw.leadOwner || 'Marketing Team',
+      description: raw.description || '',
+      comments: Array.isArray(raw.comments) ? raw.comments : []
+    };
+
     const sql = getDb();
     if (!sql) {
       return NextResponse.json({ success: true, source: 'local', campaign });

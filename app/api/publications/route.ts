@@ -25,7 +25,22 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const pub: ContentPublication = await request.json();
+    const raw: Partial<ContentPublication> = await request.json();
+    const pubId = raw.id || `pub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const publishDate = (raw.publishDate || new Date().toISOString().split('T')[0]).slice(0, 10);
+
+    const pub: ContentPublication = {
+      ...raw,
+      id: pubId,
+      title: raw.title || 'Nueva Publicación',
+      hotel: raw.hotel || 'Orgánico Ajusco',
+      channel: raw.channel || 'instagram',
+      publishDate,
+      status: raw.status || 'idea',
+      responsible: raw.responsible || 'Marketing',
+      assetUrl: raw.assetUrl || undefined
+    };
+
     const sql = getDb();
     if (!sql) {
       return NextResponse.json({ success: true, source: 'local', pub });

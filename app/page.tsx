@@ -31,6 +31,7 @@ import {
   SalesActivity,
   isAdminEmail
 } from '@/lib/types';
+import { getLocalDateStr } from '@/lib/utils';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -358,7 +359,7 @@ export default function Home() {
     const nextCode = `MKT-${101 + campaigns.length}`;
     const created: MarketingCampaign = {
       ...newC,
-      id: `cmp-${Date.now()}`,
+      id: `cmp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       code: nextCode,
       spent: 0
     };
@@ -368,11 +369,19 @@ export default function Home() {
     showToast(`Campaña ${nextCode} guardada en Postgres`);
 
     try {
-      await fetch('/api/campaigns', {
+      const res = await fetch('/api/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(created)
       });
+      const data = await res.json();
+      if (data?.campaign) {
+        setCampaigns((prev) => {
+          const updated = prev.map((c) => (c.id === created.id ? data.campaign : c));
+          try { localStorage.setItem('tims_campaigns', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Error persisting campaign:', err);
     }
@@ -430,7 +439,7 @@ export default function Home() {
   const handleAddPublication = async (newP: Omit<ContentPublication, 'id'>) => {
     const created: ContentPublication = {
       ...newP,
-      id: `pub-${Date.now()}`
+      id: `pub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     };
     const nextList = [created, ...publications];
     setPublications(nextList);
@@ -438,11 +447,19 @@ export default function Home() {
     showToast('Publicación programada y guardada en Postgres');
 
     try {
-      await fetch('/api/publications', {
+      const res = await fetch('/api/publications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(created)
       });
+      const data = await res.json();
+      if (data?.pub) {
+        setPublications((prev) => {
+          const updated = prev.map((p) => (p.id === created.id ? data.pub : p));
+          try { localStorage.setItem('tims_publications', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Error persisting publication:', err);
     }
@@ -483,8 +500,8 @@ export default function Home() {
   const handleAddBrief = async (newB: Omit<CreativeBrief, 'id' | 'date'>) => {
     const created: CreativeBrief = {
       ...newB,
-      id: `brf-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0]
+      id: `brf-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      date: getLocalDateStr()
     };
     const nextList = [created, ...briefs];
     setBriefs(nextList);
@@ -492,11 +509,19 @@ export default function Home() {
     showToast('Brief creativo archivado en Postgres');
 
     try {
-      await fetch('/api/briefs', {
+      const res = await fetch('/api/briefs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(created)
       });
+      const data = await res.json();
+      if (data?.brief) {
+        setBriefs((prev) => {
+          const updated = prev.map((b) => (b.id === created.id ? data.brief : b));
+          try { localStorage.setItem('tims_briefs', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Error persisting brief in DB:', err);
     }
@@ -538,9 +563,9 @@ export default function Home() {
     const nextCode = `REQ-${String(marketingTasks.length + 1).padStart(2, '0')}`;
     const created: MarketingTask = {
       ...newTask,
-      id: `mtask-${Date.now()}`,
+      id: `mtask-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       code: nextCode,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: getLocalDateStr()
     };
     const nextList = [created, ...marketingTasks];
     setMarketingTasks(nextList);
@@ -550,11 +575,19 @@ export default function Home() {
     showToast(`Requerimiento ${nextCode} guardado en Postgres`);
 
     try {
-      await fetch('/api/marketing-tasks', {
+      const res = await fetch('/api/marketing-tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(created)
       });
+      const data = await res.json();
+      if (data?.task) {
+        setMarketingTasks((prev) => {
+          const updated = prev.map((t) => (t.id === created.id ? data.task : t));
+          try { localStorage.setItem('tims_mkt_tasks', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Error persisting marketing task:', err);
     }
@@ -622,23 +655,33 @@ export default function Home() {
     const nextCode = `RFP-${501 + deals.length}`;
     const created: HotelDeal = {
       ...newD,
-      id: `deal-${Date.now()}`,
+      id: `deal-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       code: nextCode,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: getLocalDateStr()
     };
     const nextList = [created, ...deals];
     setDeals(nextList);
     try {
       localStorage.setItem('tims_deals', JSON.stringify(nextList));
     } catch {}
-    showToast(`Cotización ${nextCode} guardada en Postgres`);
+    showToast(`Cotización / Evento ${nextCode} guardado en Postgres`);
 
     try {
-      await fetch('/api/deals', {
+      const res = await fetch('/api/deals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(created)
       });
+      const data = await res.json();
+      if (data?.deal) {
+        setDeals((prev) => {
+          const updated = prev.map((d) => (d.id === created.id ? data.deal : d));
+          try {
+            localStorage.setItem('tims_deals', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Error saving deal to DB:', err);
     }
@@ -706,9 +749,9 @@ export default function Home() {
     const nextCode = `TK-${String(commercialTasks.length + 1).padStart(2, '0')}`;
     const created: CommercialTask = {
       ...newTask,
-      id: `ctask-${Date.now()}`,
+      id: `ctask-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       code: nextCode,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: getLocalDateStr()
     };
     const nextList = [created, ...commercialTasks];
     setCommercialTasks(nextList);
@@ -718,11 +761,21 @@ export default function Home() {
     showToast('Tarea comercial asignada con éxito');
 
     try {
-      await fetch('/api/commercial-tasks', {
+      const res = await fetch('/api/commercial-tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(created)
       });
+      const data = await res.json();
+      if (data?.task) {
+        setCommercialTasks((prev) => {
+          const updated = prev.map((t) => (t.id === created.id ? data.task : t));
+          try {
+            localStorage.setItem('tims_commercial_tasks', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      }
     } catch (err) {
       console.error('Error saving commercial task to DB:', err);
     }

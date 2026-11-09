@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HotelDeal, MarketingCampaign, ContentPublication } from '@/lib/types';
 import { HOTEL_PROPERTIES } from '@/lib/initial-data';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -10,7 +10,9 @@ interface SharedCalendarProps {
   deals?: HotelDeal[];
   campaigns?: MarketingCampaign[];
   publications?: ContentPublication[];
-  onAddDealClick?: () => void;
+  calendarDate?: Date;
+  onCalendarDateChange?: (date: Date) => void;
+  onAddDealClick?: (targetDate?: string) => void;
   onAddCampaignClick?: () => void;
   onEditDealClick?: (deal: HotelDeal) => void;
   onDeleteDealClick?: (deal: HotelDeal) => void;
@@ -46,6 +48,8 @@ export function SharedCalendar({
   deals = [],
   campaigns = [],
   publications = [],
+  calendarDate,
+  onCalendarDateChange,
   onAddDealClick,
   onAddCampaignClick,
   onEditDealClick,
@@ -53,11 +57,22 @@ export function SharedCalendar({
   onEditCampaignClick,
   onDeleteCampaignClick
 }: SharedCalendarProps) {
-  // Navigation State (Starts at today's real date)
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Navigation State (Starts at today's real date or passed calendarDate)
+  const [currentDate, setCurrentDate] = useState(calendarDate || new Date());
   const [selectedHotel, setSelectedHotel] = useState<string>('all');
   const [activeItemModal, setActiveItemModal] = useState<CalendarItem | null>(null);
   const [activeDayModal, setActiveDayModal] = useState<{ dayNum: number; dateStr: string; items: CalendarItem[] } | null>(null);
+
+  useEffect(() => {
+    if (calendarDate) {
+      setCurrentDate(calendarDate);
+    }
+  }, [calendarDate]);
+
+  const changeDate = (newD: Date) => {
+    setCurrentDate(newD);
+    onCalendarDateChange?.(newD);
+  };
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -68,15 +83,15 @@ export function SharedCalendar({
   ];
 
   const handlePrevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+    changeDate(new Date(year, month - 1, 1));
   };
 
   const handleNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
+    changeDate(new Date(year, month + 1, 1));
   };
 
   const handleJumpToToday = () => {
-    setCurrentDate(new Date());
+    changeDate(new Date());
   };
 
   // STRICT SEPARATION: Commercial ONLY sees deals; Marketing ONLY sees campaigns + PR
@@ -145,7 +160,11 @@ export function SharedCalendar({
 
   const getItemsForDay = (dayNum: number) => {
     const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-    return filteredItems.filter((item) => dayStr >= item.startDate && dayStr <= item.endDate);
+    return filteredItems.filter((item) => {
+      const sDate = (item.startDate || '').slice(0, 10);
+      const eDate = (item.endDate || item.startDate || '').slice(0, 10);
+      return dayStr >= sDate && dayStr <= eDate;
+    });
   };
 
   const dayHeaders = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -198,7 +217,7 @@ export function SharedCalendar({
           <div>
             {mode === 'commercial' && onAddDealClick && (
               <button
-                onClick={onAddDealClick}
+                onClick={() => onAddDealClick()}
                 className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center gap-2"
               >
                 <span>🏨 + Reservar Espacios / Evento</span>
@@ -206,7 +225,7 @@ export function SharedCalendar({
             )}
             {mode === 'marketing' && onAddCampaignClick && (
               <button
-                onClick={onAddCampaignClick}
+                onClick={() => onAddCampaignClick()}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-all shadow-xs flex items-center gap-2"
               >
                 <span>🎨 + Agendar Campaña</span>
@@ -275,15 +294,31 @@ export function SharedCalendar({
               >
                 {/* Day Header */}
                 <div className="flex items-center justify-between pb-1.5 border-b border-stone-100/60">
-                  <span
-                    className={`text-xs font-mono font-bold ${
-                      isToday
-                        ? 'w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] shadow-xs'
-                        : 'text-stone-800'
-                    }`}
-                  >
-                    {dayNum}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className={`text-xs font-mono font-bold ${
+                        isToday
+                          ? 'w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[11px] shadow-xs'
+                          : 'text-stone-800'
+                      }`}
+                    >
+                      {dayNum}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (mode === 'commercial') {
+                          onAddDealClick?.(dateStr);
+                        } else {
+                          onAddCampaignClick?.();
+                        }
+                      }}
+                      title={`+ Agendar para ${dateStr}`}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 rounded hover:bg-emerald-100 hover:text-emerald-800 text-stone-400 text-[10px] flex items-center justify-center font-bold cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
                   {dayItems.length > 0 && (
                     <button
                       type="button"
@@ -437,10 +472,25 @@ export function SharedCalendar({
               })}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-stone-200">
+            <div className="flex items-center justify-between pt-2 border-t border-stone-200">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activeDayModal.dateStr;
+                  setActiveDayModal(null);
+                  if (mode === 'commercial') {
+                    onAddDealClick?.(target);
+                  } else {
+                    onAddCampaignClick?.();
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>🏨 + Reservar / Crear en este día</span>
+              </button>
               <button
                 onClick={() => setActiveDayModal(null)}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800"
+                className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold"
               >
                 Cerrar
               </button>

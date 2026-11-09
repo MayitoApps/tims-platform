@@ -21,6 +21,17 @@ export function formatDate(dateString: string): string {
   }).format(date);
 }
 
+/**
+ * Retorna la fecha local en formato estándar YYYY-MM-DD
+ * evitando el salto de fecha a mañana provocado por UTC después de las 6:00 PM (hora centro México).
+ */
+export function getLocalDateStr(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // -------------------------------------------------------------
 // COLORES PARA MARKETING & COMUNICACIÓN (Vibrantes & Profesionales)
 // -------------------------------------------------------------

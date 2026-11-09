@@ -37,7 +37,32 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const task: MarketingTask = await request.json();
+    const raw: Partial<MarketingTask> = await request.json();
+    const taskId = raw.id || `mtask-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const createdAt = raw.createdAt || new Date().toISOString().split('T')[0];
+
+    const task: MarketingTask = {
+      ...raw,
+      id: taskId,
+      code: raw.code || `REQ-${Date.now().toString().slice(-4)}`,
+      title: raw.title || 'Nuevo Requerimiento',
+      hotelTarget: raw.hotelTarget || 'Orgánico Ajusco',
+      category: raw.category || 'diseno_grafico',
+      stage: raw.stage || 'backlog',
+      priority: raw.priority || 'alta',
+      requestedBy: raw.requestedBy || 'Marketing',
+      assignedTo: raw.assignedTo || 'Diseño',
+      assignedEmail: raw.assignedEmail || undefined,
+      dueDate: (raw.dueDate || new Date().toISOString().split('T')[0]).slice(0, 10),
+      description: raw.description || '',
+      assetUrl: raw.assetUrl || undefined,
+      checklist: Array.isArray(raw.checklist) ? raw.checklist : [],
+      comments: Array.isArray(raw.comments) ? raw.comments : [],
+      format: raw.format || undefined,
+      hotelTargets: Array.isArray(raw.hotelTargets) ? raw.hotelTargets : [],
+      createdAt
+    };
+
     const sql = getDb();
 
     if (!sql) {
