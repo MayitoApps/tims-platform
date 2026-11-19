@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { Navbar } from '@/components/Navbar';
 import { MarketingSection } from '@/components/marketing/MarketingSection';
@@ -29,9 +29,11 @@ import {
   CommercialTaskStage,
   AppNotification,
   SalesActivity,
-  isAdminEmail
+  isUserAdmin,
+  getUserAllowedModules,
+  matchesUserIdentity
 } from '@/lib/types';
-import { getLocalDateStr } from '@/lib/utils';
+import { getLocalDateStr, readPersistedNavValue, writePersistedNavValue, clearPersistedNavValues } from '@/lib/utils';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -50,8 +52,19 @@ export default function Home() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
 
+  const navigateToSection = (section: 'marketing' | 'commercial' | 'sales') => {
+    setActiveSection(section);
+    let savedSubView: string | undefined;
+    try {
+      if (section === 'commercial') savedSubView = localStorage.getItem('tims_commercial_subview') || undefined;
+      if (section === 'marketing') savedSubView = localStorage.getItem('tims_marketing_subview') || undefined;
+      if (section === 'sales') savedSubView = localStorage.getItem('tims_sales_tab') || undefined;
+    } catch {}
+    writePersistedNavValue('tims_active_section', section, section, savedSubView);
+  };
+
   const handleSelectUpcomingDeal = (deal: HotelDeal) => {
-    setActiveSection('commercial');
+    navigateToSection('commercial');
     setSelectedDealId(deal.id);
   };
 
@@ -128,11 +141,20 @@ export default function Home() {
       .then((data) => {
         if (data?.user) {
           setCurrentUser(data.user);
-          if (data.user.role === 'sales') {
-            setActiveSection('commercial');
-          } else {
-            setActiveSection('marketing');
-          }
+          const allowed = getUserAllowedModules(data.user);
+          const defaultSection: 'marketing' | 'commercial' | 'sales' =
+            !allowed.includes('marketing') || data.user.role === 'sales'
+              ? allowed.includes('commercial')
+                ? 'commercial'
+                : 'sales'
+              : 'marketing';
+          const restored = readPersistedNavValue(
+            'tims_active_section',
+            allowed,
+            defaultSection,
+            0
+          );
+          setActiveSection(restored);
         }
       })
       .catch(() => {})
@@ -141,14 +163,75 @@ export default function Home() {
       });
   }, []);
 
+  // Control estricto de visibilidad:
+  // - Administradores ven TODA la información de todos los compañeros.
+  // - Usuarios normales ven únicamente su propia información (excepto el calendario compartido de eventos apartados).
+  const isCurrentUserAdmin = isUserAdmin(currentUser);
+  const allowedModules = useMemo(() => getUserAllowedModules(currentUser), [currentUser]);
+  const effectiveSection: 'marketing' | 'commercial' | 'sales' = allowedModules.includes(activeSection)
+    ? activeSection
+    : (allowedModules[0] || 'commercial');
+
+  const visibleDeals = useMemo(() => {
+    if (!currentUser || isCurrentUserAdmin) return deals;
+    return deals.filter((d) => matchesUserIdentity(currentUser, d.assignedEmail, d.assignedRep));
+  }, [deals, currentUser, isCurrentUserAdmin]);
+
+  const visibleCommercialTasks = useMemo(() => {
+    if (!currentUser || isCurrentUserAdmin) return commercialTasks;
+    return commercialTasks.filter(
+      (t) =>
+        matchesUserIdentity(currentUser, t.assignedEmail, t.assignedTo) ||
+        matchesUserIdentity(currentUser, undefined, t.createdBy)
+    );
+  }, [commercialTasks, currentUser, isCurrentUserAdmin]);
+
+  const visibleSalesActivities = useMemo(() => {
+    if (!currentUser || isCurrentUserAdmin) return salesActivities;
+    return salesActivities.filter((a) => matchesUserIdentity(currentUser, a.executiveEmail, a.executiveName));
+  }, [salesActivities, currentUser, isCurrentUserAdmin]);
+
+  const visibleMarketingTasks = useMemo(() => {
+    if (!currentUser || isCurrentUserAdmin) return marketingTasks;
+    return marketingTasks.filter(
+      (t) =>
+        matchesUserIdentity(currentUser, t.assignedEmail, t.assignedTo) ||
+        matchesUserIdentity(currentUser, undefined, t.requestedBy)
+    );
+  }, [marketingTasks, currentUser, isCurrentUserAdmin]);
+
+  const visibleCampaigns = useMemo(() => {
+    if (!currentUser || isCurrentUserAdmin) return campaigns;
+    return campaigns.filter((c) => matchesUserIdentity(currentUser, undefined, c.leadOwner));
+  }, [campaigns, currentUser, isCurrentUserAdmin]);
+
+  const visiblePublications = useMemo(() => {
+    if (!currentUser || isCurrentUserAdmin) return publications;
+    return publications.filter((p) => matchesUserIdentity(currentUser, undefined, p.responsible));
+  }, [publications, currentUser, isCurrentUserAdmin]);
+
+  const visibleBriefs = useMemo(() => {
+    if (!currentUser || isCurrentUserAdmin) return briefs;
+    return briefs.filter((b) => matchesUserIdentity(currentUser, undefined, b.author));
+  }, [briefs, currentUser, isCurrentUserAdmin]);
+
   // 3. Sincronización en Tiempo Real con Postgres (solo para usuarios autenticados)
   useEffect(() => {
     if (!currentUser) return;
 
+    const safeFetchJson = async (url: string) => {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.status === 401) {
+        setCurrentUser(null);
+        return null;
+      }
+      if (!res.ok) return null;
+      return res.json();
+    };
+
     const syncDataFromCloud = () => {
       // Sync Notifications con preservación de lectura local
-      fetch('/api/notifications')
-        .then((res) => res.json())
+      safeFetchJson('/api/notifications')
         .then((data) => {
           if (data && Array.isArray(data.notifications)) {
             setNotifications((prev) => {
@@ -167,8 +250,7 @@ export default function Home() {
         .catch(() => {});
 
       // Sync Deals
-      fetch('/api/deals')
-        .then((res) => res.json())
+      safeFetchJson('/api/deals')
         .then((data) => {
           if (data && Array.isArray(data.deals)) {
             setDeals(data.deals);
@@ -180,8 +262,7 @@ export default function Home() {
         .catch(() => {});
 
       // Sync Marketing Tasks
-      fetch('/api/marketing-tasks')
-        .then((res) => res.json())
+      safeFetchJson('/api/marketing-tasks')
         .then((data) => {
           if (data && Array.isArray(data.tasks)) {
             setMarketingTasks(data.tasks);
@@ -193,8 +274,7 @@ export default function Home() {
         .catch(() => {});
 
       // Sync Commercial Tasks
-      fetch('/api/commercial-tasks')
-        .then((res) => res.json())
+      safeFetchJson('/api/commercial-tasks')
         .then((data) => {
           if (data && Array.isArray(data.tasks)) {
             setCommercialTasks(data.tasks);
@@ -206,8 +286,7 @@ export default function Home() {
         .catch(() => {});
 
       // Sync Registered Users (para asignaciones y perfiles)
-      fetch('/api/users')
-        .then((res) => res.json())
+      safeFetchJson('/api/users')
         .then((data) => {
           if (data && Array.isArray(data.users)) {
             setRegisteredUsers(data.users);
@@ -216,8 +295,7 @@ export default function Home() {
         .catch(() => {});
 
       // Sync Campaigns
-      fetch('/api/campaigns')
-        .then((res) => res.json())
+      safeFetchJson('/api/campaigns')
         .then((data) => {
           if (data && Array.isArray(data.campaigns)) {
             setCampaigns(data.campaigns);
@@ -229,8 +307,7 @@ export default function Home() {
         .catch(() => {});
 
       // Sync Publications
-      fetch('/api/publications')
-        .then((res) => res.json())
+      safeFetchJson('/api/publications')
         .then((data) => {
           if (data && Array.isArray(data.publications)) {
             setPublications(data.publications);
@@ -242,8 +319,7 @@ export default function Home() {
         .catch(() => {});
 
       // Sync Briefs
-      fetch('/api/briefs')
-        .then((res) => res.json())
+      safeFetchJson('/api/briefs')
         .then((data) => {
           if (data && Array.isArray(data.briefs)) {
             setBriefs(data.briefs);
@@ -255,8 +331,7 @@ export default function Home() {
         .catch(() => {});
 
       // Sync Sales Activities
-      fetch('/api/sales-activities')
-        .then((res) => res.json())
+      safeFetchJson('/api/sales-activities')
         .then((data) => {
           if (data && Array.isArray(data.activities)) {
             setSalesActivities(data.activities);
@@ -294,6 +369,7 @@ export default function Home() {
       localStorage.removeItem('tims_briefs');
       localStorage.removeItem('tims_notifications');
       localStorage.removeItem('tims_sales_activities');
+      clearPersistedNavValues();
     } catch {}
     try {
       await fetch('/api/auth/logout');
@@ -323,7 +399,7 @@ export default function Home() {
     if (!displayedToastIdsRef.current.has(notif.id)) {
       displayedToastIdsRef.current.add(notif.id);
       const isTarget = notif.targetEmail && currentUser?.email && notif.targetEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim();
-      const isAdmin = isAdminEmail(currentUser?.email);
+      const isAdmin = isUserAdmin(currentUser);
       if (isTarget || isAdmin) {
         showToast(`🔔 ${notif.title}: ${notif.message.slice(0, 55)}...`);
       }
@@ -361,12 +437,12 @@ export default function Home() {
 
     // 3. Navegar y enfocar el elemento correspondiente
     if (notif.linkSection === 'commercial') {
-      setActiveSection('commercial');
+      navigateToSection('commercial');
       if (notif.targetId) {
         setSelectedDealId(notif.targetId);
       }
     } else if (notif.linkSection === 'marketing') {
-      setActiveSection('marketing');
+      navigateToSection('marketing');
     }
   };
 
@@ -405,14 +481,14 @@ export default function Home() {
       }
     } catch {}
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayMs = new Date(todayStr).getTime();
+    const todayStr = getLocalDateStr();
+    const todayMs = new Date(`${todayStr}T00:00:00`).getTime();
 
-    deals.forEach((deal) => {
+    visibleDeals.forEach((deal) => {
       if (deal.stage === 'perdido') return;
       if (!deal.checkInDate) return;
 
-      const checkInMs = new Date(deal.checkInDate).getTime();
+      const checkInMs = new Date(`${deal.checkInDate}T00:00:00`).getTime();
       const diffDays = Math.ceil((checkInMs - todayMs) / (1000 * 3600 * 24));
 
       // Solo si el evento está pronto a suceder (entre hoy y los próximos 7 días)
@@ -441,7 +517,7 @@ export default function Home() {
           message: `El evento "${deal.companyOrAgency}" en ${deal.hotelName} inicia ${daysLabel}. Verifica logística y anticipos.`,
           type: 'event_active',
           targetEmail: deal.assignedEmail || 'expansioncomercia.gohb@gmail.com',
-          targetName: deal.assignedRep || 'Fernanda Langárica',
+          targetName: deal.assignedRep || 'Fernanda Langarica',
           authorName: 'Sistema TIMS',
           linkSection: 'commercial',
           targetId: deal.id,
@@ -452,7 +528,7 @@ export default function Home() {
         handleAddNotification(upcomingNotif);
       }
     });
-  }, [deals, currentUser]);
+  }, [visibleDeals, currentUser]);
 
   // -----------------------------------------------------------------
   // MARKETING ACTIONS (WITH DB PERSISTENCE)
@@ -1050,10 +1126,10 @@ export default function Home() {
       {/* Top Navigation */}
       <Navbar
         currentUser={currentUser}
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        activeSection={effectiveSection}
+        onSectionChange={navigateToSection}
         onLogout={handleLogout}
-        deals={deals}
+        deals={visibleDeals}
         notifications={notifications}
         onSelectDeal={handleSelectUpcomingDeal}
         onSelectNotification={handleSelectNotification}
@@ -1062,12 +1138,12 @@ export default function Home() {
 
       {/* Section Content */}
       <main className="flex-1 max-w-[1720px] w-full mx-auto p-4 sm:p-8">
-        {activeSection === 'marketing' ? (
+        {effectiveSection === 'marketing' ? (
           <MarketingSection
-            campaigns={campaigns}
-            publications={publications}
-            briefs={briefs}
-            marketingTasks={marketingTasks}
+            campaigns={visibleCampaigns}
+            publications={visiblePublications}
+            briefs={visibleBriefs}
+            marketingTasks={visibleMarketingTasks}
             deals={deals}
             currentUser={currentUser}
             onAddCampaign={handleAddCampaign}
@@ -1086,10 +1162,11 @@ export default function Home() {
             onUpdateMarketingTaskStage={handleUpdateMarketingTaskStage}
             onAddNotification={handleAddNotification}
           />
-        ) : activeSection === 'commercial' ? (
+        ) : effectiveSection === 'commercial' ? (
           <CommercialSection
-            deals={deals}
-            commercialTasks={commercialTasks}
+            deals={visibleDeals}
+            allDealsForCalendar={deals}
+            commercialTasks={visibleCommercialTasks}
             currentUser={currentUser}
             registeredUsers={registeredUsers}
             selectedDealId={selectedDealId}
@@ -1106,7 +1183,7 @@ export default function Home() {
           />
         ) : (
           <SalesSection
-            activities={salesActivities}
+            activities={visibleSalesActivities}
             currentUser={currentUser}
             registeredUsers={registeredUsers}
             deals={deals}

@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
-import { isAuthorizedAdmin } from '@/lib/auth';
-import { MarketingCampaign } from '@/lib/types';
+import { requireAuthSession, requireAdminSession } from '@/lib/auth';
+import { MarketingCampaign, isUserAdmin, matchesUserIdentity } from '@/lib/types';
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
+
     const { id } = await params;
     const updates: Partial<MarketingCampaign> = await request.json();
     const sql = getDb();
@@ -17,6 +21,16 @@ export async function PUT(
     }
 
     await ensureTables();
+    if (!isUserAdmin(session)) {
+      const existing = await sql`SELECT lead_owner FROM marketing_campaigns WHERE id = ${id} LIMIT 1;`;
+      if (existing.length === 0) {
+        return NextResponse.json({ success: false, error: 'Campaña no encontrada' }, { status: 404 });
+      }
+      if (!matchesUserIdentity(session, undefined, existing[0].lead_owner)) {
+        return NextResponse.json({ success: false, error: 'No puedes modificar campañas de otro compañero.' }, { status: 403 });
+      }
+    }
+
     await sql`
       UPDATE marketing_campaigns
       SET
@@ -25,9 +39,12 @@ export async function PUT(
         type = COALESCE(${updates.type ?? null}, type),
         status = COALESCE(${updates.status ?? null}, status),
         budget = COALESCE(${updates.budget ?? null}, budget),
+        spent = COALESCE(${updates.spent ?? null}, spent),
         start_date = COALESCE(${updates.startDate ?? null}, start_date),
         end_date = COALESCE(${updates.endDate ?? null}, end_date),
         channels = COALESCE(${updates.channels ? JSON.stringify(updates.channels) : null}::jsonb, channels),
+        external_links = COALESCE(${updates.externalLinks ? JSON.stringify(updates.externalLinks) : null}::jsonb, external_links),
+        lead_owner = COALESCE(${updates.leadOwner ?? null}, lead_owner),
         description = COALESCE(${updates.description ?? null}, description),
         comments = COALESCE(${updates.comments ? JSON.stringify(updates.comments) : null}::jsonb, comments)
       WHERE id = ${id};
@@ -41,16 +58,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (!isAuthorizedAdmin(request)) {
-      return NextResponse.json(
-        { success: false, error: 'Acceso denegado. Solo administradores autorizados pueden eliminar campañas.' },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdminSession();
+    if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;
     const sql = getDb();

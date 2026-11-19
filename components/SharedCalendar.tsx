@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { HotelDeal, MarketingCampaign, ContentPublication } from '@/lib/types';
+import {
+  HotelDeal,
+  MarketingCampaign,
+  ContentPublication,
+  UserProfile,
+  isUserAdmin,
+  matchesUserIdentity
+} from '@/lib/types';
 import { HOTEL_PROPERTIES } from '@/lib/initial-data';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
@@ -10,6 +17,7 @@ interface SharedCalendarProps {
   deals?: HotelDeal[];
   campaigns?: MarketingCampaign[];
   publications?: ContentPublication[];
+  currentUser?: UserProfile | null;
   calendarDate?: Date;
   onCalendarDateChange?: (date: Date) => void;
   onAddDealClick?: (targetDate?: string) => void;
@@ -40,7 +48,9 @@ interface CalendarItem {
   contactEmail?: string;
   contactPhone?: string;
   assignedRep?: string;
+  assignedEmail?: string;
   channels?: string[];
+  isOwnOrAdmin?: boolean;
 }
 
 export function SharedCalendar({
@@ -48,6 +58,7 @@ export function SharedCalendar({
   deals = [],
   campaigns = [],
   publications = [],
+  currentUser = null,
   calendarDate,
   onCalendarDateChange,
   onAddDealClick,
@@ -57,6 +68,7 @@ export function SharedCalendar({
   onEditCampaignClick,
   onDeleteCampaignClick
 }: SharedCalendarProps) {
+  const userIsAdmin = isUserAdmin(currentUser);
   // Navigation State (Starts at today's real date or passed calendarDate)
   const [currentDate, setCurrentDate] = useState(calendarDate || new Date());
   const [selectedHotel, setSelectedHotel] = useState<string>('all');
@@ -96,27 +108,35 @@ export function SharedCalendar({
 
   // STRICT SEPARATION: Commercial ONLY sees deals; Marketing ONLY sees campaigns + PR
   const items: CalendarItem[] = mode === 'commercial'
-    ? deals.map((d) => ({
-        id: d.id,
-        code: d.code,
-        type: 'deal' as const,
-        title: d.companyOrAgency,
-        hotel: d.hotelName,
-        startDate: d.checkInDate,
-        endDate: d.checkOutDate,
-        status: d.stage,
-        value: d.totalValue,
-        currency: d.currency,
-        spaces: d.selectedSpaces,
-        requestedRooms: d.requestedRooms,
-        clientOrLead: d.clientName,
-        attendees: d.attendeesCount,
-        roomNights: d.roomNights,
-        notes: d.notes,
-        contactEmail: d.contactEmail,
-        contactPhone: d.contactPhone,
-        assignedRep: d.assignedRep
-      }))
+    ? deals.map((d) => {
+        const canManage =
+          !currentUser ||
+          userIsAdmin ||
+          matchesUserIdentity(currentUser, d.assignedEmail, d.assignedRep);
+        return {
+          id: d.id,
+          code: d.code,
+          type: 'deal' as const,
+          title: d.companyOrAgency,
+          hotel: d.hotelName,
+          startDate: d.checkInDate,
+          endDate: d.checkOutDate,
+          status: d.stage,
+          value: canManage ? d.totalValue : undefined,
+          currency: d.currency,
+          spaces: d.selectedSpaces,
+          requestedRooms: d.requestedRooms,
+          clientOrLead: canManage ? d.clientName : 'Evento Reservado',
+          attendees: d.attendeesCount,
+          roomNights: d.roomNights,
+          notes: canManage ? d.notes : undefined,
+          contactEmail: canManage ? d.contactEmail : undefined,
+          contactPhone: canManage ? d.contactPhone : undefined,
+          assignedRep: d.assignedRep,
+          assignedEmail: d.assignedEmail,
+          isOwnOrAdmin: canManage
+        };
+      })
     : [
         ...campaigns.map((c) => ({
           id: c.id,
@@ -131,7 +151,8 @@ export function SharedCalendar({
           currency: 'MXN' as const,
           clientOrLead: c.leadOwner,
           notes: c.description,
-          channels: c.channels
+          channels: c.channels,
+          isOwnOrAdmin: !currentUser || userIsAdmin || matchesUserIdentity(currentUser, undefined, c.leadOwner)
         })),
         ...publications.map((p) => ({
           id: p.id,
@@ -141,7 +162,8 @@ export function SharedCalendar({
           startDate: p.publishDate,
           endDate: p.publishDate,
           status: p.status,
-          clientOrLead: p.responsible
+          clientOrLead: p.responsible,
+          isOwnOrAdmin: !currentUser || userIsAdmin || matchesUserIdentity(currentUser, undefined, p.responsible)
         }))
       ];
 
@@ -581,6 +603,15 @@ export function SharedCalendar({
               </div>
             )}
 
+            {activeItemModal.isOwnOrAdmin === false && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex items-center gap-2">
+                <span>🔒</span>
+                <span>
+                  Evento apartado por otro compañero (solo lectura de fechas y espacios disponibles).
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-stone-50 p-4 rounded-2xl border border-stone-200">
               <div>
                 <span className="text-stone-500 font-medium block">Fechas:</span>
@@ -588,12 +619,14 @@ export function SharedCalendar({
                   {formatDate(activeItemModal.startDate)} al {formatDate(activeItemModal.endDate)}
                 </p>
               </div>
-              <div>
-                <span className="text-stone-500 font-medium block">Monto / Presupuesto:</span>
-                <p className="font-mono font-bold text-emerald-800 text-sm mt-0.5">
-                  {activeItemModal.value ? formatCurrency(activeItemModal.value, activeItemModal.currency) : 'N/A'}
-                </p>
-              </div>
+              {activeItemModal.isOwnOrAdmin !== false && (
+                <div>
+                  <span className="text-stone-500 font-medium block">Monto / Presupuesto:</span>
+                  <p className="font-mono font-bold text-emerald-800 text-sm mt-0.5">
+                    {activeItemModal.value ? formatCurrency(activeItemModal.value, activeItemModal.currency) : 'N/A'}
+                  </p>
+                </div>
+              )}
               {activeItemModal.clientOrLead && (
                 <div>
                   <span className="text-stone-500 font-medium block">Cliente / Titular:</span>
@@ -631,7 +664,7 @@ export function SharedCalendar({
                     <strong className="text-stone-800">{activeItemModal.assignedRep}</strong>
                   </div>
                 )}
-                {activeItemModal.contactEmail && (
+                {activeItemModal.isOwnOrAdmin !== false && activeItemModal.contactEmail && (
                   <div>
                     <span className="text-stone-500 block">Email:</span>
                     <a href={`mailto:${activeItemModal.contactEmail}`} className="text-emerald-700 font-semibold underline truncate block">
@@ -639,7 +672,7 @@ export function SharedCalendar({
                     </a>
                   </div>
                 )}
-                {activeItemModal.contactPhone && (
+                {activeItemModal.isOwnOrAdmin !== false && activeItemModal.contactPhone && (
                   <div>
                     <span className="text-stone-500 block">Teléfono:</span>
                     <a href={`tel:${activeItemModal.contactPhone}`} className="text-emerald-700 font-semibold underline block">
@@ -650,7 +683,7 @@ export function SharedCalendar({
               </div>
             )}
 
-            {activeItemModal.notes && (
+            {activeItemModal.isOwnOrAdmin !== false && activeItemModal.notes && (
               <div className="space-y-1 text-xs">
                 <span className="text-stone-500 font-medium">Requerimientos & Notas:</span>
                 <p className="text-stone-800 bg-white p-3 rounded-xl border border-stone-200 leading-relaxed">
@@ -661,7 +694,7 @@ export function SharedCalendar({
 
             <div className="flex items-center justify-between pt-3 border-t border-stone-200">
               <div className="flex items-center gap-2">
-                {activeItemModal.type === 'deal' && onEditDealClick && (
+                {activeItemModal.isOwnOrAdmin !== false && activeItemModal.type === 'deal' && onEditDealClick && (
                   <button
                     onClick={() => {
                       const d = deals.find((x) => x.id === activeItemModal.id);
@@ -673,7 +706,7 @@ export function SharedCalendar({
                     <span>✏️ Editar Evento</span>
                   </button>
                 )}
-                {activeItemModal.type === 'deal' && onDeleteDealClick && (
+                {activeItemModal.isOwnOrAdmin !== false && activeItemModal.type === 'deal' && onDeleteDealClick && (
                   <button
                     onClick={() => {
                       const d = deals.find((x) => x.id === activeItemModal.id);
@@ -685,7 +718,7 @@ export function SharedCalendar({
                     <span>🗑️ Eliminar</span>
                   </button>
                 )}
-                {activeItemModal.type === 'campaign' && onEditCampaignClick && (
+                {activeItemModal.isOwnOrAdmin !== false && activeItemModal.type === 'campaign' && onEditCampaignClick && (
                   <button
                     onClick={() => {
                       const c = campaigns.find((x) => x.id === activeItemModal.id);
@@ -697,7 +730,7 @@ export function SharedCalendar({
                     <span>✏️ Editar Campaña</span>
                   </button>
                 )}
-                {activeItemModal.type === 'campaign' && onDeleteCampaignClick && (
+                {activeItemModal.isOwnOrAdmin !== false && activeItemModal.type === 'campaign' && onDeleteCampaignClick && (
                   <button
                     onClick={() => {
                       const c = campaigns.find((x) => x.id === activeItemModal.id);

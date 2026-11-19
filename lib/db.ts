@@ -1,5 +1,5 @@
 import { neon, NeonQueryFunction } from '@neondatabase/serverless';
-import { HotelDeal, MarketingTask, MarketingCampaign, ContentPublication, CreativeBrief, CommercialTask, SalesActivity } from './types';
+import { HotelDeal, MarketingTask, MarketingCampaign, ContentPublication, CreativeBrief, CommercialTask, SalesActivity, TEAM_USERS_DIRECTORY } from './types';
 import { INITIAL_DEALS, INITIAL_MARKETING_TASKS, INITIAL_CAMPAIGNS, INITIAL_PUBLICATIONS, INITIAL_BRIEFS } from './initial-data';
 
 // Helper to get neon SQL client
@@ -169,9 +169,11 @@ export async function ensureTables(): Promise<boolean> {
         link_section TEXT NOT NULL DEFAULT 'marketing',
         target_id TEXT,
         created_at TEXT NOT NULL,
-        read BOOLEAN DEFAULT false
+        read BOOLEAN DEFAULT false,
+        created_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    await sql`ALTER TABLE app_notifications ADD COLUMN IF NOT EXISTS created_ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`;
 
     // 7. Commercial Tasks Table (Tablero Kanban de Comercialización)
     await sql`
@@ -245,16 +247,84 @@ export async function ensureTables(): Promise<boolean> {
         receiver_role TEXT,
         minutes TEXT,
         attendance_proof_url TEXT,
+        visit_status TEXT,
+        visit_evidence_type TEXT,
+        cancellation_proof_url TEXT,
+        meeting_type TEXT,
         invitation_proof_url TEXT,
         attendees TEXT,
         topic TEXT,
         agreements TEXT,
         next_action TEXT,
         assigned_rep TEXT,
+        agreement_status TEXT,
+        closing_doc_type TEXT,
         created_at TEXT NOT NULL,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+
+    // Migraciones dinámicas de nuevas columnas para sales_activities
+    await sql`ALTER TABLE sales_activities ADD COLUMN IF NOT EXISTS visit_status TEXT;`;
+    await sql`ALTER TABLE sales_activities ADD COLUMN IF NOT EXISTS visit_evidence_type TEXT;`;
+    await sql`ALTER TABLE sales_activities ADD COLUMN IF NOT EXISTS cancellation_proof_url TEXT;`;
+    await sql`ALTER TABLE sales_activities ADD COLUMN IF NOT EXISTS meeting_type TEXT;`;
+    await sql`ALTER TABLE sales_activities ADD COLUMN IF NOT EXISTS agreement_status TEXT;`;
+    await sql`ALTER TABLE sales_activities ADD COLUMN IF NOT EXISTS closing_doc_type TEXT;`;
+
+    // 10. Control de migraciones únicas (para sincronizar bajas/altas oficiales en local y producción)
+    await sql`
+      CREATE TABLE IF NOT EXISTS app_migrations (
+        id TEXT PRIMARY KEY,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
+    const rosterMigrationId = 'roster_reset_2026_11_18_v2';
+    const existingMig = await sql`SELECT id FROM app_migrations WHERE id = ${rosterMigrationId} LIMIT 1;`;
+    if (existingMig.length === 0) {
+      // Conservar avatares de Google existentes para correos que permanecen en la plantilla oficial
+      const prevRows = await sql`SELECT LOWER(email) AS email, avatar FROM user_profiles WHERE avatar IS NOT NULL;`;
+      const avatarMap = new Map<string, string>();
+      prevRows.forEach((r: any) => {
+        if (r.email && r.avatar) avatarMap.set(String(r.email).toLowerCase().trim(), String(r.avatar));
+      });
+
+      // Dar de baja todos los usuarios anteriores
+      await sql`DELETE FROM user_profiles;`;
+
+      // Dar de alta la nueva plantilla oficial de 10 usuarios listos para sincronizar con Google
+      for (const u of TEAM_USERS_DIRECTORY) {
+        const cleanEmail = u.email.toLowerCase().trim();
+        const preservedAvatar = avatarMap.get(cleanEmail) || null;
+        await sql`
+          INSERT INTO user_profiles (
+            id, name, email, avatar, role, initials, department, last_login, created_at
+          ) VALUES (
+            ${u.id},
+            ${u.name},
+            ${cleanEmail},
+            ${preservedAvatar},
+            ${u.role},
+            ${u.initials},
+            ${u.department},
+            NULL,
+            CURRENT_TIMESTAMP
+          )
+          ON CONFLICT (email) DO UPDATE SET
+            name = EXCLUDED.name,
+            role = EXCLUDED.role,
+            initials = EXCLUDED.initials,
+            department = EXCLUDED.department,
+            avatar = COALESCE(EXCLUDED.avatar, user_profiles.avatar);
+        `;
+      }
+
+      await sql`
+        INSERT INTO app_migrations (id) VALUES (${rosterMigrationId})
+        ON CONFLICT (id) DO NOTHING;
+      `;
+    }
 
     tablesInitialized = true;
     return true;
@@ -412,7 +482,10 @@ export function mapRowToSalesActivity(row: any): SalesActivity {
     time: row.time || undefined,
     phone: row.phone || undefined,
     clientName: row.client_name || undefined,
-    answered: row.answered === true || row.answered === 'true' || row.answered === 1,
+    answered:
+      row.answered !== null && row.answered !== undefined
+        ? row.answered === true || row.answered === 'true' || row.answered === 1
+        : undefined,
     notes: row.notes || undefined,
     company: row.company || undefined,
     email: row.email || undefined,
@@ -435,12 +508,18 @@ export function mapRowToSalesActivity(row: any): SalesActivity {
     receiverRole: row.receiver_role || undefined,
     minutes: row.minutes || undefined,
     attendanceProofUrl: row.attendance_proof_url || undefined,
+    visitStatus: row.visit_status || undefined,
+    visitEvidenceType: row.visit_evidence_type || undefined,
+    cancellationProofUrl: row.cancellation_proof_url || undefined,
+    meetingType: row.meeting_type || undefined,
     invitationProofUrl: row.invitation_proof_url || undefined,
     attendees: row.attendees || undefined,
     topic: row.topic || undefined,
     agreements: row.agreements || undefined,
     nextAction: row.next_action || undefined,
     assignedRep: row.assigned_rep || undefined,
+    agreementStatus: row.agreement_status || undefined,
+    closingDocType: row.closing_doc_type || undefined,
     createdAt: row.created_at
   };
 }

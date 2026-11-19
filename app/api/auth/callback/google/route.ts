@@ -12,10 +12,10 @@ export async function GET(request: NextRequest) {
   const baseUrl = `${protocol}://${host}`;
   const redirectUri = `${baseUrl}/api/auth/callback/google`;
 
-  // Validación de estado Anti-CSRF
+  // Validación estricta de estado Anti-CSRF
   const storedState = request.cookies.get('tims_oauth_state')?.value;
-  if (storedState && state && storedState !== state) {
-    console.error('Alerta de seguridad: Discrepancia en el parámetro state de OAuth (posible CSRF).');
+  if (!storedState || !state || storedState !== state) {
+    console.error('Alerta de seguridad: Discrepancia o ausencia del parámetro state de OAuth (posible CSRF).');
     const res = NextResponse.redirect(`${baseUrl}?auth_error=csrf_validation_failed`);
     res.cookies.delete('tims_oauth_state');
     return res;
@@ -67,67 +67,98 @@ export async function GET(request: NextRequest) {
 
     const userData = await userinfoResponse.json();
 
-    // 3. Registrar / Sincronizar perfil en Postgres (reconociendo pre-alta de usuario)
-    let userRole: 'marketing' | 'sales' | 'admin' = 'sales';
+    // 3. Registrar / Sincronizar perfil en Postgres (reconociendo pre-alta de usuario por correo)
+    const cleanEmail = String(userData.email || '').toLowerCase().trim();
+    const { isAdminEmail, getDirectoryUserByEmail } = await import('@/lib/types');
+    const { getInitials } = await import('@/lib/auth');
+    const dirUser = getDirectoryUserByEmail(cleanEmail);
+
+    let userRole: 'marketing' | 'sales' | 'admin' = dirUser
+      ? dirUser.role
+      : isAdminEmail(cleanEmail)
+      ? 'admin'
+      : 'sales';
+    let resolvedName: string = dirUser?.name || userData.name || cleanEmail.split('@')[0];
+    let resolvedInitials: string = dirUser?.initials || getInitials(resolvedName);
+    let resolvedDepartment: string | null = dirUser?.department || null;
 
     try {
       const { getDb, ensureTables } = await import('@/lib/db');
-      const { isAdminEmail } = await import('@/lib/types');
-      const { getInitials } = await import('@/lib/auth');
       const sql = getDb();
       if (sql) {
         await ensureTables();
 
-        // Verificar si el usuario ya estaba pre-registrado por un administrador
+        // Verificar si el usuario ya estaba pre-registrado en la base de datos
         const existingRows = await sql`
-          SELECT role, name FROM user_profiles
-          WHERE LOWER(email) = LOWER(${userData.email})
+          SELECT id, role, name, initials, department FROM user_profiles
+          WHERE LOWER(email) = ${cleanEmail}
           LIMIT 1;
         `;
 
-        if (isAdminEmail(userData.email)) {
-          userRole = 'admin';
-        } else if (existingRows.length > 0 && existingRows[0].role) {
-          userRole = existingRows[0].role as 'marketing' | 'sales' | 'admin';
-        } else if (userData.email.includes('sales') || userData.email.includes('comercial')) {
-          userRole = 'sales';
+        if (existingRows.length > 0) {
+          const existing = existingRows[0];
+          resolvedName = dirUser?.name || existing.name || resolvedName;
+          resolvedInitials = dirUser?.initials || existing.initials || resolvedInitials;
+          resolvedDepartment = dirUser?.department || existing.department || resolvedDepartment;
+          if (isAdminEmail(cleanEmail)) {
+            userRole = 'admin';
+          } else if (dirUser?.role) {
+            userRole = dirUser.role;
+          } else if (existing.role) {
+            userRole = existing.role as 'marketing' | 'sales' | 'admin';
+          }
+
+          await sql`
+            UPDATE user_profiles
+            SET
+              name = ${resolvedName},
+              avatar = COALESCE(${userData.picture || null}, avatar),
+              role = ${userRole},
+              initials = ${resolvedInitials},
+              department = COALESCE(${resolvedDepartment}, department),
+              last_login = CURRENT_TIMESTAMP
+            WHERE LOWER(email) = ${cleanEmail};
+          `;
         } else {
-          userRole = 'sales';
+          if (!dirUser && !isAdminEmail(cleanEmail)) {
+            const denyRes = NextResponse.redirect(`${baseUrl}?auth_error=unauthorized_email`);
+            denyRes.cookies.delete('tims_oauth_state');
+            return denyRes;
+          }
+
+          await sql`
+            INSERT INTO user_profiles (id, name, email, avatar, role, initials, department, last_login)
+            VALUES (
+              ${dirUser?.id || userData.sub || `usr-${Date.now()}`},
+              ${resolvedName},
+              ${cleanEmail},
+              ${userData.picture || null},
+              ${userRole},
+              ${resolvedInitials},
+              ${resolvedDepartment},
+              CURRENT_TIMESTAMP
+            )
+            ON CONFLICT (email) DO UPDATE SET
+              avatar = COALESCE(EXCLUDED.avatar, user_profiles.avatar),
+              name = COALESCE(user_profiles.name, EXCLUDED.name),
+              role = CASE
+                WHEN ${isAdminEmail(cleanEmail)} THEN 'admin'
+                ELSE COALESCE(user_profiles.role, EXCLUDED.role)
+              END,
+              initials = COALESCE(user_profiles.initials, EXCLUDED.initials),
+              last_login = CURRENT_TIMESTAMP;
+          `;
         }
-
-        const initials = getInitials(userData.name || userData.email);
-
-        await sql`
-          INSERT INTO user_profiles (id, name, email, avatar, role, initials, last_login)
-          VALUES (
-            ${userData.sub || `usr-${Date.now()}`},
-            ${userData.name || userData.email.split('@')[0]},
-            ${userData.email},
-            ${userData.picture || null},
-            ${userRole},
-            ${initials},
-            CURRENT_TIMESTAMP
-          )
-          ON CONFLICT (email) DO UPDATE SET
-            avatar = COALESCE(EXCLUDED.avatar, user_profiles.avatar),
-            name = COALESCE(EXCLUDED.name, user_profiles.name),
-            role = CASE 
-              WHEN ${isAdminEmail(userData.email)} THEN 'admin'
-              ELSE COALESCE(user_profiles.role, EXCLUDED.role)
-            END,
-            initials = COALESCE(EXCLUDED.initials, user_profiles.initials),
-            last_login = CURRENT_TIMESTAMP;
-        `;
       }
     } catch (dbErr) {
       console.error('Error guardando perfil de usuario en base de datos:', dbErr);
     }
 
-    // 4. Crear sesión en cookie segura con el rol sincronizado
+    // 4. Crear sesión en cookie segura con el nombre oficial y rol sincronizado
     await createSessionCookie({
-      id: userData.sub,
-      name: userData.name || userData.email.split('@')[0],
-      email: userData.email,
+      id: dirUser?.id || userData.sub,
+      name: resolvedName,
+      email: cleanEmail,
       avatar: userData.picture,
       role: userRole
     });

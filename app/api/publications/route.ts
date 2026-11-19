@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables, mapRowToPublication } from '@/lib/db';
 import { INITIAL_PUBLICATIONS } from '@/lib/initial-data';
-import { ContentPublication } from '@/lib/types';
+import { ContentPublication, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { requireAuthSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 export async function GET() {
+  const auth = await requireAuthSession();
+  if (auth.errorResponse) return auth.errorResponse;
+  const { session } = auth;
+
   const sql = getDb();
   if (!sql) {
-    return NextResponse.json({ source: 'local', publications: INITIAL_PUBLICATIONS });
+    return NextResponse.json({ source: 'local', publications: INITIAL_PUBLICATIONS }, { headers: NO_STORE_HEADERS });
   }
 
   try {
@@ -15,16 +20,25 @@ export async function GET() {
       SELECT * FROM content_publications
       ORDER BY publish_date ASC, created_at DESC;
     `;
-    const publications = rows.map(mapRowToPublication);
-    return NextResponse.json({ source: 'postgres', publications });
+    let publications = rows.map(mapRowToPublication);
+    if (!isUserAdmin(session)) {
+      publications = publications.filter((p) => matchesUserIdentity(session, undefined, p.responsible));
+    }
+    return NextResponse.json({ source: 'postgres', publications }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error fetching publications from DB:', error);
-    return NextResponse.json({ source: 'local_fallback', publications: INITIAL_PUBLICATIONS });
+    return NextResponse.json(
+      { source: 'local_fallback', publications: INITIAL_PUBLICATIONS },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const raw: Partial<ContentPublication> = await request.json();
     const pubId = raw.id || `pub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const publishDate = (raw.publishDate || new Date().toISOString().split('T')[0]).slice(0, 10);

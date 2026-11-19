@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables, mapRowToSalesActivity } from '@/lib/db';
-import { SalesActivity } from '@/lib/types';
+import { SalesActivity, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { requireAuthSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 export async function GET() {
+  const auth = await requireAuthSession();
+  if (auth.errorResponse) return auth.errorResponse;
+  const { session } = auth;
+
   const sql = getDb();
   if (!sql) {
-    return NextResponse.json({ source: 'local', activities: [] });
+    return NextResponse.json({ source: 'local', activities: [] }, { headers: NO_STORE_HEADERS });
   }
 
   try {
@@ -14,16 +19,28 @@ export async function GET() {
       SELECT * FROM sales_activities
       ORDER BY date DESC, time DESC, created_at DESC;
     `;
-    const activities = rows.map(mapRowToSalesActivity);
-    return NextResponse.json({ source: 'postgres', activities });
+    let activities = rows.map(mapRowToSalesActivity);
+
+    // Usuarios normales solo ven sus propias actividades de ventas
+    if (!isUserAdmin(session)) {
+      activities = activities.filter((a) =>
+        matchesUserIdentity(session, a.executiveEmail, a.executiveName)
+      );
+    }
+
+    return NextResponse.json({ source: 'postgres', activities }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error fetching sales activities from DB:', error);
-    return NextResponse.json({ source: 'local_fallback', activities: [] });
+    return NextResponse.json({ source: 'local_fallback', activities: [] }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
+
     const raw: Partial<SalesActivity> = await request.json();
     const activityId = raw.id || `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const createdAt = raw.createdAt || new Date().toISOString();
@@ -44,6 +61,18 @@ export async function POST(request: Request) {
     }
 
     await ensureTables();
+    if (!isUserAdmin(session)) {
+      const existing = await sql`SELECT executive_email, executive_name FROM sales_activities WHERE id = ${activity.id} LIMIT 1;`;
+      if (
+        existing.length > 0 &&
+        !matchesUserIdentity(session, existing[0].executive_email, existing[0].executive_name)
+      ) {
+        return NextResponse.json({ success: false, error: 'No puedes sobrescribir registros de otro compañero.' }, { status: 403 });
+      }
+      activity.executiveEmail = session.email;
+      activity.executiveName = session.name;
+    }
+
     await sql`
       INSERT INTO sales_activities (
         id, type, executive_name, executive_email, date, time,
@@ -52,8 +81,10 @@ export async function POST(request: Request) {
         next_date, evidence_url, folio, hotel, event_dates,
         quantity, service, amount, valid_until, proof_url,
         scheduled_date, receiver_name, receiver_role, minutes,
-        attendance_proof_url, invitation_proof_url, attendees,
-        topic, agreements, next_action, assigned_rep, created_at
+        attendance_proof_url, visit_status, visit_evidence_type,
+        cancellation_proof_url, meeting_type, invitation_proof_url, attendees,
+        topic, agreements, next_action, assigned_rep,
+        agreement_status, closing_doc_type, created_at
       ) VALUES (
         ${activity.id}, ${activity.type}, ${activity.executiveName}, ${activity.executiveEmail || null},
         ${activity.date}, ${activity.time || null},
@@ -65,9 +96,13 @@ export async function POST(request: Request) {
         ${activity.quantity ?? null}, ${activity.service || null}, ${activity.amount ?? null},
         ${activity.validUntil || null}, ${activity.proofUrl || null},
         ${activity.scheduledDate || null}, ${activity.receiverName || null}, ${activity.receiverRole || null},
-        ${activity.minutes || null}, ${activity.attendanceProofUrl || null}, ${activity.invitationProofUrl || null},
+        ${activity.minutes || null}, ${activity.attendanceProofUrl || null},
+        ${activity.visitStatus || null}, ${activity.visitEvidenceType || null},
+        ${activity.cancellationProofUrl || null}, ${activity.meetingType || null},
+        ${activity.invitationProofUrl || null},
         ${activity.attendees || null}, ${activity.topic || null}, ${activity.agreements || null},
-        ${activity.nextAction || null}, ${activity.assignedRep || null}, ${activity.createdAt}
+        ${activity.nextAction || null}, ${activity.assignedRep || null},
+        ${activity.agreementStatus || null}, ${activity.closingDocType || null}, ${activity.createdAt}
       )
       ON CONFLICT (id) DO UPDATE SET
         type = EXCLUDED.type,
@@ -100,12 +135,18 @@ export async function POST(request: Request) {
         receiver_role = EXCLUDED.receiver_role,
         minutes = EXCLUDED.minutes,
         attendance_proof_url = EXCLUDED.attendance_proof_url,
+        visit_status = EXCLUDED.visit_status,
+        visit_evidence_type = EXCLUDED.visit_evidence_type,
+        cancellation_proof_url = EXCLUDED.cancellation_proof_url,
+        meeting_type = EXCLUDED.meeting_type,
         invitation_proof_url = EXCLUDED.invitation_proof_url,
         attendees = EXCLUDED.attendees,
         topic = EXCLUDED.topic,
         agreements = EXCLUDED.agreements,
         next_action = EXCLUDED.next_action,
         assigned_rep = EXCLUDED.assigned_rep,
+        agreement_status = EXCLUDED.agreement_status,
+        closing_doc_type = EXCLUDED.closing_doc_type,
         updated_at = CURRENT_TIMESTAMP;
     `;
 

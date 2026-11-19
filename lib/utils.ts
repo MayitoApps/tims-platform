@@ -162,6 +162,8 @@ export function getDealCategoryLabel(category: DealCategory | string): { label: 
     case 'grupos_convenciones':
     case 'cuentas_empresariales':
       return { label: 'Empresarial', badge: 'bg-indigo-50 text-indigo-800 border-indigo-200' };
+    case 'otam':
+      return { label: 'OTAM', badge: 'bg-cyan-50 text-cyan-800 border-cyan-200' };
     case 'social':
     case 'bodas_sociales':
       return { label: 'Social', badge: 'bg-rose-50 text-rose-800 border-rose-200' };
@@ -171,6 +173,88 @@ export function getDealCategoryLabel(category: DealCategory | string): { label: 
     default:
       return { label: category || 'Social', badge: 'bg-stone-100 text-stone-700 border-stone-200' };
   }
+}
+
+/**
+ * Calcula el porcentaje de avance respecto a una meta (tanto valor exacto como acotado para barras).
+ */
+export function calculateProgressPercent(
+  actual: number,
+  target: number
+): { raw: number; capped: number; rounded: number; formatted: string } {
+  if (!target || target <= 0) {
+    return { raw: 0, capped: 0, rounded: 0, formatted: '0.0%' };
+  }
+  const safeActual = Math.max(0, Number(actual) || 0);
+  const raw = (safeActual / target) * 100;
+  const capped = Math.min(100, raw);
+  const rounded = Math.round(raw);
+  const formatted = `${raw.toFixed(1)}%`;
+  return { raw, capped, rounded, formatted };
+}
+
+/**
+ * Lee una pestaña o sección persistida desde el hash de la URL (#seccion/subtab)
+ * o localStorage para conservar la ubicación actual al actualizar el navegador.
+ */
+export function readPersistedNavValue<T extends string>(
+  storageKey: string,
+  validValues: readonly T[],
+  fallback: T,
+  hashPartIndex?: 0 | 1,
+  expectedHashSection?: 'marketing' | 'commercial' | 'sales'
+): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    if (hashPartIndex !== undefined && window.location.hash) {
+      const cleanHash = window.location.hash.replace(/^#/, '');
+      const parts = cleanHash.split('/');
+      const hashSectionMatches = !expectedHashSection || parts[0] === expectedHashSection;
+      if (hashSectionMatches) {
+        const candidate = parts[hashPartIndex] as T | undefined;
+        if (candidate && validValues.includes(candidate)) {
+          return candidate;
+        }
+      }
+    }
+    const stored = window.localStorage.getItem(storageKey) as T | null;
+    if (stored && validValues.includes(stored)) {
+      return stored;
+    }
+  } catch {}
+  return fallback;
+}
+
+/**
+ * Persiste la sección/subpestaña activa en localStorage y actualiza el hash de la URL sin recargar.
+ */
+export function writePersistedNavValue(
+  storageKey: string,
+  value: string,
+  hashSection: 'marketing' | 'commercial' | 'sales',
+  hashSubView?: string
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(storageKey, value);
+    const nextHash = hashSubView ? `#${hashSection}/${hashSubView}` : `#${hashSection}`;
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${nextHash}`);
+    }
+  } catch {}
+}
+
+/**
+ * Limpia las pestañas persistidas al cerrar sesión.
+ */
+export function clearPersistedNavValues(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem('tims_active_section');
+    window.localStorage.removeItem('tims_commercial_subview');
+    window.localStorage.removeItem('tims_marketing_subview');
+    window.localStorage.removeItem('tims_sales_tab');
+  } catch {}
 }
 
 /**

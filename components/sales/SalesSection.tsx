@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   SalesActivity,
   SalesActivityType,
@@ -8,10 +8,12 @@ import {
   DEFAULT_SALES_EXECUTIVES,
   SALES_TASK_CATEGORIES,
   UserProfile,
-  HotelDeal
+  HotelDeal,
+  isUserAdmin,
+  matchesUserIdentity
 } from '@/lib/types';
 import { HOTEL_PROPERTIES } from '@/lib/initial-data';
-import { formatCurrency, formatDate, safeExternalUrl } from '@/lib/utils';
+import { formatCurrency, formatDate, safeExternalUrl, calculateProgressPercent, readPersistedNavValue, writePersistedNavValue } from '@/lib/utils';
 
 interface SalesSectionProps {
   activities: SalesActivity[];
@@ -30,6 +32,12 @@ function getLocalDateStr(d: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+function getDaysAgoStr(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return getLocalDateStr(d);
+}
+
 export function SalesSection({
   activities = [],
   currentUser,
@@ -39,35 +47,75 @@ export function SalesSection({
   onUpdateActivity,
   onDeleteActivity
 }: SalesSectionProps) {
+  const isCurrentUserAdmin = isUserAdmin(currentUser);
+
   // Main tabs within VENTAS
-  const [activeTab, setActiveTab] = useState<'tablero' | 'reporte'>('tablero');
+  const [activeTab, setActiveTab] = useState<'tablero' | 'reporte'>(() =>
+    readPersistedNavValue(
+      'tims_sales_tab',
+      ['tablero', 'reporte'] as const,
+      'tablero',
+      1,
+      'sales'
+    )
+  );
+
+  useEffect(() => {
+    writePersistedNavValue('tims_sales_tab', activeTab, 'sales', activeTab);
+  }, [activeTab]);
 
   // Sub-filter inside Tablero: 'all' (Kanban panorámico) or specific task category
   const [selectedCategory, setSelectedCategory] = useState<'all' | SalesActivityType>('all');
 
-  // Filter by executive
+  // Filter by executive (solo disponible para administradores)
   const [selectedExecutiveFilter, setSelectedExecutiveFilter] = useState<string>('all');
 
-  // Executives list (combining defaults Ale & Fer with any dynamically registered sales users)
+  // Executives list: 6 ejecutivos oficiales de Ventas (enriquecidos con avatar de Google si ya ingresaron).
+  // Si el usuario NO es administrador, únicamente ve su propia tarjeta.
   const executivesList = useMemo<SalesExecutive[]>(() => {
-    const list: SalesExecutive[] = [...DEFAULT_SALES_EXECUTIVES];
-    if (registeredUsers && registeredUsers.length > 0) {
-      registeredUsers.forEach((u) => {
-        const already = list.some((e) => e.name.toLowerCase() === u.name.toLowerCase() || (e.email && e.email.toLowerCase() === u.email.toLowerCase()));
-        if (!already && u.role === 'sales') {
-          list.push({
-            id: `exec-${u.id}`,
-            name: u.name,
-            email: u.email,
-            role: 'Ejecutivo Comercial',
-            initials: u.initials || u.name.slice(0, 2).toUpperCase(),
-            avatar: u.avatar
-          });
+    const baseList: SalesExecutive[] = DEFAULT_SALES_EXECUTIVES.map((exec) => {
+      const matchedDb = registeredUsers?.find(
+        (u) =>
+          (exec.email && u.email.toLowerCase().trim() === exec.email.toLowerCase().trim()) ||
+          u.name.toLowerCase().trim() === exec.name.toLowerCase().trim()
+      );
+      return {
+        ...exec,
+        avatar: matchedDb?.avatar || exec.avatar,
+        initials: matchedDb?.initials || exec.initials
+      };
+    });
+
+    if (!isCurrentUserAdmin && currentUser) {
+      const own = baseList.filter((e) => matchesUserIdentity(currentUser, e.email, e.name));
+      if (own.length > 0) return own;
+      return [
+        {
+          id: `exec-${currentUser.id}`,
+          name: currentUser.name,
+          email: currentUser.email,
+          role: currentUser.department || 'Comercialización y Ventas',
+          initials: currentUser.initials || currentUser.name.slice(0, 2).toUpperCase(),
+          avatar: currentUser.avatar
         }
-      });
+      ];
     }
-    return list;
-  }, [registeredUsers]);
+
+    return baseList;
+  }, [registeredUsers, isCurrentUserAdmin, currentUser]);
+
+  // Actividades visibles: admins ven todo; usuarios normales solo ven sus propias actividades
+  const visibleActivities = useMemo(() => {
+    if (isCurrentUserAdmin) return activities;
+    return activities.filter((a) => matchesUserIdentity(currentUser, a.executiveEmail, a.executiveName));
+  }, [activities, isCurrentUserAdmin, currentUser]);
+
+  const matchesExecutiveActivity = (act: SalesActivity, exec: SalesExecutive) => {
+    if (act.executiveEmail && exec.email && act.executiveEmail.toLowerCase().trim() === exec.email.toLowerCase().trim()) {
+      return true;
+    }
+    return act.executiveName.toLowerCase().trim() === exec.name.toLowerCase().trim();
+  };
 
   // Modal state when clicking an executive's card
   const [activeModal, setActiveModal] = useState<{
@@ -111,18 +159,55 @@ export function SalesSection({
   const [receiverRole, setReceiverRole] = useState('Gerente / Director');
   const [minutes, setMinutes] = useState('');
   const [attendanceProofUrl, setAttendanceProofUrl] = useState('');
+  const [visitStatus, setVisitStatus] = useState<'realizada' | 'cancelada'>('realizada');
+  const [visitEvidenceType, setVisitEvidenceType] = useState<'foto' | 'pin_ubicacion' | 'correo_confirmacion' | 'evidencia_cancelacion'>('foto');
+  const [cancellationProofUrl, setCancellationProofUrl] = useState('');
+  const [meetingType, setMeetingType] = useState<'Zoom' | 'Meet' | 'Scouting' | string>('Zoom');
   const [invitationProofUrl, setInvitationProofUrl] = useState('');
   const [attendees, setAttendees] = useState('');
   const [topic, setTopic] = useState('Presentación de Portafolio Grupo Orgánico');
   const [agreements, setAgreements] = useState('');
   const [nextAction, setNextAction] = useState('');
-  const [assignedRep, setAssignedRep] = useState<'Ale' | 'Fer' | string>('Ale');
+  const [assignedRep, setAssignedRep] = useState<string>(DEFAULT_SALES_EXECUTIVES[0]?.name || 'Alejandra Ocaña');
+  const [agreementStatus, setAgreementStatus] = useState<'cerrado' | 'sin_cierre'>('cerrado');
+  const [closingDocType, setClosingDocType] = useState<string>('Orden de servicio');
+  const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleUploadEvidenceFile = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onSuccess: (url: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingEvidence(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok && data?.url) {
+        onSuccess(data.url);
+      } else {
+        setUploadError(data?.error || 'No se pudo subir el archivo. Puedes pegar un enlace directo.');
+      }
+    } catch {
+      setUploadError('Error de conexión al subir el archivo.');
+    } finally {
+      setIsUploadingEvidence(false);
+      e.target.value = '';
+    }
+  };
 
   // Filter activities by current executive filter if selected
   const filteredActivities = useMemo(() => {
-    if (selectedExecutiveFilter === 'all') return activities;
-    return activities.filter((a) => a.executiveName.toLowerCase() === selectedExecutiveFilter.toLowerCase());
-  }, [activities, selectedExecutiveFilter]);
+    if (!isCurrentUserAdmin || selectedExecutiveFilter === 'all') return visibleActivities;
+    return visibleActivities.filter((a) => a.executiveName.toLowerCase() === selectedExecutiveFilter.toLowerCase());
+  }, [visibleActivities, selectedExecutiveFilter, isCurrentUserAdmin]);
 
   // Current week boundaries for weekly Friday closure
   const currentWeekInfo = useMemo(() => {
@@ -150,37 +235,70 @@ export function SalesSection({
   }, []);
 
   // Helper to get count of activities for an executive in a category for current cycle
-  const getExecutiveProgress = (execName: string, catType: SalesActivityType) => {
-    const execActs = activities.filter(
-      (a) => a.executiveName.toLowerCase() === execName.toLowerCase() && a.type === catType
+  const getExecutiveProgress = (exec: SalesExecutive, catType: SalesActivityType) => {
+    const execActs = visibleActivities.filter(
+      (a) => matchesExecutiveActivity(a, exec) && a.type === catType
     );
 
     const today = getLocalDateStr();
+    const fifteenDaysAgoStr = getDaysAgoStr(14);
+    const twentyOneDaysAgoStr = getDaysAgoStr(20);
+    const currentMonth = today.slice(0, 7);
     const categoryDef = SALES_TASK_CATEGORIES.find((c) => c.type === catType);
     const target = categoryDef?.targetCount || 1;
 
     let currentCount = 0;
+    let periodLabel = 'Semana actual';
+    let secondaryNote: string | undefined;
+
     if (catType === 'llamada') {
-      // Daily target: count for today
+      // Meta diaria: hoy
       currentCount = execActs.filter((a) => a.date === today).length;
-    } else if (catType === 'cotizacion' || catType === 'prospecto' || catType === 'seguimiento' || catType === 'visita') {
-      // Weekly target: count for current week
+      periodLabel = 'Hoy';
+    } else if (catType === 'cotizacion' || catType === 'prospecto' || catType === 'seguimiento') {
+      // Meta semanal: semana actual
       currentCount = execActs.filter(
         (a) => a.date >= currentWeekInfo.mondayStr && a.date <= currentWeekInfo.sundayStr
       ).length;
+      periodLabel = 'Semana actual';
+    } else if (catType === 'visita') {
+      // Meta: 1 cada 15 días (o cada 3 semanas) -> ventana de 21 días
+      const inWindow = execActs.filter(
+        (a) => a.date >= twentyOneDaysAgoStr && a.date <= currentWeekInfo.sundayStr
+      );
+      currentCount = inWindow.filter((a) => a.visitStatus !== 'cancelada').length;
+      const cancelledCount = inWindow.filter((a) => a.visitStatus === 'cancelada').length;
+      if (cancelledCount > 0) {
+        secondaryNote = `${cancelledCount} cancelada${cancelledCount > 1 ? 's' : ''} c/evidencia`;
+      }
+      periodLabel = 'Últimos 15–21 días (3 sem)';
     } else if (catType === 'reunion') {
-      // Monthly target: count for current month
-      const currentMonth = today.slice(0, 7);
-      currentCount = execActs.filter((a) => a.date.startsWith(currentMonth)).length;
+      // Meta: 1 cada 15 días (Zoom, Meet o scouting)
+      currentCount = execActs.filter(
+        (a) => a.date >= fifteenDaysAgoStr && a.date <= currentWeekInfo.sundayStr
+      ).length;
+      periodLabel = 'Últimos 15 días';
+    } else if (catType === 'acuerdo') {
+      // Meta: 1 cierre al mes (solo cuentan los cerrados; sin cierre se rastrean en seguimiento)
+      const inMonth = execActs.filter((a) => a.date.startsWith(currentMonth));
+      currentCount = inMonth.filter((a) => a.agreementStatus !== 'sin_cierre').length;
+      const followUpCount = inMonth.filter((a) => a.agreementStatus === 'sin_cierre').length;
+      if (followUpCount > 0) {
+        secondaryNote = `${followUpCount} en seguimiento`;
+      }
+      periodLabel = 'Mes actual';
     }
 
-    const percentage = Math.min(100, Math.round((currentCount / target) * 100));
+    const prog = calculateProgressPercent(currentCount, target);
     return {
       currentCount,
       target,
-      percentage,
+      percentage: prog.rounded,
+      cappedPercentage: prog.capped,
       totalHistoric: execActs.length,
-      isCompleted: currentCount >= target
+      isCompleted: currentCount >= target,
+      periodLabel,
+      secondaryNote
     };
   };
 
@@ -215,17 +333,24 @@ export function SalesSection({
     setAmount('50000');
     setValidUntil('');
     setProofUrl('');
-    setScheduledDate(new Date().toISOString().split('T')[0]);
+    setScheduledDate(getLocalDateStr());
     setReceiverName('');
     setReceiverRole('Gerente / Director');
     setMinutes('');
     setAttendanceProofUrl('');
+    setVisitStatus('realizada');
+    setVisitEvidenceType('foto');
+    setCancellationProofUrl('');
+    setMeetingType('Zoom');
     setInvitationProofUrl('');
     setAttendees('');
     setTopic('Presentación de Portafolio Grupo Orgánico');
     setAgreements('');
     setNextAction('');
-    setAssignedRep(execName === 'Fer' ? 'Fer' : 'Ale');
+    setAssignedRep(execName || currentUser?.name || executivesList[0]?.name || 'Alejandra Ocaña');
+    setAgreementStatus('cerrado');
+    setClosingDocType('Orden de servicio');
+    setUploadError(null);
   };
 
   // Submit activity form
@@ -234,6 +359,7 @@ export function SalesSection({
     if (!activeModal) return;
 
     const { executive, categoryType } = activeModal;
+    setUploadError(null);
 
     const baseActivity: Omit<SalesActivity, 'id' | 'createdAt'> = {
       type: categoryType,
@@ -273,13 +399,33 @@ export function SalesSection({
       baseActivity.validUntil = validUntil;
       baseActivity.proofUrl = proofUrl.trim();
     } else if (categoryType === 'visita') {
+      if (visitStatus === 'realizada' && !attendanceProofUrl.trim()) {
+        setUploadError('Debes adjuntar o pegar la evidencia de la visita (foto, pin de ubicación o correo de confirmación).');
+        return;
+      }
+      if (visitStatus === 'cancelada' && !cancellationProofUrl.trim()) {
+        setUploadError('En caso de cancelación, es obligatorio subir o pegar la evidencia correspondiente.');
+        return;
+      }
+      baseActivity.clientName = clientName.trim() || receiverName.trim();
+      baseActivity.company = company.trim();
       baseActivity.scheduledDate = scheduledDate;
       baseActivity.receiverName = receiverName.trim();
       baseActivity.receiverRole = receiverRole.trim();
       baseActivity.minutes = minutes.trim();
-      baseActivity.attendanceProofUrl = attendanceProofUrl.trim();
+      baseActivity.visitStatus = visitStatus;
+      baseActivity.visitEvidenceType = visitStatus === 'cancelada' ? 'evidencia_cancelacion' : visitEvidenceType;
+      baseActivity.attendanceProofUrl = visitStatus === 'realizada' ? attendanceProofUrl.trim() : '';
+      baseActivity.cancellationProofUrl = visitStatus === 'cancelada' ? cancellationProofUrl.trim() : '';
+      baseActivity.nextDate = visitStatus === 'cancelada' ? nextDate : undefined;
       baseActivity.hotel = hotel;
     } else if (categoryType === 'reunion') {
+      if (!invitationProofUrl.trim()) {
+        setUploadError('Debes subir o pegar la evidencia del correo de acuerdo o confirmación de la reunión.');
+        return;
+      }
+      baseActivity.meetingType = meetingType;
+      baseActivity.clientName = clientName.trim();
       baseActivity.invitationProofUrl = invitationProofUrl.trim();
       baseActivity.attendees = attendees.trim();
       baseActivity.topic = topic.trim();
@@ -287,6 +433,31 @@ export function SalesSection({
       baseActivity.nextAction = nextAction.trim();
       baseActivity.assignedRep = assignedRep;
       baseActivity.time = formTime;
+    } else if (categoryType === 'acuerdo') {
+      if (agreementStatus === 'cerrado' && !evidenceUrl.trim()) {
+        setUploadError('Debes subir o pegar la evidencia del cierre (orden de servicio, reservación o documento equivalente).');
+        return;
+      }
+      if (agreementStatus === 'sin_cierre' && (!nextAction.trim() || !nextDate)) {
+        setUploadError('Si aún no hay cierre, debes registrar el siguiente paso y la fecha de seguimiento.');
+        return;
+      }
+      baseActivity.clientName = clientName.trim();
+      baseActivity.company = company.trim();
+      baseActivity.hotel = hotel;
+      baseActivity.agreementStatus = agreementStatus;
+      if (agreementStatus === 'cerrado') {
+        baseActivity.closingDocType = closingDocType;
+        baseActivity.folio = folio.trim();
+        baseActivity.amount = parseFloat(amount) || 0;
+        baseActivity.evidenceUrl = evidenceUrl.trim();
+        baseActivity.agreements = agreements.trim();
+        baseActivity.notes = notes.trim();
+      } else {
+        baseActivity.nextAction = nextAction.trim();
+        baseActivity.nextDate = nextDate;
+        baseActivity.notes = notes.trim();
+      }
     }
 
     if (editingActivityId && onUpdateActivity) {
@@ -336,19 +507,31 @@ export function SalesSection({
     setReceiverRole(act.receiverRole || '');
     setMinutes(act.minutes || '');
     setAttendanceProofUrl(act.attendanceProofUrl || '');
+    setVisitStatus(act.visitStatus || 'realizada');
+    setVisitEvidenceType(act.visitEvidenceType || 'foto');
+    setCancellationProofUrl(act.cancellationProofUrl || '');
+    setMeetingType(act.meetingType || 'Zoom');
     setInvitationProofUrl(act.invitationProofUrl || '');
     setAttendees(act.attendees || '');
     setTopic(act.topic || '');
     setAgreements(act.agreements || '');
     setNextAction(act.nextAction || '');
-    setAssignedRep(act.assignedRep || 'Ale');
+    setAssignedRep(act.assignedRep || currentUser?.name || executivesList[0]?.name || 'Alejandra Ocaña');
+    setAgreementStatus(act.agreementStatus || 'cerrado');
+    setClosingDocType(act.closingDocType || 'Orden de servicio');
+    setUploadError(null);
     setIsFormOpen(true);
   };
 
-  // Weekly closure automatic statistics
+  // Weekly / Period closure automatic statistics (filtrado por visibleActivities)
   const weeklyStats = useMemo(() => {
+    const today = getLocalDateStr();
+    const fifteenDaysAgoStr = getDaysAgoStr(14);
+    const twentyOneDaysAgoStr = getDaysAgoStr(20);
+    const currentMonth = today.slice(0, 7);
+
     // Current week activities
-    const weekActs = activities.filter(
+    const weekActs = visibleActivities.filter(
       (a) => a.date >= currentWeekInfo.mondayStr && a.date <= currentWeekInfo.sundayStr
     );
 
@@ -358,64 +541,131 @@ export function SalesSection({
     const totalFollowups = weekActs.filter((a) => a.type === 'seguimiento');
     const totalQuotes = weekActs.filter((a) => a.type === 'cotizacion');
     const totalQuoteAmount = totalQuotes.reduce((acc, q) => acc + (q.amount || 0), 0);
-    const totalVisits = weekActs.filter((a) => a.type === 'visita');
-    const totalMeetings = weekActs.filter((a) => a.type === 'reunion');
+
+    // Visitas (15-21 días), Reuniones (15 días) y Acuerdos (mes)
+    const periodVisits = visibleActivities.filter(
+      (a) => a.type === 'visita' && a.date >= twentyOneDaysAgoStr && a.date <= currentWeekInfo.sundayStr
+    );
+    const completedVisits = periodVisits.filter((a) => a.visitStatus !== 'cancelada');
+    const cancelledVisits = periodVisits.filter((a) => a.visitStatus === 'cancelada');
+
+    const periodMeetings = visibleActivities.filter(
+      (a) => a.type === 'reunion' && a.date >= fifteenDaysAgoStr && a.date <= currentWeekInfo.sundayStr
+    );
+
+    const monthAgreements = visibleActivities.filter(
+      (a) => a.type === 'acuerdo' && a.date.startsWith(currentMonth)
+    );
+    const closedAgreements = monthAgreements.filter((a) => a.agreementStatus !== 'sin_cierre');
+    const openAgreementFollowups = monthAgreements.filter((a) => a.agreementStatus === 'sin_cierre');
 
     // Stats by executive
     const execBreakdown = executivesList.map((exec) => {
-      const eActs = weekActs.filter((a) => a.executiveName.toLowerCase() === exec.name.toLowerCase());
-      const eCalls = eActs.filter((a) => a.type === 'llamada');
+      const eWeekActs = weekActs.filter((a) => matchesExecutiveActivity(a, exec));
+      const eAllActs = visibleActivities.filter((a) => matchesExecutiveActivity(a, exec));
+      const eCalls = eWeekActs.filter((a) => a.type === 'llamada');
       const eAnswered = eCalls.filter((a) => a.answered);
-      const eProspects = eActs.filter((a) => a.type === 'prospecto');
-      const eFollowups = eActs.filter((a) => a.type === 'seguimiento');
-      const eQuotes = eActs.filter((a) => a.type === 'cotizacion');
+      const eProspects = eWeekActs.filter((a) => a.type === 'prospecto');
+      const eFollowups = eWeekActs.filter((a) => a.type === 'seguimiento');
+      const eQuotes = eWeekActs.filter((a) => a.type === 'cotizacion');
       const eQuoteAmount = eQuotes.reduce((acc, q) => acc + (q.amount || 0), 0);
-      const eVisits = eActs.filter((a) => a.type === 'visita');
-      const eMeetings = eActs.filter((a) => a.type === 'reunion');
 
-      // Weekly goals
+      const eVisitsWindow = periodVisits.filter((a) => matchesExecutiveActivity(a, exec));
+      const eVisitsDone = eVisitsWindow.filter((a) => a.visitStatus !== 'cancelada');
+      const eVisitsCancelled = eVisitsWindow.filter((a) => a.visitStatus === 'cancelada');
+
+      const eMeetingsWindow = periodMeetings.filter((a) => matchesExecutiveActivity(a, exec));
+
+      const eAgreementsMonth = monthAgreements.filter((a) => matchesExecutiveActivity(a, exec));
+      const eAgreementsClosed = eAgreementsMonth.filter((a) => a.agreementStatus !== 'sin_cierre');
+      const eAgreementsFollowup = eAgreementsMonth.filter((a) => a.agreementStatus === 'sin_cierre');
+
+      // Goals
       const callsGoal = 25; // 5 daily * 5 days
-      const prospectsGoal = 2; // 2 every week and a half (~1-2 weekly)
+      const prospectsGoal = 2; // 2 every week and a half
+      const followupsGoal = 5; // 5 seguimientos con evidencia
       const quotesGoal = 3; // 3 weekly
+      const visitsGoal = 1; // 1 cada 15-21 días
+      const meetingsGoal = 1; // 1 cada 15 días
+      const agreementsGoal = 1; // 1 cierre al mes
 
-      const callsPercent = Math.min(100, Math.round((eCalls.length / callsGoal) * 100));
-      const prospectsPercent = Math.min(100, Math.round((eProspects.length / prospectsGoal) * 100));
-      const quotesPercent = Math.min(100, Math.round((eQuotes.length / quotesGoal) * 100));
+      const callsProg = calculateProgressPercent(eCalls.length, callsGoal);
+      const prospectsProg = calculateProgressPercent(eProspects.length, prospectsGoal);
+      const followupsProg = calculateProgressPercent(eFollowups.length, followupsGoal);
+      const quotesProg = calculateProgressPercent(eQuotes.length, quotesGoal);
+      const visitsProg = calculateProgressPercent(eVisitsDone.length, visitsGoal);
+      const meetingsProg = calculateProgressPercent(eMeetingsWindow.length, meetingsGoal);
+      const agreementsProg = calculateProgressPercent(eAgreementsClosed.length, agreementsGoal);
 
-      const overallScore = Math.round((callsPercent + prospectsPercent + quotesPercent) / 3);
+      const callsPercent = callsProg.rounded;
+      const prospectsPercent = prospectsProg.rounded;
+      const followupsPercent = followupsProg.rounded;
+      const quotesPercent = quotesProg.rounded;
+      const visitsPercent = visitsProg.rounded;
+      const meetingsPercent = meetingsProg.rounded;
+      const agreementsPercent = agreementsProg.rounded;
+
+      const overallScore = Math.round(
+        (callsProg.capped +
+          prospectsProg.capped +
+          followupsProg.capped +
+          quotesProg.capped +
+          visitsProg.capped +
+          meetingsProg.capped +
+          agreementsProg.capped) /
+          7
+      );
 
       return {
         executive: exec,
-        totalActivities: eActs.length,
+        totalActivities: eWeekActs.length,
         calls: eCalls.length,
         callsAnswered: eAnswered.length,
         callsPercent,
         prospects: eProspects.length,
         prospectsPercent,
         followups: eFollowups.length,
+        followupsPercent,
         quotes: eQuotes.length,
         quoteAmount: eQuoteAmount,
         quotesPercent,
-        visits: eVisits.length,
-        meetings: eMeetings.length,
+        visits: eVisitsDone.length,
+        visitsCancelled: eVisitsCancelled.length,
+        visitsPercent,
+        meetings: eMeetingsWindow.length,
+        meetingsPercent,
+        agreementsClosed: eAgreementsClosed.length,
+        agreementsFollowup: eAgreementsFollowup.length,
+        agreementsPercent,
         overallScore,
-        recentActivities: eActs.slice(0, 5)
+        recentActivities: eAllActs.slice(0, 5)
       };
     });
 
+    const teamSize = Math.max(1, executivesList.length);
     return {
       weekActsCount: weekActs.length,
       totalCalls: totalCalls.length,
+      callsGoalPercent: calculateProgressPercent(totalCalls.length, teamSize * 25).rounded,
       answeredCallsRate: totalCalls.length > 0 ? Math.round((answeredCalls.length / totalCalls.length) * 100) : 0,
       totalProspects: totalProspects.length,
+      prospectsGoalPercent: calculateProgressPercent(totalProspects.length, teamSize * 2).rounded,
       totalFollowups: totalFollowups.length,
+      followupsGoalPercent: calculateProgressPercent(totalFollowups.length, teamSize * 5).rounded,
       totalQuotes: totalQuotes.length,
+      quotesGoalPercent: calculateProgressPercent(totalQuotes.length, teamSize * 3).rounded,
       totalQuoteAmount,
-      totalVisits: totalVisits.length,
-      totalMeetings: totalMeetings.length,
+      totalVisits: completedVisits.length,
+      visitsGoalPercent: calculateProgressPercent(completedVisits.length, teamSize).rounded,
+      totalVisitsCancelled: cancelledVisits.length,
+      totalMeetings: periodMeetings.length,
+      meetingsGoalPercent: calculateProgressPercent(periodMeetings.length, teamSize).rounded,
+      totalAgreementsClosed: closedAgreements.length,
+      agreementsGoalPercent: calculateProgressPercent(closedAgreements.length, teamSize).rounded,
+      totalAgreementsFollowup: openAgreementFollowups.length,
       execBreakdown
     };
-  }, [activities, currentWeekInfo, executivesList]);
+  }, [visibleActivities, currentWeekInfo, executivesList]);
 
   return (
     <div className="space-y-6">
@@ -435,7 +685,7 @@ export function SalesSection({
               Tablero de Ventas & Tareas Diarias
             </h2>
             <p className="text-xs text-stone-500 mt-0.5 max-w-2xl">
-              Control integral de actividades comerciales: llamadas diarias, prospección activa, seguimiento, cotizaciones, visitas presenciales y reuniones comerciales de Ale y Fer.
+              Control integral de metas comerciales: llamadas diarias, prospección, seguimiento, cotizaciones, visitas presenciales, reuniones comerciales y acuerdos comerciales.
             </p>
           </div>
 
@@ -502,24 +752,31 @@ export function SalesSection({
               })}
             </div>
 
-            {/* Filtro por Ejecutivo */}
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
-                Ejecutivo:
-              </span>
-              <select
-                value={selectedExecutiveFilter}
-                onChange={(e) => setSelectedExecutiveFilter(e.target.value)}
-                className="bg-stone-50 border border-stone-300 rounded-xl px-3 py-1.5 text-xs font-bold text-stone-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              >
-                <option value="all">Todos los Ejecutivos ({executivesList.map((e) => e.name).join(', ')})</option>
-                {executivesList.map((exec) => (
-                  <option key={exec.id} value={exec.name}>
-                    {exec.name} ({exec.role})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Filtro por Ejecutivo (solo administradores) o insignia de perfil personal */}
+            {isCurrentUserAdmin ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                  Ejecutivo:
+                </span>
+                <select
+                  value={selectedExecutiveFilter}
+                  onChange={(e) => setSelectedExecutiveFilter(e.target.value)}
+                  className="bg-stone-50 border border-stone-300 rounded-xl px-3 py-1.5 text-xs font-bold text-stone-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  <option value="all">Todos los Ejecutivos ({executivesList.length})</option>
+                  {executivesList.map((exec) => (
+                    <option key={exec.id} value={exec.name}>
+                      {exec.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-[11px] font-bold shrink-0">
+                <span>👤</span>
+                <span>Mi Perfil: {currentUser?.name}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -528,7 +785,13 @@ export function SalesSection({
       {activeTab === 'tablero' && (
         <div className="space-y-6">
           {/* Columnas Kanban por Categoría de Tarea */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div
+            className={
+              selectedCategory === 'all'
+                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                : 'grid grid-cols-1 max-w-2xl gap-4'
+            }
+          >
             {SALES_TASK_CATEGORIES.filter((cat) => selectedCategory === 'all' || selectedCategory === cat.type).map(
               (category) => {
                 return (
@@ -538,9 +801,9 @@ export function SalesSection({
                   >
                     {/* Header de la Columna / Tarea */}
                     <div className="border-b border-stone-100 pb-2.5 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xl">{category.icon}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${category.accentBg} ${category.color} ${category.borderColor}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xl shrink-0">{category.icon}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border text-right ${category.accentBg} ${category.color} ${category.borderColor}`}>
                           {category.targetLabel}
                         </span>
                       </div>
@@ -557,15 +820,16 @@ export function SalesSection({
                       {executivesList
                         .filter(
                           (exec) =>
+                            !isCurrentUserAdmin ||
                             selectedExecutiveFilter === 'all' ||
                             exec.name.toLowerCase() === selectedExecutiveFilter.toLowerCase()
                         )
                         .map((exec) => {
-                          const progress = getExecutiveProgress(exec.name, category.type);
-                          const lastActivity = activities
+                          const progress = getExecutiveProgress(exec, category.type);
+                          const lastActivity = visibleActivities
                             .filter(
                               (a) =>
-                                a.executiveName.toLowerCase() === exec.name.toLowerCase() &&
+                                matchesExecutiveActivity(a, exec) &&
                                 a.type === category.type
                             )
                             .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
@@ -577,12 +841,20 @@ export function SalesSection({
                               className="group p-3 rounded-2xl border border-stone-200/90 bg-stone-50 hover:bg-white hover:border-blue-400 hover:shadow-md transition-all cursor-pointer space-y-2 select-none"
                             >
                               {/* Header de la tarjeta del ejecutivo */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-linear-to-br from-blue-700 to-indigo-800 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
-                                    {exec.initials || exec.name.slice(0, 2).toUpperCase()}
-                                  </div>
-                                  <span className="font-bold text-xs text-stone-900 group-hover:text-blue-800 transition-colors">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {exec.avatar ? (
+                                    <img
+                                      src={exec.avatar}
+                                      alt={exec.name}
+                                      className="w-6 h-6 rounded-full object-cover border border-stone-300 shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-linear-to-br from-blue-700 to-indigo-800 text-white font-bold text-[10px] flex items-center justify-center shadow-xs shrink-0">
+                                      {exec.initials || exec.name.slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <span className="font-bold text-xs text-stone-900 group-hover:text-blue-800 transition-colors truncate">
                                     {exec.name}
                                   </span>
                                 </div>
@@ -594,7 +866,7 @@ export function SalesSection({
                                       : 'bg-amber-100 text-amber-800 border-amber-300'
                                   }`}
                                 >
-                                  {progress.currentCount}/{progress.target}
+                                  {progress.currentCount}/{progress.target} · {progress.percentage}%
                                 </span>
                               </div>
 
@@ -605,22 +877,50 @@ export function SalesSection({
                                     className={`h-full transition-all duration-500 ${
                                       progress.isCompleted ? 'bg-emerald-600' : 'bg-blue-600'
                                     }`}
-                                    style={{ width: `${progress.percentage}%` }}
+                                    style={{ width: `${progress.cappedPercentage}%` }}
                                   />
                                 </div>
                                 <div className="flex items-center justify-between text-[9px] text-stone-500 font-mono">
-                                  <span>Avance: {progress.percentage}%</span>
-                                  <span>{progress.totalHistoric} registradas</span>
+                                  <span>{progress.periodLabel}: {progress.percentage}%</span>
+                                  <span>{progress.totalHistoric} hist.</span>
                                 </div>
+                                {progress.secondaryNote && (
+                                  <div className="text-[9px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 rounded-md px-1.5 py-0.5 inline-block">
+                                    {progress.secondaryNote}
+                                  </div>
+                                )}
                               </div>
 
                               {/* Mini Vista Previa de la Última Actividad */}
                               <div className="text-[10px] text-stone-600 bg-white/80 p-2 rounded-xl border border-stone-200/80 truncate">
                                 {lastActivity ? (
                                   <div>
-                                    <span className="font-bold text-stone-800">
-                                      {lastActivity.clientName || lastActivity.company || lastActivity.topic || 'Actividad registrada'}
-                                    </span>
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="font-bold text-stone-800 truncate">
+                                        {lastActivity.clientName || lastActivity.company || lastActivity.receiverName || lastActivity.topic || 'Actividad registrada'}
+                                      </span>
+                                      {lastActivity.type === 'visita' && lastActivity.visitStatus === 'cancelada' && (
+                                        <span className="text-[8px] font-bold px-1 py-0.2 bg-rose-100 text-rose-700 rounded shrink-0">
+                                          Cancelada
+                                        </span>
+                                      )}
+                                      {lastActivity.type === 'acuerdo' && (
+                                        <span
+                                          className={`text-[8px] font-bold px-1 py-0.2 rounded shrink-0 ${
+                                            lastActivity.agreementStatus === 'sin_cierre'
+                                              ? 'bg-amber-100 text-amber-800'
+                                              : 'bg-teal-100 text-teal-800'
+                                          }`}
+                                        >
+                                          {lastActivity.agreementStatus === 'sin_cierre' ? 'Seguimiento' : 'Cerrado'}
+                                        </span>
+                                      )}
+                                      {lastActivity.type === 'reunion' && lastActivity.meetingType && (
+                                        <span className="text-[8px] font-bold px-1 py-0.2 bg-indigo-100 text-indigo-700 rounded shrink-0">
+                                          {lastActivity.meetingType}
+                                        </span>
+                                      )}
+                                    </div>
                                     <span className="text-[9px] text-stone-400 block truncate font-mono">
                                       {formatDate(lastActivity.date)} {lastActivity.time ? `· ${lastActivity.time}h` : ''}
                                     </span>
@@ -657,7 +957,7 @@ export function SalesSection({
                   Reporte y Rendimiento de Fuerza de Ventas
                 </h3>
                 <p className="text-xs text-stone-300 mt-0.5">
-                  Semana del {formatDate(currentWeekInfo.mondayStr)} al {formatDate(currentWeekInfo.fridayStr)} · Generado en tiempo real desde el tablero
+                  Semana del {formatDate(currentWeekInfo.mondayStr)} al {formatDate(currentWeekInfo.fridayStr)} · Incluye metas quincenales y mensuales vigentes
                 </p>
               </div>
 
@@ -671,42 +971,64 @@ export function SalesSection({
               </div>
             </div>
 
-            {/* KPIs Globales de la Semana */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
+            {/* KPIs Globales */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-2">
               <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-stone-400 block">📞 Llamadas Totales</span>
+                <span className="text-[10px] uppercase font-bold text-stone-400 block">📞 Llamadas</span>
                 <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalCalls}</span>
-                <span className="text-[10px] text-emerald-400 font-semibold block">{weeklyStats.answeredCallsRate}% contestadas</span>
+                <span className="text-[10px] text-emerald-400 font-semibold block">
+                  {weeklyStats.callsGoalPercent}% meta · {weeklyStats.answeredCallsRate}% resp.
+                </span>
               </div>
 
               <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-stone-400 block">🎯 Prospectos Nuevos</span>
+                <span className="text-[10px] uppercase font-bold text-stone-400 block">🎯 Prospectos</span>
                 <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalProspects}</span>
-                <span className="text-[10px] text-stone-400 block">Captados esta semana</span>
+                <span className="text-[10px] text-emerald-400 font-semibold block">
+                  {weeklyStats.prospectsGoalPercent}% meta
+                </span>
               </div>
 
               <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-0.5">
                 <span className="text-[10px] uppercase font-bold text-stone-400 block">🔄 Seguimientos</span>
                 <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalFollowups}</span>
-                <span className="text-[10px] text-stone-400 block">Con evidencia</span>
+                <span className="text-[10px] text-emerald-400 font-semibold block">
+                  {weeklyStats.followupsGoalPercent}% meta
+                </span>
               </div>
 
               <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-0.5">
                 <span className="text-[10px] uppercase font-bold text-stone-400 block">📑 Cotizaciones</span>
                 <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalQuotes}</span>
-                <span className="text-[10px] text-emerald-400 font-mono block">{formatCurrency(weeklyStats.totalQuoteAmount, 'MXN')}</span>
+                <span className="text-[10px] text-emerald-400 font-mono block truncate">
+                  {weeklyStats.quotesGoalPercent}% meta · {formatCurrency(weeklyStats.totalQuoteAmount, 'MXN')}
+                </span>
               </div>
 
               <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-stone-400 block">📍 Visitas Presenciales</span>
+                <span className="text-[10px] uppercase font-bold text-stone-400 block">📍 Visitas (15–21d)</span>
                 <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalVisits}</span>
-                <span className="text-[10px] text-stone-400 block">En sedes hoteleras</span>
+                <span className="text-[10px] text-emerald-400 font-semibold block">
+                  {weeklyStats.visitsGoalPercent}% meta
+                  {weeklyStats.totalVisitsCancelled > 0 ? ` · ${weeklyStats.totalVisitsCancelled} cancel.` : ''}
+                </span>
               </div>
 
               <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-stone-400 block">🤝 Reuniones Comerciales</span>
+                <span className="text-[10px] uppercase font-bold text-stone-400 block">🤝 Reuniones (15d)</span>
                 <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalMeetings}</span>
-                <span className="text-[10px] text-stone-400 block">Ale y Fer</span>
+                <span className="text-[10px] text-emerald-400 font-semibold block">
+                  {weeklyStats.meetingsGoalPercent}% meta
+                </span>
+              </div>
+
+              <div className="bg-white/5 border border-teal-400/30 p-3 rounded-2xl space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-teal-300 block">🏆 Cierres (Mes)</span>
+                <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalAgreementsClosed}</span>
+                <span className="text-[10px] text-amber-300 font-semibold block">
+                  {weeklyStats.agreementsGoalPercent}% meta
+                  {weeklyStats.totalAgreementsFollowup > 0 ? ` · ${weeklyStats.totalAgreementsFollowup} seg.` : ''}
+                </span>
               </div>
             </div>
           </div>
@@ -728,7 +1050,7 @@ export function SalesSection({
                         {item.executive.name}
                       </h4>
                       <span className="text-xs text-stone-500 font-medium">
-                        {item.executive.role} · {item.totalActivities} actividades registradas
+                        {item.executive.role} · {item.totalActivities} actividades esta semana
                       </span>
                     </div>
                   </div>
@@ -752,7 +1074,7 @@ export function SalesSection({
                         <span>📞</span> Llamadas (Meta semanal: 25)
                       </span>
                       <span className="font-mono font-bold text-stone-900">
-                        {item.calls}/25 ({item.callsAnswered} contestadas)
+                        {item.calls}/25 · {item.callsPercent}% ({item.callsAnswered} contestadas)
                       </span>
                     </div>
                     <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
@@ -760,7 +1082,7 @@ export function SalesSection({
                         className={`h-full transition-all duration-500 ${
                           item.callsPercent >= 100 ? 'bg-emerald-600' : 'bg-blue-600'
                         }`}
-                        style={{ width: `${item.callsPercent}%` }}
+                        style={{ width: `${Math.min(100, item.callsPercent)}%` }}
                       />
                     </div>
                   </div>
@@ -772,7 +1094,7 @@ export function SalesSection({
                         <span>🎯</span> Prospectos Nuevos (Meta: 2)
                       </span>
                       <span className="font-mono font-bold text-stone-900">
-                        {item.prospects}/2 prospectos
+                        {item.prospects}/2 · {item.prospectsPercent}%
                       </span>
                     </div>
                     <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
@@ -780,7 +1102,27 @@ export function SalesSection({
                         className={`h-full transition-all duration-500 ${
                           item.prospectsPercent >= 100 ? 'bg-emerald-600' : 'bg-emerald-500'
                         }`}
-                        style={{ width: `${item.prospectsPercent}%` }}
+                        style={{ width: `${Math.min(100, item.prospectsPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Seguimientos */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-stone-700">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>🔄</span> Seguimiento de Clientes (Meta: 5)
+                      </span>
+                      <span className="font-mono font-bold text-stone-900">
+                        {item.followups}/5 · {item.followupsPercent}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          item.followupsPercent >= 100 ? 'bg-emerald-600' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${Math.min(100, item.followupsPercent)}%` }}
                       />
                     </div>
                   </div>
@@ -792,7 +1134,7 @@ export function SalesSection({
                         <span>📑</span> Cotizaciones (Meta semanal: 3)
                       </span>
                       <span className="font-mono font-bold text-stone-900">
-                        {item.quotes}/3 · {formatCurrency(item.quoteAmount, 'MXN')}
+                        {item.quotes}/3 · {item.quotesPercent}% · {formatCurrency(item.quoteAmount, 'MXN')}
                       </span>
                     </div>
                     <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
@@ -800,24 +1142,84 @@ export function SalesSection({
                         className={`h-full transition-all duration-500 ${
                           item.quotesPercent >= 100 ? 'bg-emerald-600' : 'bg-purple-600'
                         }`}
-                        style={{ width: `${item.quotesPercent}%` }}
+                        style={{ width: `${Math.min(100, item.quotesPercent)}%` }}
                       />
                     </div>
                   </div>
 
-                  {/* Seguimientos, Visitas y Reuniones */}
+                  {/* Visitas Presenciales (1 cada 15-21 días) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-stone-700">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>📍</span> Visitas Presenciales (1 c/15–21 días)
+                      </span>
+                      <span className="font-mono font-bold text-stone-900">
+                        {item.visits}/1 · {item.visitsPercent}%{item.visitsCancelled > 0 ? ` · ${item.visitsCancelled} cancel.` : ''}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          item.visitsPercent >= 100 ? 'bg-emerald-600' : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${Math.min(100, item.visitsPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reuniones Comerciales (1 cada 15 días) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-stone-700">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>🤝</span> Reuniones Comerciales (1 c/15 días)
+                      </span>
+                      <span className="font-mono font-bold text-stone-900">
+                        {item.meetings}/1 · {item.meetingsPercent}% (Zoom/Meet/Scouting)
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          item.meetingsPercent >= 100 ? 'bg-emerald-600' : 'bg-indigo-600'
+                        }`}
+                        style={{ width: `${Math.min(100, item.meetingsPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Acuerdos Comerciales (1 cierre al mes) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-stone-700">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>🏆</span> Acuerdos Comerciales (1 cierre/mes)
+                      </span>
+                      <span className="font-mono font-bold text-stone-900">
+                        {item.agreementsClosed}/1 · {item.agreementsPercent}%{item.agreementsFollowup > 0 ? ` · ${item.agreementsFollowup} seg.` : ''}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          item.agreementsPercent >= 100 ? 'bg-emerald-600' : 'bg-teal-600'
+                        }`}
+                        style={{ width: `${Math.min(100, item.agreementsPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Resumen rápido de Seguimientos */}
                   <div className="grid grid-cols-3 gap-2 pt-2 text-center text-[11px]">
                     <div className="bg-stone-50 p-2.5 rounded-xl border border-stone-200">
                       <span className="text-[10px] text-stone-400 block font-bold">🔄 Seguimientos</span>
                       <span className="font-mono font-extrabold text-stone-900 text-sm">{item.followups}</span>
                     </div>
                     <div className="bg-stone-50 p-2.5 rounded-xl border border-stone-200">
-                      <span className="text-[10px] text-stone-400 block font-bold">📍 Visitas</span>
+                      <span className="text-[10px] text-stone-400 block font-bold">📍 Visitas (21d)</span>
                       <span className="font-mono font-extrabold text-stone-900 text-sm">{item.visits}</span>
                     </div>
                     <div className="bg-stone-50 p-2.5 rounded-xl border border-stone-200">
-                      <span className="text-[10px] text-stone-400 block font-bold">🤝 Reuniones</span>
-                      <span className="font-mono font-extrabold text-stone-900 text-sm">{item.meetings}</span>
+                      <span className="text-[10px] text-stone-400 block font-bold">🏆 Cierres (Mes)</span>
+                      <span className="font-mono font-extrabold text-stone-900 text-sm">{item.agreementsClosed}</span>
                     </div>
                   </div>
                 </div>
@@ -867,10 +1269,10 @@ export function SalesSection({
             {/* Encabezado del modal */}
             {(() => {
               const categoryDef = SALES_TASK_CATEGORIES.find((c) => c.type === activeModal.categoryType)!;
-              const progress = getExecutiveProgress(activeModal.executive.name, activeModal.categoryType);
-              const modalActivities = activities.filter(
+              const progress = getExecutiveProgress(activeModal.executive, activeModal.categoryType);
+              const modalActivities = visibleActivities.filter(
                 (a) =>
-                  a.executiveName.toLowerCase() === activeModal.executive.name.toLowerCase() &&
+                  matchesExecutiveActivity(a, activeModal.executive) &&
                   a.type === activeModal.categoryType
               );
 
@@ -917,20 +1319,27 @@ export function SalesSection({
 
                   {/* Barra de Progreso de la Meta para este Ejecutivo */}
                   <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
                       <span className="font-bold text-stone-800">
-                        Cumplimiento de Meta ({categoryDef.cadence}):
+                        Cumplimiento de Meta ({progress.periodLabel}):
                       </span>
-                      <span className="font-mono font-bold text-stone-900">
-                        {progress.currentCount} de {progress.target} ({progress.percentage}%)
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {progress.secondaryNote && (
+                          <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">
+                            {progress.secondaryNote}
+                          </span>
+                        )}
+                        <span className="font-mono font-bold text-stone-900">
+                          {progress.currentCount} de {progress.target} ({progress.percentage}%)
+                        </span>
+                      </div>
                     </div>
                     <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-500 ${
                           progress.isCompleted ? 'bg-emerald-600' : 'bg-blue-600'
                         }`}
-                        style={{ width: `${progress.percentage}%` }}
+                        style={{ width: `${progress.cappedPercentage}%` }}
                       />
                     </div>
                   </div>
@@ -946,6 +1355,19 @@ export function SalesSection({
                           Ejecutivo: <strong>{activeModal.executive.name}</strong>
                         </span>
                       </div>
+
+                      {uploadError && (
+                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between gap-2">
+                          <span>⚠️ {uploadError}</span>
+                          <button
+                            type="button"
+                            onClick={() => setUploadError(null)}
+                            className="text-rose-500 hover:text-rose-800 font-bold cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
 
                       {/* Campos Comunes: Fecha y Hora */}
                       <div className="grid grid-cols-2 gap-3 text-xs">
@@ -1302,10 +1724,58 @@ export function SalesSection({
                         </div>
                       )}
 
-                      {/* FORM: VISITAS PRESENCIALES */}
+                      {/* FORM: VISITAS PRESENCIALES (1 cada 15 días o cada 3 semanas) */}
                       {activeModal.categoryType === 'visita' && (
-                        <div className="space-y-3 text-xs">
+                        <div className="space-y-3.5 text-xs">
+                          {/* Estado de la Visita: Realizada vs Cancelada */}
+                          <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3 space-y-2">
+                            <label className="block text-stone-700 font-bold">Estado de la Visita Presencial</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setVisitStatus('realizada');
+                                  if (visitEvidenceType === 'evidencia_cancelacion') setVisitEvidenceType('foto');
+                                  setUploadError(null);
+                                }}
+                                className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                                  visitStatus === 'realizada'
+                                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                                    : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-100'
+                                }`}
+                              >
+                                <span>✓</span> Visita Realizada
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setVisitStatus('cancelada');
+                                  setVisitEvidenceType('evidencia_cancelacion');
+                                  setUploadError(null);
+                                }}
+                                className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                                  visitStatus === 'cancelada'
+                                    ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
+                                    : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-100'
+                                }`}
+                              >
+                                <span>✗</span> Visita Cancelada
+                              </button>
+                            </div>
+                          </div>
+
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Cliente / Empresa Visitada</label>
+                              <input
+                                type="text"
+                                required
+                                value={clientName}
+                                onChange={(e) => setClientName(e.target.value)}
+                                placeholder="Ej. Corporativo Banorte / Agencia Viajes"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
                             <div>
                               <label className="block text-stone-700 font-bold mb-1">Cita Previa (Fecha)</label>
                               <input
@@ -1316,8 +1786,348 @@ export function SalesSection({
                                 className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                               />
                             </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
-                              <label className="block text-stone-700 font-bold mb-1">Hotel Sede Visitado</label>
+                              <label className="block text-stone-700 font-bold mb-1">Hotel / Propiedad Relacionada</label>
+                              <select
+                                value={hotel}
+                                onChange={(e) => setHotel(e.target.value)}
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                              >
+                                {HOTEL_PROPERTIES.map((h) => (
+                                  <option key={h} value={h}>
+                                    {h}
+                                  </option>
+                                ))}
+                                <option value="Oficinas del Cliente / Externo">Oficinas del Cliente / Externo</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">
+                                Nombre de Quien Recibió {visitStatus === 'cancelada' ? '(Opcional)' : ''}
+                              </label>
+                              <input
+                                type="text"
+                                required={visitStatus === 'realizada'}
+                                value={receiverName}
+                                onChange={(e) => setReceiverName(e.target.value)}
+                                placeholder="Ej. Lic. Carlos Treviño"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">
+                                Cargo {visitStatus === 'cancelada' ? '(Opcional)' : ''}
+                              </label>
+                              <input
+                                type="text"
+                                required={visitStatus === 'realizada'}
+                                value={receiverRole}
+                                onChange={(e) => setReceiverRole(e.target.value)}
+                                placeholder="Ej. Director de RRHH"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
+                          </div>
+
+                          {visitStatus === 'realizada' ? (
+                            <>
+                              <div>
+                                <label className="block text-stone-700 font-bold mb-1">Minuta de la Visita</label>
+                                <textarea
+                                  rows={3}
+                                  required
+                                  value={minutes}
+                                  onChange={(e) => setMinutes(e.target.value)}
+                                  placeholder="Recorrido o reunión realizada, temas tratados, dudas del cliente y próximos pasos..."
+                                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                                />
+                              </div>
+
+                              <div className="bg-rose-50/60 border border-rose-200 rounded-2xl p-3.5 space-y-2.5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <label className="font-bold text-rose-900">
+                                    📎 Evidencia Obligatoria de Visita
+                                  </label>
+                                  <select
+                                    value={visitEvidenceType}
+                                    onChange={(e) =>
+                                      setVisitEvidenceType(
+                                        e.target.value as 'foto' | 'pin_ubicacion' | 'correo_confirmacion'
+                                      )
+                                    }
+                                    className="bg-white border border-rose-300 rounded-lg px-2.5 py-1 text-[11px] font-bold text-rose-900"
+                                  >
+                                    <option value="foto">📸 Foto del lugar</option>
+                                    <option value="pin_ubicacion">📍 Pin de ubicación (Google Maps)</option>
+                                    <option value="correo_confirmacion">📧 Correo de confirmación de la reunión</option>
+                                  </select>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <input
+                                    type="text"
+                                    required
+                                    value={attendanceProofUrl}
+                                    onChange={(e) => setAttendanceProofUrl(e.target.value)}
+                                    placeholder={
+                                      visitEvidenceType === 'pin_ubicacion'
+                                        ? 'Pega el enlace del pin de Google Maps o sube captura...'
+                                        : visitEvidenceType === 'correo_confirmacion'
+                                        ? 'Sube captura/PDF del correo de confirmación o pega el enlace...'
+                                        : 'Sube la foto del lugar o pega el enlace...'
+                                    }
+                                    className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                                  />
+                                  <label className="px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shrink-0 transition-colors">
+                                    <span>{isUploadingEvidence ? '⏳ Subiendo...' : '📤 Subir Foto / PDF'}</span>
+                                    <input
+                                      type="file"
+                                      accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                      disabled={isUploadingEvidence}
+                                      onChange={(e) => handleUploadEvidenceFile(e, setAttendanceProofUrl)}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] font-medium">
+                                ⚠️ <strong>Cancelación de visita:</strong> Se deberá subir obligatoriamente la evidencia correspondiente (captura de correo, WhatsApp o aviso de cancelación).
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-stone-700 font-bold mb-1">Motivo de Cancelación</label>
+                                  <textarea
+                                    rows={2}
+                                    required
+                                    value={minutes}
+                                    onChange={(e) => setMinutes(e.target.value)}
+                                    placeholder="Indica quién canceló, el motivo y si se acordó reagendar..."
+                                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-stone-700 font-bold mb-1">Nueva Fecha Tentativa (Opcional)</label>
+                                  <input
+                                    type="date"
+                                    value={nextDate}
+                                    onChange={(e) => setNextDate(e.target.value)}
+                                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="bg-rose-50/80 border border-rose-300 rounded-2xl p-3.5 space-y-2">
+                                <label className="block font-bold text-rose-900">
+                                  🚫 Evidencia de Cancelación (Obligatoria)
+                                </label>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <input
+                                    type="text"
+                                    required
+                                    value={cancellationProofUrl}
+                                    onChange={(e) => setCancellationProofUrl(e.target.value)}
+                                    placeholder="Sube captura/PDF del correo o mensaje de cancelación, o pega enlace..."
+                                    className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                                  />
+                                  <label className="px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shrink-0 transition-colors">
+                                    <span>{isUploadingEvidence ? '⏳ Subiendo...' : '📤 Subir Evidencia'}</span>
+                                    <input
+                                      type="file"
+                                      accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                      disabled={isUploadingEvidence}
+                                      onChange={(e) => handleUploadEvidenceFile(e, setCancellationProofUrl)}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* FORM: REUNIONES COMERCIALES (Zoom, Meet o scouting — 1 cada 15 días) */}
+                      {activeModal.categoryType === 'reunion' && (
+                        <div className="space-y-3.5 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Modalidad de Reunión</label>
+                              <select
+                                value={meetingType}
+                                onChange={(e) => setMeetingType(e.target.value)}
+                                className="w-full border border-indigo-300 rounded-xl px-3 py-2 text-indigo-950 bg-indigo-50/40 font-bold"
+                              >
+                                <option value="Zoom">💻 Zoom</option>
+                                <option value="Meet">📹 Google Meet</option>
+                                <option value="Scouting">🏨 Scouting</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">¿Quién asiste?</label>
+                              <select
+                                value={assignedRep}
+                                onChange={(e) => setAssignedRep(e.target.value)}
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-bold"
+                              >
+                                {executivesList.map((exec) => (
+                                  <option key={exec.id} value={exec.name}>
+                                    {exec.name}
+                                  </option>
+                                ))}
+                                {isCurrentUserAdmin && (
+                                  <option value="Equipo Comercial (Varios)">Equipo Comercial (Varios)</option>
+                                )}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Cliente / Empresa</label>
+                              <input
+                                type="text"
+                                required
+                                value={clientName}
+                                onChange={(e) => setClientName(e.target.value)}
+                                placeholder="Ej. Agencia Eventos MX"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Tema de la Reunión</label>
+                              <input
+                                type="text"
+                                required
+                                value={topic}
+                                onChange={(e) => setTopic(e.target.value)}
+                                placeholder="Ej. Presentación de sedes y convenio corporativo"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Asistentes</label>
+                              <input
+                                type="text"
+                                required
+                                value={attendees}
+                                onChange={(e) => setAttendees(e.target.value)}
+                                placeholder="Ej. Directores de compras y finanzas del cliente"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="bg-indigo-50/60 border border-indigo-200 rounded-2xl p-3.5 space-y-2">
+                            <label className="block font-bold text-indigo-950">
+                              📧 Evidencia Obligatoria: Correo de acuerdo o confirmación
+                            </label>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="text"
+                                required
+                                value={invitationProofUrl}
+                                onChange={(e) => setInvitationProofUrl(e.target.value)}
+                                placeholder="Sube captura/PDF del correo de acuerdo o confirmación, o pega el enlace..."
+                                className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                              />
+                              <label className="px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shrink-0 transition-colors">
+                                <span>{isUploadingEvidence ? '⏳ Subiendo...' : '📤 Subir Correo / PDF'}</span>
+                                <input
+                                  type="file"
+                                  accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                  disabled={isUploadingEvidence}
+                                  onChange={(e) => handleUploadEvidenceFile(e, setInvitationProofUrl)}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-stone-700 font-bold mb-1">Acuerdos Tomados</label>
+                            <textarea
+                              rows={2}
+                              required
+                              value={agreements}
+                              onChange={(e) => setAgreements(e.target.value)}
+                              placeholder="Términos comerciales pre-acordados, tarifas, fechas o requerimientos..."
+                              className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-stone-700 font-bold mb-1">Siguiente Acción</label>
+                            <input
+                              type="text"
+                              required
+                              value={nextAction}
+                              onChange={(e) => setNextAction(e.target.value)}
+                              placeholder="Ej. Envío de propuesta formal o contrato el próximo martes"
+                              className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* FORM: ACUERDOS COMERCIALES (1 cierre al mes) */}
+                      {activeModal.categoryType === 'acuerdo' && (
+                        <div className="space-y-3.5 text-xs">
+                          {/* Resultado del Acuerdo: Cierre Logrado vs Sin Cierre */}
+                          <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3 space-y-2">
+                            <label className="block text-stone-700 font-bold">Estatus del Acuerdo Comercial</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAgreementStatus('cerrado');
+                                  setUploadError(null);
+                                }}
+                                className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                                  agreementStatus === 'cerrado'
+                                    ? 'bg-teal-600 text-white border-teal-700 shadow-xs'
+                                    : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-100'
+                                }`}
+                              >
+                                <span>🏆</span> Cierre Logrado (Cuenta para meta mensual)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAgreementStatus('sin_cierre');
+                                  setUploadError(null);
+                                }}
+                                className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                                  agreementStatus === 'sin_cierre'
+                                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                                    : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-100'
+                                }`}
+                              >
+                                <span>⏳</span> Sin Cierre (Registrar siguiente paso)
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Cliente / Empresa</label>
+                              <input
+                                type="text"
+                                required
+                                value={clientName}
+                                onChange={(e) => setClientName(e.target.value)}
+                                placeholder="Ej. Corporativo FEMSA / Boda Martínez"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Hotel / Propiedad</label>
                               <select
                                 value={hotel}
                                 onChange={(e) => setHotel(e.target.value)}
@@ -1332,132 +2142,122 @@ export function SalesSection({
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-stone-700 font-bold mb-1">Nombre de Quien Recibió</label>
-                              <input
-                                type="text"
-                                required
-                                value={receiverName}
-                                onChange={(e) => setReceiverName(e.target.value)}
-                                placeholder="Ej. Lic. Carlos Treviño"
-                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-stone-700 font-bold mb-1">Cargo de Quien Recibió</label>
-                              <input
-                                type="text"
-                                required
-                                value={receiverRole}
-                                onChange={(e) => setReceiverRole(e.target.value)}
-                                placeholder="Ej. Director de Recursos Humanos / Novia"
-                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                              />
-                            </div>
-                          </div>
+                          {agreementStatus === 'cerrado' ? (
+                            <>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-stone-700 font-bold mb-1">Tipo de Documento de Cierre</label>
+                                  <select
+                                    value={closingDocType}
+                                    onChange={(e) => setClosingDocType(e.target.value)}
+                                    className="w-full border border-teal-300 rounded-xl px-3 py-2 text-teal-950 bg-teal-50/40 font-bold"
+                                  >
+                                    <option value="Orden de servicio">Orden de servicio</option>
+                                    <option value="Reservación">Reservación</option>
+                                    <option value="Documento de cierre equivalente">Documento de cierre equivalente</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-stone-700 font-bold mb-1">Folio / No. de Referencia</label>
+                                  <input
+                                    type="text"
+                                    value={folio}
+                                    onChange={(e) => setFolio(e.target.value)}
+                                    placeholder="Ej. OS-2026-045 / RES-991"
+                                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 font-mono"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-stone-700 font-bold mb-1">Importe del Cierre ($ MXN)</label>
+                                  <input
+                                    type="number"
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value)}
+                                    placeholder="Ej. 120000"
+                                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 font-mono font-bold"
+                                  />
+                                </div>
+                              </div>
 
-                          <div>
-                            <label className="block text-stone-700 font-bold mb-1">Minuta de la Visita</label>
-                            <textarea
-                              rows={3}
-                              required
-                              value={minutes}
-                              onChange={(e) => setMinutes(e.target.value)}
-                              placeholder="Recorrido realizado, salones mostrados, dudas del cliente y próximos pasos..."
-                              className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
-                            />
-                          </div>
+                              <div className="bg-teal-50/70 border border-teal-200 rounded-2xl p-3.5 space-y-2">
+                                <label className="block font-bold text-teal-950">
+                                  📄 Evidencia Obligatoria de Cierre ({closingDocType})
+                                </label>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <input
+                                    type="text"
+                                    required
+                                    value={evidenceUrl}
+                                    onChange={(e) => setEvidenceUrl(e.target.value)}
+                                    placeholder="Sube el PDF/foto de la orden de servicio, reservación o documento de cierre..."
+                                    className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                                  />
+                                  <label className="px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shrink-0 transition-colors">
+                                    <span>{isUploadingEvidence ? '⏳ Subiendo...' : '📤 Subir Documento / PDF'}</span>
+                                    <input
+                                      type="file"
+                                      accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                      disabled={isUploadingEvidence}
+                                      onChange={(e) => handleUploadEvidenceFile(e, setEvidenceUrl)}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                </div>
+                              </div>
 
-                          <div>
-                            <label className="block text-stone-700 font-bold mb-1">Constancia de Asistencia (Enlace / Foto)</label>
-                            <input
-                              type="text"
-                              value={attendanceProofUrl}
-                              onChange={(e) => setAttendanceProofUrl(e.target.value)}
-                              placeholder="Foto de la visita o acuse de recibido"
-                              className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                            />
-                          </div>
-                        </div>
-                      )}
+                              <div>
+                                <label className="block text-stone-700 font-bold mb-1">Detalles / Resumen del Acuerdo</label>
+                                <textarea
+                                  rows={2}
+                                  value={agreements}
+                                  onChange={(e) => setAgreements(e.target.value)}
+                                  placeholder="Servicios contratados, condiciones de pago o fechas confirmadas..."
+                                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                                ⏳ <strong>Sin cierre por el momento:</strong> Registra obligatoriamente el siguiente paso y la fecha de seguimiento para mantener activa la oportunidad.
+                              </div>
 
-                      {/* FORM: REUNIÓN COMERCIAL (2 por mes, Ale o Fer) */}
-                      {activeModal.categoryType === 'reunion' && (
-                        <div className="space-y-3 text-xs">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-stone-700 font-bold mb-1">¿Quién va a ir?</label>
-                              <select
-                                value={assignedRep}
-                                onChange={(e) => setAssignedRep(e.target.value)}
-                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-bold"
-                              >
-                                <option value="Ale">Ale</option>
-                                <option value="Fer">Fer</option>
-                                <option value="Ambos (Ale y Fer)">Ambos (Ale y Fer)</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-stone-700 font-bold mb-1">Tema de la Reunión</label>
-                              <input
-                                type="text"
-                                required
-                                value={topic}
-                                onChange={(e) => setTopic(e.target.value)}
-                                placeholder="Ej. Cierre de convenio corporativo anual"
-                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                              />
-                            </div>
-                          </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-stone-700 font-bold mb-1">Siguiente Paso (Obligatorio)</label>
+                                  <input
+                                    type="text"
+                                    required
+                                    value={nextAction}
+                                    onChange={(e) => setNextAction(e.target.value)}
+                                    placeholder="Ej. Enviar ajuste de cotización y llamar para autorización"
+                                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-stone-700 font-bold mb-1">Fecha de Seguimiento (Obligatoria)</label>
+                                  <input
+                                    type="date"
+                                    required
+                                    value={nextDate}
+                                    onChange={(e) => setNextDate(e.target.value)}
+                                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                                  />
+                                </div>
+                              </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-stone-700 font-bold mb-1">Asistentes</label>
-                              <input
-                                type="text"
-                                required
-                                value={attendees}
-                                onChange={(e) => setAttendees(e.target.value)}
-                                placeholder="Ej. Directores de compras y finanzas del cliente"
-                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-stone-700 font-bold mb-1">Invitación o Confirmación (Enlace)</label>
-                              <input
-                                type="text"
-                                value={invitationProofUrl}
-                                onChange={(e) => setInvitationProofUrl(e.target.value)}
-                                placeholder="Enlace de invitación en Google Calendar / captura"
-                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-stone-700 font-bold mb-1">Acuerdos Tomados</label>
-                            <textarea
-                              rows={2}
-                              required
-                              value={agreements}
-                              onChange={(e) => setAgreements(e.target.value)}
-                              placeholder="Términos comerciales pre-acordados, precios pactados..."
-                              className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-stone-700 font-bold mb-1">Siguiente Acción</label>
-                            <input
-                              type="text"
-                              required
-                              value={nextAction}
-                              onChange={(e) => setNextAction(e.target.value)}
-                              placeholder="Ej. Envío de contrato final para firma el próximo martes"
-                              className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                            />
-                          </div>
+                              <div>
+                                <label className="block text-stone-700 font-bold mb-1">Observaciones / Motivo Pendiente</label>
+                                <textarea
+                                  rows={2}
+                                  value={notes}
+                                  onChange={(e) => setNotes(e.target.value)}
+                                  placeholder="Qué falta para cerrar (ej. aprobación de dirección, ajuste de fechas o presupuesto)..."
+                                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                                />
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
 
@@ -1468,6 +2268,7 @@ export function SalesSection({
                           onClick={() => {
                             setIsFormOpen(false);
                             setEditingActivityId(null);
+                            setUploadError(null);
                           }}
                           className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 text-xs font-semibold"
                         >
@@ -1475,7 +2276,8 @@ export function SalesSection({
                         </button>
                         <button
                           type="submit"
-                          className="px-5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold shadow-xs"
+                          disabled={isUploadingEvidence}
+                          className="px-5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white text-xs font-bold shadow-xs"
                         >
                           {editingActivityId ? 'Guardar Cambios' : 'Guardar y Registrar Tarea'}
                         </button>
@@ -1495,109 +2297,203 @@ export function SalesSection({
 
                       {modalActivities.length > 0 ? (
                         <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                          {modalActivities.map((act) => (
-                            <div
-                              key={act.id}
-                              className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-2 hover:border-blue-300 transition-all shadow-2xs"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <div className="font-bold text-stone-900 text-sm">
-                                    {act.clientName || act.company || act.topic || 'Registro sin título'}
-                                  </div>
-                                  <div className="flex items-center gap-2 text-[10px] text-stone-500 font-mono mt-0.5">
-                                    <span>📅 {formatDate(act.date)}</span>
-                                    {act.time && <span>· ⏰ {act.time}h</span>}
-                                    {act.phone && <span>· 📞 {act.phone}</span>}
-                                    {act.hotel && <span>· 🏨 {act.hotel}</span>}
-                                  </div>
-                                </div>
+                          {modalActivities.map((act) => {
+                            const proofLink =
+                              act.cancellationProofUrl ||
+                              act.attendanceProofUrl ||
+                              act.invitationProofUrl ||
+                              act.evidenceUrl ||
+                              act.proofUrl;
 
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  {act.answered !== undefined && (
-                                    <span
-                                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                                        act.answered
-                                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                          : 'bg-rose-100 text-rose-800 border-rose-300'
-                                      }`}
+                            const visitEvidenceLabel =
+                              act.visitEvidenceType === 'pin_ubicacion'
+                                ? '📍 Pin de ubicación'
+                                : act.visitEvidenceType === 'correo_confirmacion'
+                                ? '📧 Correo de confirmación'
+                                : act.visitEvidenceType === 'evidencia_cancelacion'
+                                ? '🚫 Evidencia de cancelación'
+                                : '📸 Foto del lugar';
+
+                            return (
+                              <div
+                                key={act.id}
+                                className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-xs space-y-2 hover:border-blue-300 transition-all shadow-2xs"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <div className="font-bold text-stone-900 text-sm">
+                                      {act.clientName || act.company || act.receiverName || act.topic || 'Registro sin título'}
+                                    </div>
+                                    <div className="flex items-center flex-wrap gap-2 text-[10px] text-stone-500 font-mono mt-0.5">
+                                      <span>📅 {formatDate(act.date)}</span>
+                                      {act.time && <span>· ⏰ {act.time}h</span>}
+                                      {act.phone && <span>· 📞 {act.phone}</span>}
+                                      {act.hotel && <span>· 🏨 {act.hotel}</span>}
+                                      {act.folio && <span>· #{act.folio}</span>}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center flex-wrap justify-end gap-1.5 shrink-0">
+                                    {act.type === 'llamada' && act.answered !== undefined && (
+                                      <span
+                                        className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                                          act.answered
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                            : 'bg-rose-100 text-rose-800 border-rose-300'
+                                        }`}
+                                      >
+                                        {act.answered ? 'Contestó' : 'No contestó'}
+                                      </span>
+                                    )}
+
+                                    {act.type === 'visita' && (
+                                      <span
+                                        className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                                          act.visitStatus === 'cancelada'
+                                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                            : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                        }`}
+                                      >
+                                        {act.visitStatus === 'cancelada' ? '✗ Cancelada' : '✓ Realizada'}
+                                      </span>
+                                    )}
+
+                                    {act.type === 'reunion' && act.meetingType && (
+                                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                        {act.meetingType === 'Zoom'
+                                          ? '💻 Zoom'
+                                          : act.meetingType === 'Meet'
+                                          ? '📹 Meet'
+                                          : `🏨 ${act.meetingType}`}
+                                      </span>
+                                    )}
+
+                                    {act.type === 'acuerdo' && (
+                                      <span
+                                        className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                                          act.agreementStatus === 'sin_cierre'
+                                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                            : 'bg-teal-100 text-teal-800 border-teal-300'
+                                        }`}
+                                      >
+                                        {act.agreementStatus === 'sin_cierre'
+                                          ? '⏳ Sin cierre · Seguimiento'
+                                          : `🏆 Cierre · ${act.closingDocType || 'Confirmado'}`}
+                                      </span>
+                                    )}
+
+                                    {act.amount ? (
+                                      <span className="font-mono font-extrabold text-xs text-purple-900 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                                        {formatCurrency(act.amount, 'MXN')}
+                                      </span>
+                                    ) : null}
+
+                                    {act.assignedRep && (
+                                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                        Asiste: {act.assignedRep}
+                                      </span>
+                                    )}
+
+                                    <button
+                                      onClick={() => handleEditItem(act)}
+                                      className="p-1 rounded text-stone-400 hover:text-stone-700 hover:bg-stone-200"
+                                      title="Editar"
                                     >
-                                      {act.answered ? 'Contestó' : 'No contestó'}
-                                    </span>
-                                  )}
+                                      ✏️
+                                    </button>
 
-                                  {act.amount && (
-                                    <span className="font-mono font-extrabold text-xs text-purple-900 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
-                                      {formatCurrency(act.amount, 'MXN')}
-                                    </span>
-                                  )}
-
-                                  {act.assignedRep && (
-                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200">
-                                      Asiste: {act.assignedRep}
-                                    </span>
-                                  )}
-
-                                  <button
-                                    onClick={() => handleEditItem(act)}
-                                    className="p-1 rounded text-stone-400 hover:text-stone-700 hover:bg-stone-200"
-                                    title="Editar"
-                                  >
-                                    ✏️
-                                  </button>
-
-                                  <button
-                                    onClick={() => onDeleteActivity(act.id)}
-                                    className="p-1 rounded text-stone-400 hover:text-rose-600 hover:bg-rose-50"
-                                    title="Eliminar"
-                                  >
-                                    🗑️
-                                  </button>
+                                    <button
+                                      onClick={() => onDeleteActivity(act.id)}
+                                      className="p-1 rounded text-stone-400 hover:text-rose-600 hover:bg-rose-50"
+                                      title="Eliminar"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
                                 </div>
+
+                                {/* Detalles según categoría */}
+                                {act.receiverName && (
+                                  <div className="text-[11px] text-stone-600">
+                                    <strong className="text-stone-800">Recibió:</strong> {act.receiverName}
+                                    {act.receiverRole ? ` (${act.receiverRole})` : ''}
+                                  </div>
+                                )}
+
+                                {act.notes && (
+                                  <p className="text-stone-600 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed">
+                                    {act.notes}
+                                  </p>
+                                )}
+
+                                {act.clientFeedback && (
+                                  <p className="text-stone-700 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed">
+                                    <strong className="text-stone-900">¿Qué dijo el cliente?:</strong> {act.clientFeedback}
+                                  </p>
+                                )}
+
+                                {act.minutes && (
+                                  <p className="text-stone-700 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed">
+                                    <strong className="text-stone-900">
+                                      {act.visitStatus === 'cancelada' ? 'Motivo de cancelación:' : 'Minuta:'}
+                                    </strong>{' '}
+                                    {act.minutes}
+                                  </p>
+                                )}
+
+                                {act.agreements && (
+                                  <p className="text-stone-700 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed">
+                                    <strong className="text-stone-900">Acuerdos:</strong> {act.agreements}
+                                    {act.nextAction && (
+                                      <span>
+                                        {' '}
+                                        · <strong className="text-stone-900">Siguiente Acción:</strong> {act.nextAction}
+                                      </span>
+                                    )}
+                                  </p>
+                                )}
+
+                                {/* Siguiente paso y fecha de seguimiento cuando NO hubo cierre o hay reprogramación */}
+                                {(!act.agreements && act.nextAction) || act.nextDate ? (
+                                  <div className="text-[11px] text-amber-900 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200 flex flex-wrap items-center justify-between gap-2">
+                                    {act.nextAction && (
+                                      <span>
+                                        <strong>➡️ Siguiente paso:</strong> {act.nextAction}
+                                      </span>
+                                    )}
+                                    {act.nextDate && (
+                                      <span className="font-mono font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                                        📅 Seguimiento: {formatDate(act.nextDate)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : null}
+
+                                {/* Evidencias / Comprobantes links */}
+                                {proofLink && (
+                                  <div className="text-[10px] text-blue-700 pt-1 font-semibold flex items-center flex-wrap gap-1.5">
+                                    <span>
+                                      {act.type === 'visita'
+                                        ? `${visitEvidenceLabel}:`
+                                        : act.type === 'reunion'
+                                        ? '📧 Correo de acuerdo / confirmación:'
+                                        : act.type === 'acuerdo'
+                                        ? `📄 ${act.closingDocType || 'Documento de cierre'}:`
+                                        : '📎 Evidencia / Comprobante:'}
+                                    </span>
+                                    <a
+                                      href={safeExternalUrl(proofLink)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="underline truncate max-w-md hover:text-blue-900"
+                                    >
+                                      {proofLink}
+                                    </a>
+                                  </div>
+                                )}
                               </div>
-
-                              {/* Detalles según categoría */}
-                              {act.notes && (
-                                <p className="text-stone-600 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed">
-                                  {act.notes}
-                                </p>
-                              )}
-
-                              {act.clientFeedback && (
-                                <p className="text-stone-700 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed">
-                                  <strong className="text-stone-900">¿Qué dijo el cliente?:</strong> {act.clientFeedback}
-                                </p>
-                              )}
-
-                              {act.minutes && (
-                                <p className="text-stone-700 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed">
-                                  <strong className="text-stone-900">Minuta:</strong> {act.minutes}
-                                </p>
-                              )}
-
-                              {act.agreements && (
-                                <p className="text-stone-700 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed">
-                                  <strong className="text-stone-900">Acuerdos:</strong> {act.agreements}
-                                  {act.nextAction && <span> · <strong className="text-stone-900">Siguiente Acción:</strong> {act.nextAction}</span>}
-                                </p>
-                              )}
-
-                              {/* Evidencias / Comprobantes links */}
-                              {(act.evidenceUrl || act.proofUrl || act.attendanceProofUrl || act.invitationProofUrl) && (
-                                <div className="text-[10px] text-blue-700 pt-1 font-semibold flex items-center gap-1.5">
-                                  <span>📎 Evidencia / Comprobante:</span>
-                                  <a
-                                    href={safeExternalUrl(act.evidenceUrl || act.proofUrl || act.attendanceProofUrl || act.invitationProofUrl)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="underline truncate max-w-md hover:text-blue-900"
-                                  >
-                                    {act.evidenceUrl || act.proofUrl || act.attendanceProofUrl || act.invitationProofUrl}
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="text-center py-8 bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-stone-400 space-y-2">

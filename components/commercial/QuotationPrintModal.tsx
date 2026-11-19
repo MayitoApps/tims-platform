@@ -729,7 +729,11 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
               </h3>
               {currentDeal.requirements && currentDeal.requirements.length > 0 && (
                 <span className="text-[10px] font-mono font-bold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {currentDeal.requirements.filter((r) => r.completed).length} de {currentDeal.requirements.length} cumplidos
+                  {currentDeal.requirements.filter((r) => r.completed).length} de {currentDeal.requirements.length} cumplidos (
+                  {Math.round(
+                    (currentDeal.requirements.filter((r) => r.completed).length / currentDeal.requirements.length) * 100
+                  )}
+                  %)
                 </span>
               )}
             </div>

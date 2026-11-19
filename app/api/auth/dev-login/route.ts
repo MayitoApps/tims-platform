@@ -1,23 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSessionCookie } from '@/lib/auth';
 import { getDb, ensureTables } from '@/lib/db';
+import { TEAM_USERS_DIRECTORY, getDirectoryUserByEmail } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
-  const role = request.nextUrl.searchParams.get('role') || 'sales';
-  
-  let email = 'expansioncomercia.gohb@gmail.com';
-  let name = 'Fernanda Langárica';
-  let initials = 'FL';
-  let department = 'Dirección Comercial & Expansión';
-
-  if (role === 'artes' || role === 'artes_admin' || role === 'admin' || role === 'mario') {
-    email = 'artes.grupoorganico@gmail.com';
-    name = 'Mario Avalos';
-    initials = 'MA';
-    department = 'Dirección de Arte & Diseño';
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Inicio de sesión de desarrollo deshabilitado en producción.' },
+      { status: 403 }
+    );
   }
 
-  // Refrescar perfil y último inicio de sesión en base de datos
+  const emailParam = request.nextUrl.searchParams.get('email');
+  const roleParam = request.nextUrl.searchParams.get('role') || 'admin';
+
+  const targetUser =
+    (emailParam ? getDirectoryUserByEmail(emailParam) : undefined) ||
+    (roleParam === 'sales'
+      ? getDirectoryUserByEmail('expansioncomercia.gohb@gmail.com')
+      : getDirectoryUserByEmail('artes.grupoorganico@gmail.com')) ||
+    TEAM_USERS_DIRECTORY[0];
+
   try {
     const sql = getDb();
     if (sql) {
@@ -26,17 +29,17 @@ export async function GET(request: NextRequest) {
         INSERT INTO user_profiles (
           id, name, email, role, initials, department, last_login
         ) VALUES (
-          ${'user-' + initials.toLowerCase() + '-1'},
-          ${name},
-          ${email},
-          'admin',
-          ${initials},
-          ${department},
+          ${targetUser.id},
+          ${targetUser.name},
+          ${targetUser.email},
+          ${targetUser.role},
+          ${targetUser.initials},
+          ${targetUser.department},
           CURRENT_TIMESTAMP
         )
         ON CONFLICT (email) DO UPDATE SET
           name = EXCLUDED.name,
-          role = 'admin',
+          role = EXCLUDED.role,
           initials = EXCLUDED.initials,
           department = EXCLUDED.department,
           last_login = CURRENT_TIMESTAMP;
@@ -47,9 +50,10 @@ export async function GET(request: NextRequest) {
   }
 
   await createSessionCookie({
-    id: `team-${role}-1`,
-    name,
-    email
+    id: targetUser.id,
+    name: targetUser.name,
+    email: targetUser.email,
+    role: targetUser.role
   });
 
   const baseUrl = new URL('/', request.url);

@@ -1,22 +1,27 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
-import { AppNotification } from '@/lib/types';
+import { AppNotification, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { requireAuthSession, requireAdminSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 export async function GET() {
+  const auth = await requireAuthSession();
+  if (auth.errorResponse) return auth.errorResponse;
+  const { session } = auth;
+
   const sql = getDb();
   if (!sql) {
-    return NextResponse.json({ success: true, source: 'local', notifications: [] });
+    return NextResponse.json({ success: true, source: 'local', notifications: [] }, { headers: NO_STORE_HEADERS });
   }
 
   try {
     await ensureTables();
     const rows = await sql`
       SELECT * FROM app_notifications
-      ORDER BY created_at DESC
+      ORDER BY created_ts DESC NULLS LAST, created_at DESC
       LIMIT 100;
     `;
 
-    const notifications: AppNotification[] = rows.map((r: any) => ({
+    let notifications: AppNotification[] = rows.map((r: any) => ({
       id: r.id,
       title: r.title,
       message: r.message,
@@ -31,15 +36,24 @@ export async function GET() {
       read: Boolean(r.read)
     }));
 
-    return NextResponse.json({ success: true, source: 'postgres', notifications });
+    if (!isUserAdmin(session)) {
+      notifications = notifications.filter((n) =>
+        matchesUserIdentity(session, n.targetEmail, n.targetName)
+      );
+    }
+
+    return NextResponse.json({ success: true, source: 'postgres', notifications }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error fetching notifications:', error);
-    return NextResponse.json({ success: false, notifications: [] });
+    return NextResponse.json({ success: false, notifications: [] }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const raw: Partial<AppNotification> = await request.json();
     const notifId = raw.id || `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const createdAt = raw.createdAt || new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
@@ -94,6 +108,10 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
+
     const body = await request.json();
     const sql = getDb();
     if (!sql) {
@@ -103,10 +121,19 @@ export async function PATCH(request: Request) {
     await ensureTables();
 
     if (body.all) {
-      await sql`
-        UPDATE app_notifications
-        SET read = true;
-      `;
+      if (isUserAdmin(session)) {
+        await sql`
+          UPDATE app_notifications
+          SET read = true;
+        `;
+      } else {
+        await sql`
+          UPDATE app_notifications
+          SET read = true
+          WHERE LOWER(COALESCE(target_email, '')) = LOWER(${session.email})
+             OR LOWER(COALESCE(target_name, '')) = LOWER(${session.name});
+        `;
+      }
       return NextResponse.json({ success: true, message: 'Todas marcadas como leídas' });
     }
 
@@ -132,6 +159,8 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.errorResponse) return auth.errorResponse;
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const sql = getDb();

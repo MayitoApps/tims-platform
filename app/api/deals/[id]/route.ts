@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
-import { isAuthorizedAdmin } from '@/lib/auth';
-import { HotelDeal } from '@/lib/types';
+import { requireAuthSession, requireAdminSession } from '@/lib/auth';
+import { HotelDeal, isUserAdmin, matchesUserIdentity } from '@/lib/types';
 
 
 export async function PUT(
@@ -9,6 +9,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
+
     const { id } = await params;
     const updates: Partial<HotelDeal> = await request.json();
     const sql = getDb();
@@ -18,6 +22,16 @@ export async function PUT(
     }
 
     await ensureTables();
+
+    if (!isUserAdmin(session)) {
+      const existing = await sql`SELECT assigned_email, assigned_rep FROM hotel_deals WHERE id = ${id} LIMIT 1;`;
+      if (existing.length === 0) {
+        return NextResponse.json({ success: false, error: 'Evento no encontrado' }, { status: 404 });
+      }
+      if (!matchesUserIdentity(session, existing[0].assigned_email, existing[0].assigned_rep)) {
+        return NextResponse.json({ success: false, error: 'No puedes modificar eventos de otro compañero.' }, { status: 403 });
+      }
+    }
 
     // Check if updating only stage or full deal
     if (Object.keys(updates).length === 1 && updates.stage) {
@@ -70,16 +84,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (!isAuthorizedAdmin(request)) {
-      return NextResponse.json(
-        { success: false, error: 'Acceso denegado. Solo administradores autorizados pueden eliminar cotizaciones o eventos.' },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdminSession();
+    if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;
     const sql = getDb();

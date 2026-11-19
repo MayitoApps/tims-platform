@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { UserProfile, HotelDeal, AppNotification } from '@/lib/types';
+import { UserProfile, HotelDeal, AppNotification, getUserAllowedModules, isUserAdmin } from '@/lib/types';
 import { UpcomingEventsNotification } from './UpcomingEventsNotification';
 
 interface NavbarProps {
@@ -27,6 +27,9 @@ export function Navbar({
   onSelectNotification,
   onMarkAllAsRead
 }: NavbarProps) {
+  const allowedModules = getUserAllowedModules(currentUser);
+  const userIsAdmin = isUserAdmin(currentUser);
+
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-stone-200 px-4 sm:px-8 py-3 transition-colors shadow-2xs">
       <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-4">
@@ -42,38 +45,44 @@ export function Navbar({
             </span>
           </div>
 
-          {/* Master Section Switcher (Marketing vs Comercialización vs Ventas) */}
+          {/* Master Section Switcher (Filtrado según permisos del usuario) */}
           <div className="flex items-center p-1 rounded-xl bg-stone-100 border border-stone-200 text-xs font-semibold">
-            <button
-              onClick={() => onSectionChange('marketing')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all ${
-                activeSection === 'marketing'
-                  ? 'bg-linear-to-r from-rose-600 to-indigo-600 text-white shadow-xs font-bold'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <span>🎨 Marketing & Comunicación</span>
-            </button>
-            <button
-              onClick={() => onSectionChange('commercial')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all ${
-                activeSection === 'commercial'
-                  ? 'bg-linear-to-r from-emerald-700 to-teal-800 text-white shadow-xs font-bold'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <span>🏨 Comercialización</span>
-            </button>
-            <button
-              onClick={() => onSectionChange('sales')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all ${
-                activeSection === 'sales'
-                  ? 'bg-linear-to-r from-blue-700 to-indigo-800 text-white shadow-xs font-bold'
-                  : 'text-stone-600 hover:text-stone-900'
-              }`}
-            >
-              <span>💼 Ventas</span>
-            </button>
+            {allowedModules.includes('marketing') && (
+              <button
+                onClick={() => onSectionChange('marketing')}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  activeSection === 'marketing'
+                    ? 'bg-linear-to-r from-rose-600 to-indigo-600 text-white shadow-xs font-bold'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>🎨 Marketing & Comunicación</span>
+              </button>
+            )}
+            {allowedModules.includes('commercial') && (
+              <button
+                onClick={() => onSectionChange('commercial')}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  activeSection === 'commercial'
+                    ? 'bg-linear-to-r from-emerald-700 to-teal-800 text-white shadow-xs font-bold'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>🏨 Comercialización</span>
+              </button>
+            )}
+            {allowedModules.includes('sales') && (
+              <button
+                onClick={() => onSectionChange('sales')}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  activeSection === 'sales'
+                    ? 'bg-linear-to-r from-blue-700 to-indigo-800 text-white shadow-xs font-bold'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>💼 Ventas</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -103,8 +112,15 @@ export function Navbar({
           {/* Logged in User Pill */}
           <div className="flex items-center gap-2.5">
             <div className="text-right hidden md:block">
-              <div className="text-xs font-bold text-stone-900">{currentUser.name}</div>
-              <div className="text-[10px] text-stone-500 truncate max-w-[160px]">{currentUser.email}</div>
+              <div className="text-xs font-bold text-stone-900 flex items-center justify-end gap-1.5">
+                <span>{currentUser.name}</span>
+                {userIsAdmin && (
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                    ADMIN
+                  </span>
+                )}
+              </div>
+              <div className="text-[10px] text-stone-500 truncate max-w-[180px]">{currentUser.email}</div>
             </div>
 
             {currentUser.avatar ? (

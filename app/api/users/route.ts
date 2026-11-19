@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
 import { UserProfile } from '@/lib/types';
+import { requireAuthSession, requireAdminSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 export async function GET(request: Request) {
   // Request header access signals dynamic execution
   request.headers.get('host');
+  const auth = await requireAuthSession();
+  if (auth.errorResponse) return auth.errorResponse;
+
   const sql = getDb();
   if (!sql) {
-    return NextResponse.json({ success: true, source: 'local', users: [] });
+    return NextResponse.json({ success: true, source: 'local', users: [] }, { headers: NO_STORE_HEADERS });
   }
 
   try {
@@ -15,7 +19,7 @@ export async function GET(request: Request) {
     const rows = await sql`
       SELECT id, name, email, avatar, role, initials, department, phone, last_login, created_at
       FROM user_profiles
-      ORDER BY last_login DESC;
+      ORDER BY name ASC;
     `;
 
     const users: (UserProfile & { lastLogin?: string })[] = rows.map((r: any) => ({
@@ -25,21 +29,25 @@ export async function GET(request: Request) {
       avatar: r.avatar || undefined,
       role: r.role || 'sales',
       initials: r.initials,
+      department: r.department || undefined,
       lastLogin: r.last_login
     }));
 
     return NextResponse.json(
       { success: true, source: 'postgres', users },
-      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+      { headers: NO_STORE_HEADERS }
     );
   } catch (error) {
     console.error('Error fetching users from DB:', error);
-    return NextResponse.json({ success: false, users: [] });
+    return NextResponse.json({ success: false, users: [] }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await request.json();
     const { name, email, role, department, phone } = body;
 
@@ -91,6 +99,9 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const auth = await requireAdminSession();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
     const id = searchParams.get('id');

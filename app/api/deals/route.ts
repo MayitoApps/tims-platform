@@ -1,18 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables, mapRowToDeal } from '@/lib/db';
 import { INITIAL_DEALS } from '@/lib/initial-data';
-import { HotelDeal } from '@/lib/types';
+import { HotelDeal, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { requireAuthSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 
 export async function GET() {
+  const auth = await requireAuthSession();
+  if (auth.errorResponse) return auth.errorResponse;
+  const { session } = auth;
+
   const sql = getDb();
 
   // If no DB is connected, fallback gracefully to initial deals
   if (!sql) {
-    return NextResponse.json({
-      source: 'local',
-      deals: INITIAL_DEALS
-    });
+    return NextResponse.json(
+      { source: 'local', deals: INITIAL_DEALS },
+      { headers: NO_STORE_HEADERS }
+    );
   }
 
   try {
@@ -22,22 +27,49 @@ export async function GET() {
       ORDER BY check_in_date ASC, created_at DESC;
     `;
 
-    const deals = rows.map(mapRowToDeal);
-    return NextResponse.json({
-      source: 'postgres',
-      deals
-    });
+    let deals = rows.map(mapRowToDeal);
+
+    // Todos ven los eventos apartados en el calendario, pero usuarios normales
+    // no reciben datos confidenciales (contacto, montos, facturas, notas) de otros compañeros.
+    if (!isUserAdmin(session)) {
+      deals = deals.map((d) => {
+        const isOwn = matchesUserIdentity(session, d.assignedEmail, d.assignedRep);
+        if (isOwn) return d;
+        return {
+          ...d,
+          clientName: 'Evento Reservado',
+          totalValue: 0,
+          depositAmount: 0,
+          balanceDue: 0,
+          paymentDueDate: undefined,
+          contactEmail: undefined,
+          contactPhone: undefined,
+          notes: '',
+          comments: [],
+          invoices: [],
+          requirements: []
+        };
+      });
+    }
+
+    return NextResponse.json(
+      { source: 'postgres', deals },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (error) {
     console.error('Error fetching deals from DB:', error);
-    return NextResponse.json({
-      source: 'local_fallback',
-      deals: INITIAL_DEALS
-    });
+    return NextResponse.json(
+      { source: 'local_fallback', deals: INITIAL_DEALS },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const raw: Partial<HotelDeal> = await request.json();
     const sql = getDb();
 

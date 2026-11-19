@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
-import { isAuthorizedAdmin } from '@/lib/auth';
-import { CommercialTask } from '@/lib/types';
+import { requireAuthSession, requireAdminSession } from '@/lib/auth';
+import { CommercialTask, isUserAdmin, matchesUserIdentity } from '@/lib/types';
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
+
     const { id } = await params;
     const updates: Partial<CommercialTask> = await request.json();
     const sql = getDb();
@@ -17,6 +21,20 @@ export async function PUT(
     }
 
     await ensureTables();
+
+    if (!isUserAdmin(session)) {
+      const existing = await sql`SELECT assigned_email, assigned_to, created_by FROM commercial_tasks WHERE id = ${id} LIMIT 1;`;
+      if (existing.length === 0) {
+        return NextResponse.json({ success: false, error: 'Tarea no encontrada' }, { status: 404 });
+      }
+      const row = existing[0];
+      if (
+        !matchesUserIdentity(session, row.assigned_email, row.assigned_to) &&
+        !matchesUserIdentity(session, undefined, row.created_by)
+      ) {
+        return NextResponse.json({ success: false, error: 'No puedes modificar tareas de otro compañero.' }, { status: 403 });
+      }
+    }
 
     if (Object.keys(updates).length === 1 && updates.stage) {
       await sql`
@@ -55,16 +73,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (!isAuthorizedAdmin(request)) {
-      return NextResponse.json(
-        { success: false, error: 'Acceso denegado. Solo administradores autorizados pueden eliminar tareas comerciales.' },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdminSession();
+    if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;
     const sql = getDb();

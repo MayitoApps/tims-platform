@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { HotelDeal, AppNotification, UserProfile, isAdminEmail } from '@/lib/types';
+import { HotelDeal, AppNotification, UserProfile, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { getLocalDateStr } from '@/lib/utils';
 
 interface UpcomingEventsNotificationProps {
   deals: HotelDeal[];
@@ -35,38 +36,32 @@ export function UpcomingEventsNotification({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const isUserAdmin = isAdminEmail(currentUser?.email);
+  const userIsAdmin = isUserAdmin(currentUser);
 
   // Filtrado de notificaciones:
   // Si es ADMIN -> Ve todos los movimientos importantes de la empresa.
   // Si es USUARIO NORMAL -> Solo ve las notificaciones dirigidas estrictamente a él/ella.
   const visibleNotifications = notifications.filter((n) => {
-    if (isUserAdmin) return true;
+    if (userIsAdmin) return true;
     if (!currentUser) return false;
-    const userEmail = (currentUser.email || '').toLowerCase().trim();
-    const userName = (currentUser.name || '').toLowerCase().trim();
-
-    const matchesEmail = n.targetEmail && n.targetEmail.toLowerCase().trim() === userEmail;
-    const matchesName = n.targetName && userName && (n.targetName.toLowerCase().includes(userName) || userName.includes(n.targetName.toLowerCase()));
-
-    return matchesEmail || matchesName;
+    return matchesUserIdentity(currentUser, n.targetEmail, n.targetName);
   });
 
   const unreadCount = visibleNotifications.filter((n) => !n.read).length;
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayMs = new Date(todayStr).getTime();
+  const todayStr = getLocalDateStr();
+  const todayMs = new Date(`${todayStr}T00:00:00`).getTime();
 
   // Filter events within the next 15 days
   const upcomingEvents = deals
     .filter((d) => {
       if (d.stage === 'perdido') return false;
-      const checkInMs = new Date(d.checkInDate).getTime();
+      const checkInMs = new Date(`${d.checkInDate}T00:00:00`).getTime();
       const diffDays = Math.ceil((checkInMs - todayMs) / (1000 * 3600 * 24));
       return diffDays >= 0 && diffDays <= 15;
     })
     .map((deal) => {
-      const checkInMs = new Date(deal.checkInDate).getTime();
+      const checkInMs = new Date(`${deal.checkInDate}T00:00:00`).getTime();
       const diffDays = Math.ceil((checkInMs - todayMs) / (1000 * 3600 * 24));
       const isUrgent = diffDays <= 5;
       const isPendingPayment = deal.paymentStatus !== 'liquidado';
@@ -116,7 +111,7 @@ export function UpcomingEventsNotification({
                 </h4>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 font-mono text-stone-300">
-                {isUserAdmin ? '🛡️ Modo Administrador' : '👤 Notificaciones Personales'}
+                {userIsAdmin ? '🛡️ Modo Administrador' : '👤 Notificaciones Personales'}
               </span>
             </div>
 
@@ -158,7 +153,7 @@ export function UpcomingEventsNotification({
             <div className="max-h-96 overflow-y-auto divide-y divide-stone-100 p-1">
               <div className="flex items-center justify-between px-3 py-1.5 text-[11px] text-stone-500 bg-stone-50/80">
                 <span>
-                  {isUserAdmin
+                  {userIsAdmin
                     ? 'Todos los movimientos de la plataforma'
                     : `Para: ${currentUser?.name || 'Usuario'}`}
                 </span>
@@ -232,7 +227,7 @@ export function UpcomingEventsNotification({
                     No tienes notificaciones pendientes.
                   </p>
                   <p className="text-[11px] text-stone-400 max-w-[280px] mx-auto">
-                    {isUserAdmin
+                    {userIsAdmin
                       ? 'Aquí verás todos los comentarios, nuevos eventos y cambios en tiempo real.'
                       : 'Solo recibirás notificaciones personales cuando alguien comente o te asigne un requerimiento.'}
                   </p>

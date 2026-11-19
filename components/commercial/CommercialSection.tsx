@@ -11,22 +11,24 @@ import {
   PaymentStatus,
   TaskComment,
   AppNotification,
-  CommercialExecutive,
   CommercialTask,
   CommercialTaskStage,
   ADMIN_EMAILS,
   isAdminEmail,
+  isUserAdmin,
   getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
-import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel, safeExternalUrl, getLocalDateStr } from '@/lib/utils';
+import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel, safeExternalUrl, getLocalDateStr, calculateProgressPercent, readPersistedNavValue, writePersistedNavValue } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 import { QuotationPrintModal } from './QuotationPrintModal';
 import { AvailabilityCheckerModal } from './AvailabilityCheckerModal';
 import { InvoicesTab } from './InvoicesTab';
+import { CommercialMetricsTab } from './CommercialMetricsTab';
 
 interface CommercialSectionProps {
   deals: HotelDeal[];
+  allDealsForCalendar?: HotelDeal[];
   commercialTasks?: CommercialTask[];
   currentUser?: UserProfile | null;
   registeredUsers?: UserProfile[];
@@ -72,6 +74,7 @@ export const getDealRealIncome = (deal: HotelDeal): number => {
 
 export function CommercialSection({
   deals,
+  allDealsForCalendar,
   commercialTasks = [],
   currentUser,
   registeredUsers = [],
@@ -87,9 +90,22 @@ export function CommercialSection({
   onUpdateCommercialTaskStage,
   onAddNotification
 }: CommercialSectionProps) {
-  const isCurrentUserAdmin = isAdminEmail(currentUser?.email);
+  const isCurrentUserAdmin = isUserAdmin(currentUser);
+  const calendarDeals = allDealsForCalendar || deals;
 
-  const [subView, setSubView] = useState<'pipeline' | 'tareas' | 'calendario' | 'tabla' | 'reporte' | 'facturas'>('pipeline');
+  const [subView, setSubView] = useState<'pipeline' | 'tareas' | 'calendario' | 'tabla' | 'reporte' | 'facturas'>(() =>
+    readPersistedNavValue(
+      'tims_commercial_subview',
+      ['pipeline', 'tareas', 'calendario', 'tabla', 'reporte', 'facturas'] as const,
+      'pipeline',
+      1,
+      'commercial'
+    )
+  );
+
+  useEffect(() => {
+    writePersistedNavValue('tims_commercial_subview', subView, 'commercial', subView);
+  }, [subView]);
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
 
   const totalInvoicesCount = useMemo(() => {
@@ -147,11 +163,6 @@ export function CommercialSection({
   const [dealCommentText, setDealCommentText] = useState('');
   const [quotationDeal, setQuotationDeal] = useState<HotelDeal | null>(null);
   const [isCheckerOpen, setIsCheckerOpen] = useState(false);
-
-  // Reporte & Metas
-  const [totalGoalMXN, setTotalGoalMXN] = useState(10000000);
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [tempGoalInput, setTempGoalInput] = useState('10000000');
 
   // Auto-open deal if passed via selectedDealId (e.g. from Notifications)
   useEffect(() => {
@@ -270,23 +281,6 @@ export function CommercialSection({
     (d) => selectedHotelFilter === 'all' || d.hotelName === selectedHotelFilter
   );
 
-  const totalPipelineRevenue = filteredDeals
-    .filter((d) => d.stage !== 'perdido')
-    .reduce((acc, d) => acc + d.totalValue, 0);
-
-  // Dinero real confirmado (anticipos, liquidaciones y adelantos reales)
-  const totalRealIncome = filteredDeals
-    .filter((d) => d.stage !== 'perdido')
-    .reduce((acc, d) => acc + getDealRealIncome(d), 0);
-
-  const totalWonRevenue = filteredDeals
-    .filter((d) => d.stage === 'contratado')
-    .reduce((acc, d) => acc + d.totalValue, 0);
-
-  const totalRoomNights = filteredDeals
-    .filter((d) => d.stage !== 'perdido')
-    .reduce((acc, d) => acc + d.roomNights, 0);
-
   // MANEJO DE COMENTARIOS Y NOTAS DE ADMINISTRADORES EN EVENTOS
   const handleAddDealComment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -361,6 +355,18 @@ export function CommercialSection({
   // Lista unificada de ejecutivos y usuarios registrados para asignación
   // Lista unificada de ejecutivos y usuarios registrados reales para asignación
   const combinedTeamList = useMemo(() => {
+    if (!isCurrentUserAdmin && currentUser) {
+      return [
+        {
+          name: currentUser.name || 'Usuario Actual',
+          email: currentUser.email,
+          role: 'Comercial',
+          initials: currentUser.initials || (currentUser.name || 'U').slice(0, 2).toUpperCase(),
+          avatar: currentUser.avatar
+        }
+      ];
+    }
+
     const map = new Map<string, { name: string; email: string; role: string; initials: string; avatar?: string }>();
 
     if (registeredUsers && registeredUsers.length > 0) {
@@ -392,40 +398,11 @@ export function CommercialSection({
     }
 
     return Array.from(map.values());
-  }, [registeredUsers, currentUser]);
-
-  // Lista de ejecutivos comerciales reales para metas y estadísticas
-  const commercialExecutivesList = useMemo(() => {
-    const map = new Map<string, { name: string; email: string; role: string; initials: string }>();
-
-    if (registeredUsers && registeredUsers.length > 0) {
-      registeredUsers.forEach((u) => {
-        map.set(u.email.toLowerCase().trim(), {
-          name: u.name,
-          email: u.email,
-          role: u.role === 'admin' ? 'Dirección Comercial' : 'Ejecutivo Comercial',
-          initials: u.initials || u.name.slice(0, 2).toUpperCase()
-        });
-      });
-    }
-
-    deals.forEach((d) => {
-      if (d.assignedEmail && !map.has(d.assignedEmail.toLowerCase().trim())) {
-        map.set(d.assignedEmail.toLowerCase().trim(), {
-          name: d.assignedRep || d.assignedEmail,
-          email: d.assignedEmail,
-          role: 'Ejecutivo Comercial',
-          initials: (d.assignedRep || d.assignedEmail).slice(0, 2).toUpperCase()
-        });
-      }
-    });
-
-    return Array.from(map.values());
-  }, [registeredUsers, deals]);
+  }, [registeredUsers, currentUser, isCurrentUserAdmin]);
 
   // Verificar si un ejecutivo está operando un evento en sitio actualmente
   const isAssigneeOperatingEvent = (emailOrName: string) => {
-    const st = getExecutiveEventStatus(deals, emailOrName);
+    const st = getExecutiveEventStatus(calendarDeals, emailOrName);
     return st.isOperating ? st.activeDeal : null;
   };
 
@@ -763,7 +740,7 @@ export function CommercialSection({
       const newIn = new Date(editCheckIn).getTime();
       const newOut = new Date(editCheckOut).getTime();
 
-      for (const d of deals) {
+      for (const d of calendarDeals) {
         if (d.id === editingDeal.id) continue; // Exclude self
         if (d.hotelName !== editHotel) continue;
         if (d.stage === 'perdido') continue;
@@ -789,7 +766,7 @@ export function CommercialSection({
     }
 
     // Validación de disponibilidad del ejecutivo: Si está operando un evento en esas fechas, no puede ser asignado
-    const repStatus = getExecutiveEventStatus(deals, editAssignedRepEmail || editAssignedRepName, editCheckIn);
+    const repStatus = getExecutiveEventStatus(calendarDeals, editAssignedRepEmail || editAssignedRepName, editCheckIn);
     if (repStatus.isOperating && repStatus.activeDeal && repStatus.activeDeal.id !== editingDeal.id) {
       setEditConflictError(
         `⛔ ${editAssignedRepName} no puede ser asignado ya que se encuentra OPERANDO EN SITIO el evento "${repStatus.activeDeal.companyOrAgency}" en ${repStatus.activeDeal.hotelName} (del ${formatDate(repStatus.activeDeal.checkInDate)} al ${formatDate(repStatus.activeDeal.checkOutDate)}). No se le pueden asignar tareas ni eventos mientras esté operando.`
@@ -860,8 +837,8 @@ export function CommercialSection({
 
     const spacesToBook = selectedSpaces.length > 0 ? selectedSpaces : [availableSpaces[0]?.name || 'Área Principal'];
 
-    // Validar si existe alguna reserva activa en el mismo hotel con solapamiento de fechas y espacios
-    for (const deal of deals) {
+    // Validar si existe alguna reserva activa en el mismo hotel con solapamiento de fechas y espacios (contra todos los eventos del calendario)
+    for (const deal of calendarDeals) {
       if (deal.hotelName === hotel && deal.stage !== 'perdido') {
         const isDateOverlap = checkIn <= deal.checkOutDate && checkOut >= deal.checkInDate;
         if (isDateOverlap) {
@@ -910,7 +887,7 @@ export function CommercialSection({
       attendeesCount: parseInt(attendees) || 50,
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      assignedRep: currentUser?.name || 'Fernanda Langárica',
+      assignedRep: currentUser?.name || 'Fernanda Langarica',
       assignedEmail: currentUser?.email || 'expansioncomercia.gohb@gmail.com',
       comments: [],
       notes: notes || 'Solicitud de bloqueo de espacios y cotización oficial.',
@@ -1122,11 +1099,12 @@ export function CommercialSection({
         </div>
       )}
 
-      {/* SUB-VIEW: CALENDARIO EXCLUSIVO DE COMERCIALIZACIÓN (SEPARADO) */}
+      {/* SUB-VIEW: CALENDARIO COMPARTIDO DE EVENTOS APARTADOS */}
       {subView === 'calendario' && (
         <SharedCalendar
           mode="commercial"
-          deals={deals}
+          deals={calendarDeals}
+          currentUser={currentUser}
           calendarDate={calendarDate}
           onCalendarDateChange={setCalendarDate}
           onAddDealClick={(targetDate) => openAddDealModal(targetDate)}
@@ -1514,7 +1492,12 @@ export function CommercialSection({
                                       : 'bg-amber-100 text-amber-800 border border-amber-300'
                                   }`}
                                 >
-                                  {deal.requirements.filter((r) => r.completed).length}/{deal.requirements.length}
+                                  {deal.requirements.filter((r) => r.completed).length}/{deal.requirements.length} (
+                                  {calculateProgressPercent(
+                                    deal.requirements.filter((r) => r.completed).length,
+                                    deal.requirements.length
+                                  ).rounded}
+                                  %)
                                 </span>
                               </div>
 
@@ -1677,7 +1660,12 @@ export function CommercialSection({
                               ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                               : 'bg-amber-50 text-amber-800 border-amber-200'
                           }`}>
-                            ✓ {deal.requirements.filter((r) => r.completed).length}/{deal.requirements.length} reqs
+                            ✓ {deal.requirements.filter((r) => r.completed).length}/{deal.requirements.length} reqs (
+                            {calculateProgressPercent(
+                              deal.requirements.filter((r) => r.completed).length,
+                              deal.requirements.length
+                            ).rounded}
+                            %)
                           </span>
                         )}
                       </td>
@@ -1790,541 +1778,18 @@ export function CommercialSection({
       )}
 
       {/* SUB-VIEW 4: REPORTE & MÉTRICAS VISUALES EN PESOS MEXICANOS (MXN) */}
-      {subView === 'reporte' && (() => {
-        // Dinero real cobrado / comprometido: solo anticipos, adelantos o liquidaciones
-        const totalRealIncome = filteredDeals
-          .filter((d) => d.stage !== 'perdido')
-          .reduce((acc, d) => acc + getDealRealIncome(d), 0);
-
-        const totalDeposits = filteredDeals
-          .filter((d) => d.stage !== 'perdido' && d.paymentStatus !== 'liquidado')
-          .reduce((acc, d) => acc + (d.depositAmount || 0), 0);
-
-        const totalLiquidated = filteredDeals
-          .filter((d) => d.stage !== 'perdido' && d.paymentStatus === 'liquidado')
-          .reduce((acc, d) => acc + d.totalValue, 0);
-
-        const totalPendingBalance = filteredDeals
-          .filter((d) => d.stage !== 'perdido')
-          .reduce((acc, d) => acc + (d.paymentStatus === 'liquidado' ? 0 : (d.balanceDue ?? Math.max(0, d.totalValue - (d.depositAmount || 0)))), 0);
-
-        const groupAchievementPercent = totalGoalMXN > 0
-          ? Math.min(100, (totalRealIncome / totalGoalMXN) * 100)
-          : 0;
-
-        const maxStageValue = Math.max(
-          ...STAGES.map((s) =>
-            filteredDeals
-              .filter((d) => d.stage === s.id)
-              .reduce((acc, d) => acc + getDealRealIncome(d), 0)
-          ),
-          1
-        );
-
-        const hotelMetrics = HOTEL_PROPERTIES.map((hotelName) => {
-          const hDeals = deals.filter((d) => d.hotelName === hotelName && d.stage !== 'perdido');
-          const realIncome = hDeals.reduce((acc, d) => acc + getDealRealIncome(d), 0);
-          const deposits = hDeals.reduce((acc, d) => acc + (d.paymentStatus !== 'liquidado' ? (d.depositAmount || 0) : 0), 0);
-          const liquidated = hDeals.reduce((acc, d) => acc + (d.paymentStatus === 'liquidado' ? d.totalValue : 0), 0);
-          const pipeline = hDeals.reduce((acc, d) => acc + d.totalValue, 0);
-          const rn = hDeals.reduce((acc, d) => acc + d.roomNights, 0);
-          return { hotelName, dealsCount: hDeals.length, realIncome, deposits, liquidated, pipeline, rn };
-        });
-
-        const maxHotelRevenue = Math.max(...hotelMetrics.map((h) => h.realIncome), 1);
-
-        return (
-          <div className="space-y-6">
-            {/* Banner de Moneda y Control de Meta */}
-            <div className="bg-linear-to-r from-emerald-900 via-stone-900 to-teal-950 text-white rounded-3xl p-6 shadow-xl border border-emerald-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold uppercase tracking-wider">
-                    🇲🇽 Moneda Oficial: Pesos Mexicanos (MXN)
-                  </span>
-                  <span className="text-[10px] text-stone-300">
-                    Control estricto de dinero real ingresado (anticipos, liquidaciones y adelantos)
-                  </span>
-                </div>
-                <h3 className="font-editorial text-2xl sm:text-3xl font-bold tracking-tight">
-                  Tablero de Inteligencia Financiera & Comercial
-                </h3>
-                <p className="text-xs text-stone-300 max-w-xl">
-                  Seguimiento de meta total del grupo hotelero, metas personales por ejecutivo y balance de cobranza real.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/15">
-                <div>
-                  <span className="text-[10px] text-stone-300 uppercase font-bold block">
-                    Meta Anual del Grupo (MXN):
-                  </span>
-                  {isEditingGoal ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <input
-                        type="number"
-                        value={tempGoalInput}
-                        onChange={(e) => setTempGoalInput(e.target.value)}
-                        className="bg-white text-stone-900 px-2 py-1 rounded-lg text-xs font-mono font-bold w-32 focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const val = parseFloat(tempGoalInput) || 10000000;
-                          setTotalGoalMXN(val);
-                          setIsEditingGoal(false);
-                        }}
-                        className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold"
-                      >
-                        ✓
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="font-mono text-xl font-extrabold text-amber-300">
-                      {formatCurrency(totalGoalMXN, 'MXN')}
-                    </div>
-                  )}
-                </div>
-                {!isEditingGoal && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTempGoalInput(String(totalGoalMXN));
-                      setIsEditingGoal(true);
-                    }}
-                    className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-stone-200 text-xs transition-colors"
-                    title="Ajustar Meta Total"
-                  >
-                    ✏️
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* SECCIÓN 1: META TOTAL DEL GRUPO (GRAN BARRA DE ESTADO BASADA EN DINERO REAL) */}
-            <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                      Meta Total Grupo Orgánico 2026
-                    </span>
-                  </div>
-                  <h4 className="font-editorial text-2xl sm:text-3xl font-extrabold text-stone-900">
-                    {groupAchievementPercent.toFixed(1)}% de la Meta Alcanzada
-                  </h4>
-                  <p className="text-xs text-stone-500">
-                    Progreso calculado exclusivamente sobre dinero real confirmado en caja (anticipos, liquidaciones y adelantos)
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 text-right">
-                  <div>
-                    <span className="text-[10px] text-stone-400 uppercase font-bold block">
-                      Brecha Restante:
-                    </span>
-                    <span className="font-mono text-lg sm:text-xl font-extrabold text-amber-900">
-                      {formatCurrency(Math.max(0, totalGoalMXN - totalRealIncome), 'MXN')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Gran Barra de Progreso con Marcas */}
-              <div className="space-y-2">
-                <div className="h-6 w-full bg-stone-100 rounded-full overflow-hidden p-1 border border-stone-200 relative flex items-center">
-                  <div
-                    className="h-full rounded-full bg-linear-to-r from-emerald-600 via-teal-500 to-emerald-400 transition-all duration-700 relative shadow-inner"
-                    style={{ width: `${Math.max(3, groupAchievementPercent)}%` }}
-                  >
-                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                  </div>
-                </div>
-
-                {/* Marcadores de Hito */}
-                <div className="flex justify-between text-[10px] font-mono text-stone-400 px-1 font-semibold">
-                  <span>0% ($0 MXN)</span>
-                  <span>25% ({formatCurrency(totalGoalMXN * 0.25, 'MXN')})</span>
-                  <span>50% ({formatCurrency(totalGoalMXN * 0.5, 'MXN')})</span>
-                  <span>75% ({formatCurrency(totalGoalMXN * 0.75, 'MXN')})</span>
-                  <span className="text-emerald-800 font-bold">100% Meta ({formatCurrency(totalGoalMXN, 'MXN')})</span>
-                </div>
-              </div>
-
-              {/* Tarjetas Resumen de Apoyo de Dinero Real */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 pt-2">
-                <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
-                    ✓ Total Dinero Real Ingresado
-                  </span>
-                  <div className="font-mono text-xl font-extrabold text-emerald-950">
-                    {formatCurrency(totalRealIncome, 'MXN')}
-                  </div>
-                  <span className="text-[10px] text-emerald-700">Anticipos + liquidaciones confirmadas</span>
-                </div>
-
-                <div className="bg-teal-50/70 border border-teal-200 rounded-2xl p-4 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-teal-800 tracking-wider block">
-                    💳 Anticipos & Adelantos
-                  </span>
-                  <div className="font-mono text-xl font-extrabold text-teal-950">
-                    {formatCurrency(totalDeposits, 'MXN')}
-                  </div>
-                  <span className="text-[10px] text-teal-700">Flujo parcial recibido de reservas</span>
-                </div>
-
-                <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">
-                    ✨ Totalmente Liquidados
-                  </span>
-                  <div className="font-mono text-xl font-extrabold text-blue-950">
-                    {formatCurrency(totalLiquidated, 'MXN')}
-                  </div>
-                  <span className="text-[10px] text-blue-700">Eventos con 100% de pago completado</span>
-                </div>
-
-                <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
-                    ⏳ Saldo Pendiente por Cobrar
-                  </span>
-                  <div className="font-mono text-xl font-extrabold text-amber-950">
-                    {formatCurrency(totalPendingBalance, 'MXN')}
-                  </div>
-                  <span className="text-[10px] text-amber-700">Restante por ingresar de eventos</span>
-                </div>
-              </div>
-
-              {/* Fila Informativa de Respaldo */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-stone-500 bg-stone-50/80 px-4 py-2.5 rounded-xl border border-stone-200">
-                <div className="flex items-center gap-2">
-                  <span>📊</span>
-                  <span>Pipeline Bruto Cotizado en Cartera (Referencia sin cobrar): <strong className="font-mono font-bold text-stone-800">{formatCurrency(totalPipelineRevenue, 'MXN')}</strong></span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span>🛏️</span>
-                  <span>Room Nights de Grupos: <strong className="font-mono font-bold text-stone-800">{totalRoomNights} RN</strong></span>
-                </div>
-              </div>
-            </div>
-
-            {/* SECCIÓN 2: METAS PERSONALES POR EJECUTIVO COMERCIAL */}
-            <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 pb-3">
-                <div>
-                  <h4 className="font-editorial text-2xl font-bold text-stone-900">
-                    Metas Personales por Ejecutivo Comercial
-                  </h4>
-                  <p className="text-xs text-stone-500">
-                    Desempeño individual en pesos mexicanos ($ MXN) medido por dinero real cobrado (anticipos y liquidaciones)
-                  </p>
-                </div>
-                <span className="text-[11px] font-mono bg-stone-100 text-stone-700 px-3 py-1 rounded-full font-bold">
-                  Meta Individual Base: $3,000,000 MXN
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {commercialExecutivesList.length === 0 ? (
-                  <div className="col-span-full p-8 bg-stone-50 border border-stone-200 rounded-2xl text-center space-y-2">
-                    <span className="text-2xl">👥</span>
-                    <h5 className="font-bold text-stone-800 text-sm">Aún no hay ejecutivos registrados</h5>
-                    <p className="text-xs text-stone-500 max-w-md mx-auto">
-                      Los perfiles y sus metas individuales aparecerán aquí automáticamente una vez que el equipo comercial inicie sesión en la plataforma con su cuenta de Google.
-                    </p>
-                  </div>
-                ) : (
-                  commercialExecutivesList.map((exec) => {
-                    const execDeals = deals.filter(
-                      (d) =>
-                        (d.assignedEmail && d.assignedEmail.toLowerCase().trim() === exec.email.toLowerCase().trim()) ||
-                        (d.assignedRep && (d.assignedRep.toLowerCase().includes(exec.name.toLowerCase()) || exec.name.toLowerCase().includes(d.assignedRep.toLowerCase())))
-                    );
-
-                    const execRealVal = execDeals.reduce((acc, d) => acc + getDealRealIncome(d), 0);
-                    const execDeposits = execDeals.reduce((acc, d) => acc + (d.paymentStatus !== 'liquidado' ? (d.depositAmount || 0) : 0), 0);
-                    const execLiquidated = execDeals.reduce((acc, d) => acc + (d.paymentStatus === 'liquidado' ? d.totalValue : 0), 0);
-
-                    const pipelineVal = execDeals
-                      .filter((d) => d.stage !== 'perdido')
-                      .reduce((acc, d) => acc + d.totalValue, 0);
-
-                    const personalGoal = 3000000;
-                    const percent = Math.min(100, (execRealVal / personalGoal) * 100);
-
-                    const status = getExecutiveEventStatus(deals, exec.email || exec.name);
-
-                    const progressColor =
-                      percent >= 80
-                        ? 'bg-emerald-600'
-                        : percent >= 40
-                        ? 'bg-amber-500'
-                        : 'bg-blue-600';
-
-                    return (
-                      <div
-                        key={exec.email}
-                        className="bg-stone-50/70 border border-stone-200 rounded-2xl p-5 space-y-4 shadow-2xs hover:shadow-xs transition-shadow"
-                      >
-                        {/* Header del Ejecutivo */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-emerald-800 to-teal-900 text-white font-bold text-sm flex items-center justify-center shadow-xs">
-                              {exec.initials}
-                            </div>
-                            <div>
-                              <h5 className="font-bold text-stone-900 text-sm leading-tight">{exec.name}</h5>
-                              <span className="text-[10px] text-stone-500 block">{exec.role}</span>
-                            </div>
-                          </div>
-
-                          {status.isOperating ? (
-                            <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-extrabold uppercase animate-pulse">
-                              ⛔ En Evento
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                              🟢 Disponible
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Notificación de evento en curso si está bloqueado */}
-                        {status.isOperating && status.activeDeal && (
-                          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-950 font-semibold space-y-0.5">
-                            <span className="block text-[10px] uppercase font-bold text-rose-800">
-                              Operando evento en sitio:
-                            </span>
-                            <div>{status.activeDeal.companyOrAgency} · 🏨 {status.activeDeal.hotelName}</div>
-                            <div className="text-[10px] text-rose-700 font-mono">
-                              Del {status.activeDeal.checkInDate} al {status.activeDeal.checkOutDate}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Cifras de Meta Personal */}
-                        <div className="space-y-1">
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-[11px] text-stone-500 font-semibold">Dinero Real Recaudado:</span>
-                            <span className="font-mono text-base font-extrabold text-emerald-900">
-                              {formatCurrency(execRealVal, 'MXN')}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between text-[10px] text-stone-500 font-mono">
-                            <span>Anticipos: {formatCurrency(execDeposits, 'MXN')}</span>
-                            <span>Liquidados: {formatCurrency(execLiquidated, 'MXN')}</span>
-                          </div>
-                          <div className="flex items-baseline justify-between text-xs pt-1">
-                            <span className="text-stone-400 text-[11px]">Meta Personal:</span>
-                            <span className="font-mono text-stone-500">{formatCurrency(personalGoal, 'MXN')}</span>
-                          </div>
-                        </div>
-
-                        {/* Barra de Progreso Personal */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-[11px] font-bold">
-                            <span className="text-stone-600">Cumplimiento Real:</span>
-                            <span className="font-mono text-stone-900">{percent.toFixed(1)}%</span>
-                          </div>
-                          <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${progressColor} transition-all duration-500`}
-                              style={{ width: `${Math.max(4, percent)}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Pipeline Adicional */}
-                        <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[11px]">
-                          <span className="text-stone-500">Pipeline cotizado:</span>
-                          <span className="font-mono font-bold text-amber-800">
-                            {formatCurrency(pipelineVal, 'MXN')} ({execDeals.length} deals)
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* SECCIÓN 3: BARRAS DE ESTADO POR FASE DEL PIPELINE COMERCIAL */}
-            <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
-              <div className="border-b border-stone-200 pb-3">
-                <h4 className="font-editorial text-2xl font-bold text-stone-900">
-                  Volumen y Embudo por Fases del Pipeline (MXN)
-                </h4>
-                <p className="text-xs text-stone-500">
-                  Dinero real recaudado y eventos en cada etapa de negociación
-                </p>
-              </div>
-
-              <div className="space-y-3.5">
-                {STAGES.map((stage) => {
-                  const stageDeals = filteredDeals.filter((d) => d.stage === stage.id);
-                  const stageRealSum = stageDeals.reduce((acc, d) => acc + getDealRealIncome(d), 0);
-                  const stageTotalVal = stageDeals.reduce((acc, d) => acc + d.totalValue, 0);
-                  const percentOfMax = (stageRealSum / maxStageValue) * 100;
-                  const totalRealSum = totalRealIncome || 1;
-                  const shareOfReal = ((stageRealSum / totalRealSum) * 100).toFixed(1);
-
-                  return (
-                    <div key={stage.id} className="space-y-1.5 bg-stone-50/60 p-3.5 rounded-2xl border border-stone-200/80">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-3 h-3 rounded-full ${stage.colorDot}`} />
-                          <span className="font-bold text-stone-900">{stage.title}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200/80 font-mono font-semibold text-stone-700">
-                            {stageDeals.length} {stageDeals.length === 1 ? 'evento' : 'eventos'}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className="text-[11px] text-stone-500 font-mono">
-                            {shareOfReal}% del dinero real
-                          </span>
-                          <div className="text-right">
-                            <span className="font-mono text-sm font-extrabold text-stone-900 block">
-                              {formatCurrency(stageRealSum, 'MXN')}
-                            </span>
-                            {stageTotalVal > stageRealSum && (
-                              <span className="text-[10px] text-stone-400 font-mono block">
-                                Cotizado: {formatCurrency(stageTotalVal, 'MXN')}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Barra de Estado Visual de la Fase */}
-                      <div className="h-3 w-full bg-stone-200/80 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${stage.colorDot}`}
-                          style={{ width: `${Math.max(stageRealSum > 0 ? 3 : 0, percentOfMax)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* SECCIÓN 4: RENDIMIENTO E INGRESOS POR HOTEL (LAS 6 PROPIEDADES) */}
-            <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
-              <div className="border-b border-stone-200 pb-3">
-                <h4 className="font-editorial text-2xl font-bold text-stone-900">
-                  Rendimiento e Ingresos Reales por Hotel (6 Propiedades de Grupo Orgánico)
-                </h4>
-                <p className="text-xs text-stone-500">
-                  Ingresos reales ingresados en caja (anticipos y liquidaciones) y room nights en pesos mexicanos ($ MXN)
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {hotelMetrics.map((hm) => {
-                  const percentOfMaxHotel = (hm.realIncome / maxHotelRevenue) * 100;
-                  return (
-                    <div
-                      key={hm.hotelName}
-                      className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                            <span>🏨</span>
-                            <span>{hm.hotelName}</span>
-                          </div>
-                          <span className="text-[10px] text-stone-500">
-                            {hm.dealsCount} {hm.dealsCount === 1 ? 'evento registrado' : 'eventos registrados'}
-                          </span>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="font-mono text-sm font-extrabold text-emerald-900">
-                            {formatCurrency(hm.realIncome, 'MXN')}
-                          </div>
-                          <span className="text-[10px] text-stone-500 font-mono">
-                            {hm.rn} Room Nights
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-stone-500 font-mono">
-                          <span>Anticipos: {formatCurrency(hm.deposits, 'MXN')} · Liquidados: {formatCurrency(hm.liquidated, 'MXN')}</span>
-                          <span className="font-bold text-stone-700 font-sans">Dinero Real</span>
-                        </div>
-                        <div className="h-2 w-full bg-stone-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-emerald-700 transition-all duration-500"
-                            style={{ width: `${Math.max(hm.realIncome > 0 ? 4 : 0, percentOfMaxHotel)}%` }}
-                          />
-                        </div>
-                        <div className="text-[10px] text-stone-400 font-mono text-right">
-                          Cotizado en cartera: {formatCurrency(hm.pipeline, 'MXN')}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* SECCIÓN 5: SALUD FINANCIERA & COBRANZA EN MXN */}
-            <div className="bg-amber-50/60 border border-amber-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-amber-200/80 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">💳</span>
-                  <div>
-                    <h4 className="font-bold text-amber-950 text-sm uppercase tracking-wider">
-                      Estado General de Cobranza & Dinero Real
-                    </h4>
-                    <span className="text-xs text-amber-800">
-                      Balance en tiempo real entre dinero real ingresado (anticipos + liquidaciones) y cuentas por cobrar
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs font-mono font-bold text-amber-900">
-                  {((totalRealIncome / ((totalRealIncome + totalPendingBalance) || 1)) * 100).toFixed(1)}% Ingresado
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="h-4 w-full bg-white rounded-full overflow-hidden border border-amber-300 flex">
-                  <div
-                    className="h-full bg-emerald-600 transition-all duration-500"
-                    style={{
-                      width: `${((totalRealIncome / ((totalRealIncome + totalPendingBalance) || 1)) * 100)}%`
-                    }}
-                    title="Cobrado"
-                  />
-                  <div
-                    className="h-full bg-amber-400 transition-all duration-500"
-                    style={{
-                      width: `${((totalPendingBalance / ((totalRealIncome + totalPendingBalance) || 1)) * 100)}%`
-                    }}
-                    title="Saldo por Cobrar"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-emerald-600" />
-                    <span className="text-stone-700">Dinero Real Ingresado:</span>
-                    <strong className="font-mono text-emerald-900">{formatCurrency(totalRealIncome, 'MXN')}</strong>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-amber-400" />
-                    <span className="text-stone-700">Saldo Pendiente de Cobro:</span>
-                    <strong className="font-mono text-amber-950">{formatCurrency(totalPendingBalance, 'MXN')}</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {subView === 'reporte' && (
+        <CommercialMetricsTab
+          deals={deals}
+          filteredDeals={filteredDeals}
+          selectedHotelFilter={selectedHotelFilter}
+          registeredUsers={registeredUsers}
+          currentUser={currentUser}
+          isCurrentUserAdmin={isCurrentUserAdmin}
+          stages={STAGES}
+          getDealRealIncome={getDealRealIncome}
+        />
+      )}
 
       {/* SUB-VIEW 5: GESTIÓN DE FACTURAS VINCULADAS A EVENTOS (EN CURSO O CONCLUIDOS) */}
       {subView === 'facturas' && (
@@ -2556,6 +2021,7 @@ export function CommercialSection({
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   >
                     <option value="empresarial">Empresarial</option>
+                    <option value="otam">OTAM / Experiencias</option>
                     <option value="social">Social</option>
                     <option value="individual">Individual</option>
                   </select>
@@ -2920,6 +2386,7 @@ export function CommercialSection({
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
                   >
                     <option value="empresarial">Empresarial</option>
+                    <option value="otam">OTAM / Experiencias</option>
                     <option value="social">Social</option>
                     <option value="individual">Individual</option>
                   </select>
@@ -3940,8 +3407,12 @@ export function CommercialSection({
                           : 'bg-amber-100 text-amber-800 border-amber-300'
                       }`}
                     >
-                      {viewingDeal.requirements.filter((r) => r.completed).length} de {viewingDeal.requirements.length} cumplidos
-                      {viewingDeal.requirements.every((r) => r.completed) && ' (100% Listo)'}
+                      {viewingDeal.requirements.filter((r) => r.completed).length} de {viewingDeal.requirements.length} cumplidos (
+                      {calculateProgressPercent(
+                        viewingDeal.requirements.filter((r) => r.completed).length,
+                        viewingDeal.requirements.length
+                      ).rounded}
+                      %)
                     </span>
                   </div>
                 )}
@@ -4141,7 +3612,7 @@ export function CommercialSection({
       {/* MODAL BUSCADOR RÁPIDO DE DISPONIBILIDAD */}
       {isCheckerOpen && (
         <AvailabilityCheckerModal
-          deals={deals}
+          deals={calendarDeals}
           onClose={() => setIsCheckerOpen(false)}
           onBookAvailable={handleBookAvailable}
         />

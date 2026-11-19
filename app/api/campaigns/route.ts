@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables, mapRowToCampaign } from '@/lib/db';
 import { INITIAL_CAMPAIGNS } from '@/lib/initial-data';
-import { MarketingCampaign } from '@/lib/types';
+import { MarketingCampaign, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { requireAuthSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 export async function GET() {
+  const auth = await requireAuthSession();
+  if (auth.errorResponse) return auth.errorResponse;
+  const { session } = auth;
+
   const sql = getDb();
   if (!sql) {
-    return NextResponse.json({ source: 'local', campaigns: INITIAL_CAMPAIGNS });
+    return NextResponse.json({ source: 'local', campaigns: INITIAL_CAMPAIGNS }, { headers: NO_STORE_HEADERS });
   }
 
   try {
@@ -15,16 +20,25 @@ export async function GET() {
       SELECT * FROM marketing_campaigns
       ORDER BY start_date ASC, created_at DESC;
     `;
-    const campaigns = rows.map(mapRowToCampaign);
-    return NextResponse.json({ source: 'postgres', campaigns });
+    let campaigns = rows.map(mapRowToCampaign);
+    if (!isUserAdmin(session)) {
+      campaigns = campaigns.filter((c) => matchesUserIdentity(session, undefined, c.leadOwner));
+    }
+    return NextResponse.json({ source: 'postgres', campaigns }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error fetching campaigns from DB:', error);
-    return NextResponse.json({ source: 'local_fallback', campaigns: INITIAL_CAMPAIGNS });
+    return NextResponse.json(
+      { source: 'local_fallback', campaigns: INITIAL_CAMPAIGNS },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const raw: Partial<MarketingCampaign> = await request.json();
     const campaignId = raw.id || `camp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const startDate = (raw.startDate || new Date().toISOString().split('T')[0]).slice(0, 10);
@@ -72,9 +86,11 @@ export async function POST(request: Request) {
         type = EXCLUDED.type,
         status = EXCLUDED.status,
         budget = EXCLUDED.budget,
+        spent = EXCLUDED.spent,
         start_date = EXCLUDED.start_date,
         end_date = EXCLUDED.end_date,
         channels = EXCLUDED.channels,
+        external_links = EXCLUDED.external_links,
         description = EXCLUDED.description;
     `;
 

@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
-import { isAuthorizedAdmin } from '@/lib/auth';
-import { SalesActivity } from '@/lib/types';
+import { requireAuthSession } from '@/lib/auth';
+import { SalesActivity, isUserAdmin, matchesUserIdentity } from '@/lib/types';
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
+
     const { id } = await params;
     const updates: Partial<SalesActivity> = await request.json();
     const sql = getDb();
@@ -17,6 +21,15 @@ export async function PUT(
     }
 
     await ensureTables();
+    if (!isUserAdmin(session)) {
+      const existing = await sql`SELECT executive_email, executive_name FROM sales_activities WHERE id = ${id} LIMIT 1;`;
+      if (existing.length === 0) {
+        return NextResponse.json({ success: false, error: 'Actividad no encontrada' }, { status: 404 });
+      }
+      if (!matchesUserIdentity(session, existing[0].executive_email, existing[0].executive_name)) {
+        return NextResponse.json({ success: false, error: 'No puedes editar actividades de otro compañero.' }, { status: 403 });
+      }
+    }
     await sql`
       UPDATE sales_activities
       SET
@@ -50,12 +63,18 @@ export async function PUT(
         receiver_role = COALESCE(${updates.receiverRole ?? null}, receiver_role),
         minutes = COALESCE(${updates.minutes ?? null}, minutes),
         attendance_proof_url = COALESCE(${updates.attendanceProofUrl ?? null}, attendance_proof_url),
+        visit_status = COALESCE(${updates.visitStatus ?? null}, visit_status),
+        visit_evidence_type = COALESCE(${updates.visitEvidenceType ?? null}, visit_evidence_type),
+        cancellation_proof_url = COALESCE(${updates.cancellationProofUrl ?? null}, cancellation_proof_url),
+        meeting_type = COALESCE(${updates.meetingType ?? null}, meeting_type),
         invitation_proof_url = COALESCE(${updates.invitationProofUrl ?? null}, invitation_proof_url),
         attendees = COALESCE(${updates.attendees ?? null}, attendees),
         topic = COALESCE(${updates.topic ?? null}, topic),
         agreements = COALESCE(${updates.agreements ?? null}, agreements),
         next_action = COALESCE(${updates.nextAction ?? null}, next_action),
         assigned_rep = COALESCE(${updates.assignedRep ?? null}, assigned_rep),
+        agreement_status = COALESCE(${updates.agreementStatus ?? null}, agreement_status),
+        closing_doc_type = COALESCE(${updates.closingDocType ?? null}, closing_doc_type),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id};
     `;
@@ -71,16 +90,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (!isAuthorizedAdmin(request)) {
-      return NextResponse.json(
-        { success: false, error: 'Acceso denegado. Solo administradores autorizados pueden eliminar actividades de venta.' },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
 
     const { id } = await params;
     const sql = getDb();
@@ -90,6 +106,18 @@ export async function DELETE(
     }
 
     await ensureTables();
+    if (!isUserAdmin(session)) {
+      const existing = await sql`SELECT executive_email, executive_name FROM sales_activities WHERE id = ${id} LIMIT 1;`;
+      if (existing.length === 0) {
+        return NextResponse.json({ success: false, error: 'Actividad no encontrada' }, { status: 404 });
+      }
+      if (!matchesUserIdentity(session, existing[0].executive_email, existing[0].executive_name)) {
+        return NextResponse.json(
+          { success: false, error: 'Acceso denegado. Solo puedes eliminar tus propias actividades.' },
+          { status: 403 }
+        );
+      }
+    }
     await sql`
       DELETE FROM sales_activities
       WHERE id = ${id};

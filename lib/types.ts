@@ -1,5 +1,7 @@
 export type UserRole = 'marketing' | 'sales' | 'admin';
 
+export type AppModuleAccess = 'marketing' | 'commercial' | 'sales';
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -7,7 +9,147 @@ export interface UserProfile {
   avatar?: string;
   role: UserRole;
   initials: string;
+  department?: string;
 }
+
+export interface DirectoryUserDef {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  initials: string;
+  department: string;
+  modules: AppModuleAccess[];
+  showInSalesBoard: boolean;
+  showInMarketing: boolean;
+  commercialGoalMXN?: number;
+  commercialGoalOrder?: number;
+}
+
+export const TEAM_USERS_DIRECTORY: DirectoryUserDef[] = [
+  {
+    id: 'usr-mario-avalos',
+    name: 'Mario Avalos',
+    email: 'artes.grupoorganico@gmail.com',
+    role: 'admin',
+    initials: 'MA',
+    department: 'Administración · Marketing y Comunicación',
+    modules: ['marketing', 'commercial', 'sales'],
+    showInSalesBoard: false,
+    showInMarketing: true
+  },
+  {
+    id: 'usr-alejandra-ocana',
+    name: 'Alejandra Ocaña',
+    email: 'marketinggrupoorganico@gmail.com',
+    role: 'admin',
+    initials: 'AO',
+    department: 'Administración · Comercialización y Ventas',
+    modules: ['marketing', 'commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: false,
+    commercialGoalMXN: 725000,
+    commercialGoalOrder: 1
+  },
+  {
+    id: 'usr-fernanda-langarica',
+    name: 'Fernanda Langarica',
+    email: 'expansioncomercia.gohb@gmail.com',
+    role: 'admin',
+    initials: 'FL',
+    department: 'Administración · Comercialización y Ventas',
+    modules: ['marketing', 'commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: false,
+    commercialGoalMXN: 241000,
+    commercialGoalOrder: 5
+  },
+  {
+    id: 'usr-eduardo-barajas',
+    name: 'Eduardo Barajas',
+    email: 'eduardo@organicohotelboutique.com',
+    role: 'admin',
+    initials: 'EB',
+    department: 'Dirección · Administrador',
+    modules: ['marketing', 'commercial', 'sales'],
+    showInSalesBoard: false,
+    showInMarketing: false
+  },
+  {
+    id: 'usr-manuel-barajas',
+    name: 'Manuel Barajas',
+    email: 'manuel@organicohotelboutique.com',
+    role: 'admin',
+    initials: 'MB',
+    department: 'Dirección · Administrador',
+    modules: ['marketing', 'commercial', 'sales'],
+    showInSalesBoard: false,
+    showInMarketing: false
+  },
+  {
+    id: 'usr-marisol-trueba',
+    name: 'Marisol Trueba',
+    email: 'marisol@organicohotelboutique.com',
+    role: 'admin',
+    initials: 'MT',
+    department: 'Dirección · Administrador',
+    modules: ['marketing', 'commercial', 'sales'],
+    showInSalesBoard: false,
+    showInMarketing: false
+  },
+  {
+    id: 'usr-estefania-azcona',
+    name: 'Estefania Azcona',
+    email: 'mkt.gohb@gmail.com',
+    role: 'marketing',
+    initials: 'EA',
+    department: 'Marketing, Comercialización y Ventas',
+    modules: ['marketing', 'commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: true,
+    commercialGoalMXN: 241000,
+    commercialGoalOrder: 4
+  },
+  {
+    id: 'usr-abraham-garcia',
+    name: 'Abraham García',
+    email: 'otamexperiencias1@gmail.com',
+    role: 'sales',
+    initials: 'AG',
+    department: 'Comercialización y Ventas',
+    modules: ['commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: false,
+    commercialGoalMXN: 483000,
+    commercialGoalOrder: 3
+  },
+  {
+    id: 'usr-mario-rangel',
+    name: 'Mario Rangel',
+    email: 'analista.digitalgohb@gmail.com',
+    role: 'sales',
+    initials: 'MR',
+    department: 'Comercialización y Ventas',
+    modules: ['commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: false,
+    commercialGoalMXN: 241000,
+    commercialGoalOrder: 6
+  },
+  {
+    id: 'usr-elizabeth-albarran',
+    name: 'Elizabeth Albarran',
+    email: 'coordinacionventasohb@gmail.com',
+    role: 'sales',
+    initials: 'EL',
+    department: 'Comercialización y Ventas',
+    modules: ['commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: false,
+    commercialGoalMXN: 483000,
+    commercialGoalOrder: 2
+  }
+];
 
 // -------------------------------------------------------------
 // CATÁLOGO DE ESPACIOS POR HOTEL
@@ -41,14 +183,64 @@ export interface TaskComment {
 }
 
 export const ADMIN_EMAILS = [
+  'artes.grupoorganico@gmail.com',
+  'marketinggrupoorganico@gmail.com',
   'expansioncomercia.gohb@gmail.com',
-  'artes.grupoorganico@gmail.com'
+  'eduardo@organicohotelboutique.com',
+  'manuel@organicohotelboutique.com',
+  'marisol@organicohotelboutique.com'
 ];
 
 export function isAdminEmail(email?: string | null): boolean {
   if (!email) return false;
   const clean = email.toLowerCase().trim();
   return ADMIN_EMAILS.some((adm) => adm.toLowerCase() === clean);
+}
+
+export function getDirectoryUserByEmail(email?: string | null): DirectoryUserDef | undefined {
+  if (!email) return undefined;
+  const clean = email.toLowerCase().trim();
+  return TEAM_USERS_DIRECTORY.find((u) => u.email.toLowerCase() === clean);
+}
+
+export function isUserAdmin(user?: { email?: string | null; role?: string | null } | null): boolean {
+  if (!user) return false;
+  return isAdminEmail(user.email) || user.role === 'admin';
+}
+
+export function getUserAllowedModules(user?: { email?: string | null; role?: string | null } | null): AppModuleAccess[] {
+  if (!user) return [];
+  if (isUserAdmin(user)) return ['marketing', 'commercial', 'sales'];
+  const dir = getDirectoryUserByEmail(user.email);
+  if (dir) return dir.modules;
+  if (user.role === 'marketing') return ['marketing', 'commercial', 'sales'];
+  return ['commercial', 'sales'];
+}
+
+export function normalizeIdentityText(value?: string | null): string {
+  if (!value) return '';
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function matchesUserIdentity(
+  user: { email?: string | null; name?: string | null } | null | undefined,
+  targetEmail?: string | null,
+  targetName?: string | null
+): boolean {
+  if (!user) return false;
+  const curEmail = (user.email || '').toLowerCase().trim();
+  const curName = normalizeIdentityText(user.name);
+  if (targetEmail && curEmail && targetEmail.toLowerCase().trim() === curEmail) return true;
+  if (targetName && curName) {
+    const cleanTargetName = normalizeIdentityText(targetName);
+    if (cleanTargetName === curName) return true;
+  }
+  return false;
 }
 
 export interface AppNotification {
@@ -98,16 +290,16 @@ export function getExecutiveEventStatus(
 
 export const DESIGN_RESPONSIBLES = [
   {
-    name: 'Estefania Azcona',
-    email: 'mkt2.grupoorganico@gmail.com',
-    role: 'Diseño & Marketing',
-    initials: 'EA'
-  },
-  {
     name: 'Mario Avalos',
     email: 'artes.grupoorganico@gmail.com',
-    role: 'Artes & Diseño Gráfico',
+    role: 'Administrador · Marketing y Comunicación',
     initials: 'MA'
+  },
+  {
+    name: 'Estefania Azcona',
+    email: 'mkt.gohb@gmail.com',
+    role: 'Marketing, Ventas y Comercialización',
+    initials: 'EA'
   }
 ];
 
@@ -223,6 +415,7 @@ export type HotelDealStage =
 
 export type DealCategory = 
   | 'empresarial'          // Eventos y convenios corporativos
+  | 'otam'                 // OTAM Experiencias / Eventos
   | 'social'               // Bodas, aniversarios y reuniones sociales
   | 'individual'           // Huéspedes individuales / estancias particulares
   | 'grupos_convenciones'  // Compatibilidad legacy
@@ -346,8 +539,9 @@ export type SalesActivityType =
   | 'prospecto'        // 2 nuevos prospectos cada semana y media
   | 'seguimiento'      // Seguimiento a clientes con evidencia
   | 'cotizacion'       // 3 cotizaciones por semana
-  | 'visita'           // Visitas presenciales
-  | 'reunion';         // 2 reuniones comerciales por mes (Ale o Fer)
+  | 'visita'           // Visitas presenciales: 1 cada 15 días (o cada 3 semanas)
+  | 'reunion'          // Reuniones comerciales (Zoom, Meet o scouting): 1 cada 15 días
+  | 'acuerdo';         // Acuerdos comerciales: 1 cierre al mes
 
 export interface SalesActivity {
   id: string;
@@ -373,8 +567,8 @@ export interface SalesActivity {
   subject?: string; // Asunto previo
   contactMethod?: string; // Medio de contacto
   clientFeedback?: string; // Información de la llamada / ¿Qué dijo el cliente?
-  nextDate?: string; // Siguiente fecha
-  evidenceUrl?: string; // Evidencia del contacto (fotografía / comprobante)
+  nextDate?: string; // Siguiente fecha de seguimiento
+  evidenceUrl?: string; // Evidencia (contacto o cierre comercial)
 
   // Cotizaciones
   folio?: string; // Documento con folio
@@ -386,20 +580,28 @@ export interface SalesActivity {
   validUntil?: string; // Vigencia
   proofUrl?: string; // Comprobante de envío
 
-  // Visitas Presenciales
+  // Visitas Presenciales (1 cada 15 días o cada 3 semanas)
   scheduledDate?: string; // Cita previa
   receiverName?: string; // Nombre de quien recibió
   receiverRole?: string; // Cargo de quien recibió
-  minutes?: string; // Minuta
-  attendanceProofUrl?: string; // Constancia de asistencia
+  minutes?: string; // Minuta o motivo de cancelación
+  attendanceProofUrl?: string; // Evidencia: foto, pin de ubicación o correo de confirmación
+  visitStatus?: 'realizada' | 'cancelada'; // Estado de la visita presencial
+  visitEvidenceType?: 'foto' | 'pin_ubicacion' | 'correo_confirmacion' | 'evidencia_cancelacion';
+  cancellationProofUrl?: string; // Evidencia correspondiente en caso de cancelación
 
-  // Reunión Comercial
-  invitationProofUrl?: string; // Invitación o confirmación
+  // Reunión Comercial (Zoom, Meet o scouting — 1 cada 15 días)
+  meetingType?: 'Zoom' | 'Meet' | 'Scouting' | string; // Modalidad
+  invitationProofUrl?: string; // Evidencia: correo de acuerdo o confirmación
   attendees?: string; // Asistentes
   topic?: string; // Tema
   agreements?: string; // Acuerdos
-  nextAction?: string; // Siguiente acción
+  nextAction?: string; // Siguiente acción / siguiente paso
   assignedRep?: 'Ale' | 'Fer' | string; // Quién va a ir (Ale o Fer)
+
+  // Acuerdos Comerciales (1 cierre al mes)
+  agreementStatus?: 'cerrado' | 'sin_cierre'; // ¿Hubo cierre o queda en seguimiento?
+  closingDocType?: 'Orden de servicio' | 'Reservación' | 'Documento de cierre equivalente' | string;
 }
 
 export interface SalesExecutive {
@@ -411,17 +613,22 @@ export interface SalesExecutive {
   initials?: string;
 }
 
-export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
-  { id: 'exec-ale', name: 'Ale', role: 'Ejecutiva de Ventas', email: 'ale@grupoorganico.com', initials: 'AL' },
-  { id: 'exec-fer', name: 'Fer', role: 'Ejecutivo de Ventas', email: 'fer@grupoorganico.com', initials: 'FE' }
-];
+export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = TEAM_USERS_DIRECTORY.filter(
+  (u) => u.showInSalesBoard
+).map((u) => ({
+  id: u.id,
+  name: u.name,
+  email: u.email,
+  role: u.department,
+  initials: u.initials
+}));
 
 export interface SalesTaskCategoryDef {
   type: SalesActivityType;
   title: string;
   shortTitle: string;
   icon: string;
-  cadence: 'diaria' | 'semanal' | 'mensual';
+  cadence: 'diaria' | 'semanal' | 'quincenal' | 'mensual';
   targetCount: number;
   targetLabel: string;
   description: string;
@@ -488,25 +695,136 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     title: 'Visitas Presenciales',
     shortTitle: 'Visitas',
     icon: '📍',
-    cadence: 'semanal',
+    cadence: 'quincenal',
     targetCount: 1,
-    targetLabel: 'Inspección en sitio',
-    description: 'Cita previa, nombre y cargo de quien recibió, minuta y constancia de asistencia.',
+    targetLabel: '1 cada 15 días (o 3 sem)',
+    description: 'Evidencia: foto, pin de ubicación del lugar o correo de confirmación. En caso de cancelación, subir evidencia correspondiente.',
     color: 'text-rose-700',
     accentBg: 'bg-rose-50',
     borderColor: 'border-rose-200'
   },
   {
     type: 'reunion',
-    title: 'Reunión Comercial',
-    shortTitle: 'Reunión Comercial',
+    title: 'Reuniones Comerciales',
+    shortTitle: 'Reuniones',
     icon: '🤝',
-    cadence: 'mensual',
-    targetCount: 2,
-    targetLabel: '2 por mes (Ale o Fer)',
-    description: 'Invitación/confirmación, asistentes, hora, tema, acuerdos y siguiente acción (indicando si va Ale o Fer).',
+    cadence: 'quincenal',
+    targetCount: 1,
+    targetLabel: '1 cada 15 días',
+    description: 'Zoom, Meet o scouting (1 cada 15 días). Evidencia: correo de acuerdo o confirmación.',
     color: 'text-indigo-700',
     accentBg: 'bg-indigo-50',
     borderColor: 'border-indigo-200'
+  },
+  {
+    type: 'acuerdo',
+    title: 'Acuerdos Comerciales',
+    shortTitle: 'Acuerdos',
+    icon: '🏆',
+    cadence: 'mensual',
+    targetCount: 1,
+    targetLabel: '1 cierre al mes',
+    description: 'Evidencia: orden de servicio, reservación o documento de cierre equivalente. Si no hay cierre, registrar siguiente paso con fecha de seguimiento.',
+    color: 'text-teal-700',
+    accentBg: 'bg-teal-50',
+    borderColor: 'border-teal-200'
   }
 ];
+
+// -------------------------------------------------------------
+// METAS FINANCIERAS OFICIALES DE COMERCIALIZACIÓN (MXN)
+// Vigencia a partir de Enero 2027
+// -------------------------------------------------------------
+export const COMMERCIAL_GOALS_START_YEAR = 2027;
+export const COMMERCIAL_GOALS_START_DATE = '2027-01-01';
+
+export const COMMERCIAL_EXECUTIVE_GOALS = TEAM_USERS_DIRECTORY.filter(
+  (u) => typeof u.commercialGoalMXN === 'number'
+).sort((a, b) => (a.commercialGoalOrder || 99) - (b.commercialGoalOrder || 99));
+
+export const COMMERCIAL_EXECUTIVE_MONTHLY_TOTAL_GOAL_MXN = COMMERCIAL_EXECUTIVE_GOALS.reduce(
+  (sum, u) => sum + (u.commercialGoalMXN || 0),
+  0
+);
+export const COMMERCIAL_EXECUTIVE_ANNUAL_TOTAL_GOAL_MXN =
+  COMMERCIAL_EXECUTIVE_MONTHLY_TOTAL_GOAL_MXN * 12;
+
+export function getCommercialExecutiveGoal(email?: string | null, name?: string | null): number | null {
+  const cleanEmail = (email || '').toLowerCase().trim();
+  const cleanName = normalizeIdentityText(name);
+  const found = COMMERCIAL_EXECUTIVE_GOALS.find(
+    (u) =>
+      (cleanEmail && u.email.toLowerCase().trim() === cleanEmail) ||
+      (cleanName && normalizeIdentityText(u.name) === cleanName)
+  );
+  return found?.commercialGoalMXN ?? null;
+}
+
+export interface HotelCommercialGoalDef {
+  hotelKey: string;
+  displayLabel: string;
+  /** Meta mensual por propiedad (se multiplica × 12 para el total anual del grupo) */
+  goalMXN: number | null;
+}
+
+export const COMMERCIAL_HOTEL_GOALS: HotelCommercialGoalDef[] = [
+  { hotelKey: 'Centro Cultural Quinta Soledad', displayLabel: 'Centro Cultural Quinta Soledad', goalMXN: 2400000 },
+  { hotelKey: 'Orgánico Ajusco', displayLabel: 'Orgánico Hotel Boutique Ajusco', goalMXN: 2000000 },
+  { hotelKey: 'Orgánico Tepoztlán', displayLabel: 'Orgánico Hotel Boutique Tepoztlán', goalMXN: 1000000 },
+  { hotelKey: 'Orgánico Valle de Bravo', displayLabel: 'Orgánico Hotel Boutique Valle de Bravo', goalMXN: 1000000 },
+  { hotelKey: 'Frontera 49 Roma Norte', displayLabel: 'Frontera 49 Roma Norte', goalMXN: 600000 },
+  { hotelKey: 'Orgánico Veracruz', displayLabel: 'Orgánico Veracruz', goalMXN: null }
+];
+
+export const COMMERCIAL_HOTEL_TOTAL_GOAL_MXN = COMMERCIAL_HOTEL_GOALS.reduce(
+  (sum, item) => sum + (item.goalMXN || 0),
+  0
+);
+export const COMMERCIAL_HOTEL_ANNUAL_TOTAL_GOAL_MXN = COMMERCIAL_HOTEL_TOTAL_GOAL_MXN * 12;
+
+export interface MonthlyCommercialGoalDef {
+  monthNumber: number; // 1..12
+  monthKey: string;    // '01'..'12'
+  label: string;
+  shortLabel: string;
+  goalMXN: number;
+}
+
+export const COMMERCIAL_MONTHLY_OTAM_GOALS: MonthlyCommercialGoalDef[] = [
+  { monthNumber: 1, monthKey: '01', label: 'Enero', shortLabel: 'Ene', goalMXN: 4000000 },
+  { monthNumber: 2, monthKey: '02', label: 'Febrero', shortLabel: 'Feb', goalMXN: 2000000 },
+  { monthNumber: 3, monthKey: '03', label: 'Marzo', shortLabel: 'Mar', goalMXN: 2000000 },
+  { monthNumber: 4, monthKey: '04', label: 'Abril', shortLabel: 'Abr', goalMXN: 1000000 },
+  { monthNumber: 5, monthKey: '05', label: 'Mayo', shortLabel: 'May', goalMXN: 1000000 },
+  { monthNumber: 6, monthKey: '06', label: 'Junio', shortLabel: 'Jun', goalMXN: 2500000 },
+  { monthNumber: 7, monthKey: '07', label: 'Julio', shortLabel: 'Jul', goalMXN: 1500000 },
+  { monthNumber: 8, monthKey: '08', label: 'Agosto', shortLabel: 'Ago', goalMXN: 1000000 },
+  { monthNumber: 9, monthKey: '09', label: 'Septiembre', shortLabel: 'Sep', goalMXN: 3000000 },
+  { monthNumber: 10, monthKey: '10', label: 'Octubre', shortLabel: 'Oct', goalMXN: 2000000 },
+  { monthNumber: 11, monthKey: '11', label: 'Noviembre', shortLabel: 'Nov', goalMXN: 5000000 },
+  { monthNumber: 12, monthKey: '12', label: 'Diciembre', shortLabel: 'Dic', goalMXN: 5000000 }
+];
+
+export const COMMERCIAL_EMPRESARIAL_ANNUAL_TOTAL_GOAL_MXN = COMMERCIAL_MONTHLY_OTAM_GOALS.reduce(
+  (sum, m) => sum + m.goalMXN,
+  0
+);
+
+// Meta Anual del Grupo = Total metas hoteles durante el año (×12 = $84M) + Total metas mensuales empresariales ($30M) = $114,000,000
+export const COMMERCIAL_ANNUAL_GOAL_MXN =
+  COMMERCIAL_HOTEL_ANNUAL_TOTAL_GOAL_MXN + COMMERCIAL_EMPRESARIAL_ANNUAL_TOTAL_GOAL_MXN;
+
+export function isEmpresarialOrOtamDeal(deal: Pick<HotelDeal, 'category' | 'assignedEmail' | 'companyOrAgency' | 'notes'>): boolean {
+  if (
+    deal.category === 'empresarial' ||
+    deal.category === 'otam' ||
+    deal.category === 'cuentas_empresariales' ||
+    deal.category === 'grupos_convenciones'
+  ) {
+    return true;
+  }
+  const email = (deal.assignedEmail || '').toLowerCase().trim();
+  if (email === 'otamexperiencias1@gmail.com') return true;
+  const hay = `${deal.companyOrAgency || ''} ${deal.notes || ''}`.toLowerCase();
+  return /\botam\b/.test(hay);
+}

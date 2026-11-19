@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
-import { isAdminEmail } from './types';
+import { NextResponse } from 'next/server';
+import { isAdminEmail, isUserAdmin } from './types';
+
+export const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate'
+};
 
 export interface AuthSession {
   id: string;
@@ -177,13 +182,41 @@ export async function clearSession() {
   cookieStore.delete(COOKIE_NAME);
 }
 
-// Helper to check if request is from an authorized administrator or team member
-export function isAuthorizedAdmin(request?: Request): boolean {
-  if (request) {
-    const role = request.headers.get('x-user-role');
-    const email = request.headers.get('x-user-email');
-    if (role === 'admin' || isAdminEmail(email)) return true;
+// Verifica que la petición cuente con sesión autenticada válida
+export async function requireAuthSession(): Promise<
+  { session: AuthSession; errorResponse?: never } | { session?: never; errorResponse: NextResponse }
+> {
+  const session = await getSession();
+  if (!session) {
+    return {
+      errorResponse: NextResponse.json(
+        { success: false, error: 'No autorizado. Debes iniciar sesión.' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
+    };
   }
-  // En plataforma unificada de equipo, permitir operaciones de mantenimiento y gestión
-  return true;
+  return { session };
+}
+
+// Verifica que la petición provenga de un administrador autorizado
+export async function requireAdminSession(): Promise<
+  { session: AuthSession; errorResponse?: never } | { session?: never; errorResponse: NextResponse }
+> {
+  const auth = await requireAuthSession();
+  if (auth.errorResponse) return auth;
+  if (!isUserAdmin(auth.session)) {
+    return {
+      errorResponse: NextResponse.json(
+        { success: false, error: 'Acceso denegado. Solo administradores autorizados.' },
+        { status: 403, headers: NO_STORE_HEADERS }
+      )
+    };
+  }
+  return auth;
+}
+
+// Helper legacy mantenido por compatibilidad usando verificación real de sesión
+export async function isAuthorizedAdmin(): Promise<boolean> {
+  const session = await getSession();
+  return Boolean(session && isUserAdmin(session));
 }

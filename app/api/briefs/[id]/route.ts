@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
-import { isAuthorizedAdmin } from '@/lib/auth';
-import { CreativeBrief } from '@/lib/types';
+import { requireAuthSession, requireAdminSession } from '@/lib/auth';
+import { CreativeBrief, isUserAdmin, matchesUserIdentity } from '@/lib/types';
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
+
     const { id } = await params;
     const updates: Partial<CreativeBrief> = await request.json();
     const sql = getDb();
@@ -17,6 +21,16 @@ export async function PUT(
     }
 
     await ensureTables();
+    if (!isUserAdmin(session)) {
+      const existing = await sql`SELECT author FROM creative_briefs WHERE id = ${id} LIMIT 1;`;
+      if (existing.length === 0) {
+        return NextResponse.json({ success: false, error: 'Brief no encontrado' }, { status: 404 });
+      }
+      if (!matchesUserIdentity(session, undefined, existing[0].author)) {
+        return NextResponse.json({ success: false, error: 'No puedes modificar briefs de otro compañero.' }, { status: 403 });
+      }
+    }
+
     await sql`
       UPDATE creative_briefs
       SET
@@ -38,16 +52,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (!isAuthorizedAdmin(request)) {
-      return NextResponse.json(
-        { success: false, error: 'Acceso denegado. Solo administradores autorizados pueden eliminar briefs.' },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdminSession();
+    if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;
     const sql = getDb();

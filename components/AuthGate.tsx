@@ -1,8 +1,29 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  unauthorized_email:
+    'Tu cuenta de Google no está dada de alta en TIMS. Solicita a un administrador que registre tu correo en el directorio.',
+  csrf_validation_failed:
+    'La validación de seguridad de Google expiró. Por favor intenta entrar nuevamente.',
+  token_exchange_failed:
+    'No se pudo validar el acceso con Google. Intenta de nuevo en unos segundos.',
+  userinfo_failed:
+    'No se pudo obtener tu perfil de Google. Intenta nuevamente.',
+  missing_credentials:
+    'Faltan las credenciales de Google OAuth en la configuración del servidor.'
+};
 
 export function AuthGate() {
+  const [authError] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('auth_error');
+    if (!code) return null;
+    return AUTH_ERROR_MESSAGES[code] || `No se pudo iniciar sesión (${code}). Intenta nuevamente.`;
+  });
+
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-stone-950 text-white flex flex-col justify-between p-6 sm:p-12 relative overflow-hidden font-sans">
       {/* Decorative background glow with rich hospitality colors */}
@@ -44,6 +65,12 @@ export function AuthGate() {
           </div>
 
           <div className="space-y-4">
+            {authError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-400/40 text-rose-200 text-xs leading-relaxed text-center font-medium">
+                ⚠️ {authError}
+              </div>
+            )}
+
             {/* Primary Google OAuth Button */}
             <a
               href="/api/auth/google"

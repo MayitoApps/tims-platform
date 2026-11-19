@@ -74,8 +74,21 @@ export async function POST(request: Request) {
           source: 'vercel_blob'
         });
       } catch (blobError) {
-        console.warn('Vercel Blob falló o token no válido, alternando a almacenamiento local:', blobError);
+        console.warn('Vercel Blob falló o token no válido:', blobError);
+        if (process.env.VERCEL) {
+          return NextResponse.json(
+            { success: false, error: 'Error al subir archivo a Vercel Blob. Verifica BLOB_READ_WRITE_TOKEN en Vercel.' },
+            { status: 503 }
+          );
+        }
       }
+    }
+
+    if (process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json(
+        { success: false, error: 'Almacenamiento de archivos no configurado en producción (falta BLOB_READ_WRITE_TOKEN). Puedes pegar un enlace externo.' },
+        { status: 503 }
+      );
     }
 
     // 5. Almacenamiento local en /public/uploads/ (Entorno local de desarrollo)

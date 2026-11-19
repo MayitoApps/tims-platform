@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MarketingCampaign,
   ContentPublication,
@@ -15,12 +15,13 @@ import {
   HotelDeal,
   AppNotification,
   ADMIN_EMAILS,
+  isUserAdmin,
   DESIGN_RESPONSIBLES,
   REQUIREMENT_FORMATS,
   getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS } from '@/lib/initial-data';
-import { formatCurrency, formatDate, getMarketingStatusBadge, safeExternalUrl, getLocalDateStr } from '@/lib/utils';
+import { formatCurrency, formatDate, getMarketingStatusBadge, safeExternalUrl, getLocalDateStr, calculateProgressPercent, readPersistedNavValue, writePersistedNavValue } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 
 interface MarketingSectionProps {
@@ -86,16 +87,28 @@ export function MarketingSection({
   onUpdateMarketingTaskStage,
   onAddNotification
 }: MarketingSectionProps) {
-  const [subView, setSubView] = useState<'tablero' | 'campanas' | 'calendario' | 'briefs'>('tablero');
+  const [subView, setSubView] = useState<'tablero' | 'campanas' | 'calendario' | 'briefs'>(() =>
+    readPersistedNavValue(
+      'tims_marketing_subview',
+      ['tablero', 'campanas', 'calendario', 'briefs'] as const,
+      'tablero',
+      1,
+      'marketing'
+    )
+  );
+
+  useEffect(() => {
+    writePersistedNavValue('tims_marketing_subview', subView, 'marketing', subView);
+  }, [subView]);
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'all' | MarketingTaskCategory>('all');
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<MarketingTaskStage | null>(null);
   const [boardLayout, setBoardLayout] = useState<'fit' | 'scroll'>('fit');
 
-  // Current user admin check (expansioncomercia.gohb@gmail.com, artes.grupoorganico@gmail.com)
+  // Current user admin check
   const currentUserEmail = (currentUser?.email || '').toLowerCase().trim();
-  const isCurrentUserAdmin = ADMIN_EMAILS.some((adm) => adm.toLowerCase() === currentUserEmail);
+  const isCurrentUserAdmin = isUserAdmin(currentUser);
 
   // Tabs inside view modals (Detalles vs Comentarios)
   const [taskModalTab, setTaskModalTab] = useState<'detalles' | 'comentarios'>('detalles');
@@ -210,7 +223,7 @@ export function MarketingSection({
   const [pHotel, setPHotel] = useState(HOTEL_PROPERTIES[0]);
   const [pChannel, setPChannel] = useState<ContentPublication['channel']>('instagram');
   const [pDate, setPDate] = useState(mktTodayStr);
-  const [pResponsible, setPResponsible] = useState('Equipo Creativo');
+  const [pResponsible, setPResponsible] = useState(currentUser?.name || 'Equipo Creativo');
 
   // Form states - Brief
   const [bTitle, setBTitle] = useState('');
@@ -248,7 +261,7 @@ export function MarketingSection({
         { id: 'lnk-1', title: 'Figma Creativos', url: 'https://figma.com', platform: 'figma' },
         { id: 'lnk-2', title: 'Drive Fotos Oficiales', url: 'https://drive.google.com', platform: 'drive' }
       ],
-      leadOwner: 'Marketing Team',
+      leadOwner: currentUser?.name || 'Marketing Team',
       description: cDesc || 'Campaña estratégica de promoción y captación directa para Grupo Orgánico.'
     });
 
@@ -266,7 +279,7 @@ export function MarketingSection({
       channel: pChannel,
       publishDate: pDate,
       status: 'programado',
-      responsible: pResponsible
+      responsible: pResponsible.trim() || currentUser?.name || 'Equipo Creativo'
     });
 
     setPTitle('');
@@ -285,7 +298,7 @@ export function MarketingSection({
       targetAudience: bAudience || 'Parejas, directores corporativos y turistas de lujo.',
       keyMessage: bMessage || 'Lujo rústico, descanso y naturaleza en Grupo Orgánico.',
       deliverables: bDeliverables.split(',').map((s) => s.trim()).filter(Boolean),
-      author: 'Dirección de Marketing'
+      author: currentUser?.name || 'Dirección de Marketing'
     });
 
     setBTitle('');
@@ -316,8 +329,10 @@ export function MarketingSection({
       stage: 'backlog', // Automáticamente a la columna "Solicitudes"
       priority: tPriority,
       requestedBy: tRequestedBy || currentUser?.name || 'Dirección / Gerencia',
-      assignedTo: tAssignedTo || 'Por asignar',
-      assignedEmail: tAssignedEmail,
+      assignedTo: !isCurrentUserAdmin && (!tAssignedTo || tAssignedTo === 'Por asignar')
+        ? (currentUser?.name || 'Por asignar')
+        : (tAssignedTo || 'Por asignar'),
+      assignedEmail: !isCurrentUserAdmin && !tAssignedEmail ? currentUser?.email : tAssignedEmail,
       dueDate: tDueDate,
       description: tDesc || 'Requerimiento de diseño / marketing.',
       assetUrl: tAssetUrl || undefined,
@@ -1007,6 +1022,7 @@ export function MarketingSection({
           mode="marketing"
           campaigns={campaigns}
           publications={publications}
+          currentUser={currentUser}
           onAddCampaignClick={() => setIsCampaignModalOpen(true)}
           onEditCampaignClick={openEditCampaignModal}
           onDeleteCampaignClick={(c) => setCampaignToDelete(c)}
@@ -2727,9 +2743,28 @@ export function MarketingSection({
                       <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                         <span>☑️</span> Checklist de Entregables
                       </h4>
-                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-stone-200 text-stone-800">
-                        {viewingTask.checklist.filter(i => i.completed).length} de {viewingTask.checklist.length} completados
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-stone-200 text-stone-800 font-mono">
+                        {viewingTask.checklist.filter(i => i.completed).length} de {viewingTask.checklist.length} completados (
+                        {calculateProgressPercent(
+                          viewingTask.checklist.filter(i => i.completed).length,
+                          viewingTask.checklist.length
+                        ).rounded}
+                        %)
                       </span>
+                    </div>
+
+                    <div className="h-2 w-full bg-stone-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-600 transition-all duration-300"
+                        style={{
+                          width: `${
+                            calculateProgressPercent(
+                              viewingTask.checklist.filter(i => i.completed).length,
+                              viewingTask.checklist.length
+                            ).capped
+                          }%`
+                        }}
+                      />
                     </div>
 
                     <div className="space-y-1.5 pt-1">
@@ -2995,7 +3030,9 @@ export function MarketingSection({
                     <div className="font-mono text-lg font-extrabold text-emerald-950">
                       {formatCurrency(viewingCampaign.spent || 0, 'MXN')}
                     </div>
-                    <span className="text-[10px] text-emerald-700">Gastado actual</span>
+                    <span className="text-[10px] text-emerald-700 font-mono font-bold">
+                      {calculateProgressPercent(viewingCampaign.spent || 0, viewingCampaign.budget).formatted} del presupuesto
+                    </span>
                   </div>
 
                   <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-3.5 space-y-0.5">

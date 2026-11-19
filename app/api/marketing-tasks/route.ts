@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables, mapRowToMarketingTask } from '@/lib/db';
 import { INITIAL_MARKETING_TASKS } from '@/lib/initial-data';
-import { MarketingTask } from '@/lib/types';
+import { MarketingTask, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { requireAuthSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 
 export async function GET() {
+  const auth = await requireAuthSession();
+  if (auth.errorResponse) return auth.errorResponse;
+  const { session } = auth;
+
   const sql = getDb();
 
   if (!sql) {
-    return NextResponse.json({
-      source: 'local',
-      tasks: INITIAL_MARKETING_TASKS
-    });
+    return NextResponse.json(
+      { source: 'local', tasks: INITIAL_MARKETING_TASKS },
+      { headers: NO_STORE_HEADERS }
+    );
   }
 
   try {
@@ -21,22 +26,34 @@ export async function GET() {
       ORDER BY due_date ASC, created_at DESC;
     `;
 
-    const tasks = rows.map(mapRowToMarketingTask);
-    return NextResponse.json({
-      source: 'postgres',
-      tasks
-    });
+    let tasks = rows.map(mapRowToMarketingTask);
+
+    if (!isUserAdmin(session)) {
+      tasks = tasks.filter(
+        (t) =>
+          matchesUserIdentity(session, t.assignedEmail, t.assignedTo) ||
+          matchesUserIdentity(session, undefined, t.requestedBy)
+      );
+    }
+
+    return NextResponse.json(
+      { source: 'postgres', tasks },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (error) {
     console.error('Error fetching marketing tasks from DB:', error);
-    return NextResponse.json({
-      source: 'local_fallback',
-      tasks: INITIAL_MARKETING_TASKS
-    });
+    return NextResponse.json(
+      { source: 'local_fallback', tasks: INITIAL_MARKETING_TASKS },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const raw: Partial<MarketingTask> = await request.json();
     const taskId = raw.id || `mtask-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const createdAt = raw.createdAt || new Date().toISOString().split('T')[0];

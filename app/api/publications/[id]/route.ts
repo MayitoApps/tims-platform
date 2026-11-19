@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables } from '@/lib/db';
-import { isAuthorizedAdmin } from '@/lib/auth';
-import { ContentPublication } from '@/lib/types';
+import { requireAuthSession, requireAdminSession } from '@/lib/auth';
+import { ContentPublication, isUserAdmin, matchesUserIdentity } from '@/lib/types';
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuthSession();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
+
     const { id } = await params;
     const updates: Partial<ContentPublication> = await request.json();
     const sql = getDb();
@@ -17,6 +21,16 @@ export async function PUT(
     }
 
     await ensureTables();
+    if (!isUserAdmin(session)) {
+      const existing = await sql`SELECT responsible FROM content_publications WHERE id = ${id} LIMIT 1;`;
+      if (existing.length === 0) {
+        return NextResponse.json({ success: false, error: 'Publicación no encontrada' }, { status: 404 });
+      }
+      if (!matchesUserIdentity(session, undefined, existing[0].responsible)) {
+        return NextResponse.json({ success: false, error: 'No puedes modificar publicaciones de otro compañero.' }, { status: 403 });
+      }
+    }
+
     await sql`
       UPDATE content_publications
       SET
@@ -38,16 +52,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (!isAuthorizedAdmin(request)) {
-      return NextResponse.json(
-        { success: false, error: 'Acceso denegado. Solo administradores autorizados pueden eliminar publicaciones.' },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAdminSession();
+    if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await params;
     const sql = getDb();
