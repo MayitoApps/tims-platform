@@ -646,7 +646,7 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     cadence: 'diaria',
     targetCount: 5,
     targetLabel: '5 llamadas diarias',
-    description: 'Registro diario de llamadas a clientes: hora, fecha, número, cliente, si contestó y comentarios.',
+    description: 'Registro diario con comentarios.',
     color: 'text-blue-700',
     accentBg: 'bg-blue-50',
     borderColor: 'border-blue-200'
@@ -659,7 +659,7 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     cadence: 'semanal',
     targetCount: 2,
     targetLabel: '2 nuevos cada semana y media',
-    description: 'Captación de prospectos: nombre, teléfono, empresa, correo electrónico y fecha de adquisición.',
+    description: 'Captación con datos de contacto.',
     color: 'text-emerald-700',
     accentBg: 'bg-emerald-50',
     borderColor: 'border-emerald-200'
@@ -672,7 +672,7 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     cadence: 'semanal',
     targetCount: 5,
     targetLabel: 'Seguimiento y evidencia',
-    description: 'Nombre del cliente, asunto previo, medio de contacto, respuesta del cliente, siguiente fecha y evidencia.',
+    description: 'Respuesta, siguiente fecha y evidencia.',
     color: 'text-amber-700',
     accentBg: 'bg-amber-50',
     borderColor: 'border-amber-200'
@@ -685,7 +685,7 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     cadence: 'semanal',
     targetCount: 3,
     targetLabel: '3 por semana',
-    description: 'Documento con folio, cliente, hotel, fechas, cantidad, servicio, importe, vigencia y comprobante de envío.',
+    description: 'Folio, importe, vigencia y envío.',
     color: 'text-purple-700',
     accentBg: 'bg-purple-50',
     borderColor: 'border-purple-200'
@@ -698,7 +698,7 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     cadence: 'quincenal',
     targetCount: 1,
     targetLabel: '1 cada 15 días (o 3 sem)',
-    description: 'Evidencia: foto, pin de ubicación del lugar o correo de confirmación. En caso de cancelación, subir evidencia correspondiente.',
+    description: 'Evidencia: foto, pin o correo (también si se cancela).',
     color: 'text-rose-700',
     accentBg: 'bg-rose-50',
     borderColor: 'border-rose-200'
@@ -711,7 +711,7 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     cadence: 'quincenal',
     targetCount: 1,
     targetLabel: '1 cada 15 días',
-    description: 'Zoom, Meet o scouting (1 cada 15 días). Evidencia: correo de acuerdo o confirmación.',
+    description: 'Zoom, Meet o scouting. Evidencia: correo de confirmación.',
     color: 'text-indigo-700',
     accentBg: 'bg-indigo-50',
     borderColor: 'border-indigo-200'
@@ -724,7 +724,7 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     cadence: 'mensual',
     targetCount: 1,
     targetLabel: '1 cierre al mes',
-    description: 'Evidencia: orden de servicio, reservación o documento de cierre equivalente. Si no hay cierre, registrar siguiente paso con fecha de seguimiento.',
+    description: 'Orden/reserva o siguiente paso con fecha.',
     color: 'text-teal-700',
     accentBg: 'bg-teal-50',
     borderColor: 'border-teal-200'

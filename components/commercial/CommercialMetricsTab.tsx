@@ -588,17 +588,17 @@ export function CommercialMetricsTab({
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold uppercase tracking-wider">
-                🇲🇽 Pesos Mexicanos (MXN)
+                MXN
               </span>
               <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 text-[10px] font-mono font-bold uppercase tracking-wider">
-                📅 Vigencia: A partir de Enero 2027
+                Desde Ene 2027
               </span>
             </div>
             <h3 className="font-editorial text-2xl sm:text-3xl font-bold tracking-tight">
-              Tablero de Inteligencia Financiera & Comercial
+              Métricas Comerciales
             </h3>
             <p className="text-xs text-stone-300 max-w-xl">
-              Control de metas anuales, mensuales Empresarial/OTAM, por hotel y por ejecutivo a partir de enero 2027, con porcentaje de avance sobre dinero real ingresado.
+              Avance de metas sobre ingreso real (MXN).
             </p>
           </div>
 
@@ -678,7 +678,7 @@ export function CommercialMetricsTab({
         {(isPreStartWindow || pre2027DealsCount > 0) && (metricsYear === '2027' || metricsYear === 'since_2027') && (
           <div className="text-[11px] bg-white/10 border border-white/15 rounded-xl px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-stone-200">
             <span>
-              🗓️ Metas programadas a partir del <strong className="text-white">1 de enero de 2027</strong>. Solo se contabilizan eventos con fecha desde Enero 2027.
+              🗓️ Conteo vigente desde el <strong className="text-white">1 de enero de 2027</strong>.
             </span>
             {pre2027DealsCount > 0 && (
               <button
@@ -707,7 +707,7 @@ export function CommercialMetricsTab({
               {groupProgress.formatted} de la Meta Anual Alcanzada
             </h4>
             <p className="text-xs text-stone-500">
-              Suma de metas anuales por hotel (12 × {formatCurrency(COMMERCIAL_HOTEL_TOTAL_GOAL_MXN, 'MXN')} = {formatCurrency(COMMERCIAL_HOTEL_ANNUAL_TOTAL_GOAL_MXN, 'MXN')}) + meses de eventos empresariales/OTAM ({formatCurrency(COMMERCIAL_EMPRESARIAL_ANNUAL_TOTAL_GOAL_MXN, 'MXN')}) = <strong className="text-stone-800">{formatCurrency(totalGoalMXN, 'MXN')}</strong>
+              Hoteles (12 meses) + Empresariales / OTAM = <strong className="text-stone-800">{formatCurrency(totalGoalMXN, 'MXN')}</strong>
             </p>
           </div>
 
@@ -879,7 +879,7 @@ export function CommercialMetricsTab({
               Metas Mensuales de Eventos Empresariales / OTAM
             </h4>
             <p className="text-xs text-stone-500">
-              Avance mensual por fecha del evento (check-in) y dinero real recaudado frente a la meta de cada mes.
+              Avance mensual por check-in e ingreso real.
             </p>
           </div>
 
@@ -1083,7 +1083,7 @@ export function CommercialMetricsTab({
               Metas Personales por Ejecutivo Comercial
             </h4>
             <p className="text-xs text-stone-500">
-              Cuota mensual por ejecutivo y acumulado anual (× 12 meses), con porcentaje de avance en tiempo real.
+              Cuota mensual y acumulado anual (× 12).
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1300,7 +1300,7 @@ export function CommercialMetricsTab({
               Metas e Ingresos Reales por Hotel
             </h4>
             <p className="text-xs text-stone-500">
-              Cuota mensual por propiedad ({formatCurrency(COMMERCIAL_HOTEL_TOTAL_GOAL_MXN, 'MXN')}/mes) y acumulado anual de 12 meses ({formatCurrency(COMMERCIAL_HOTEL_ANNUAL_TOTAL_GOAL_MXN, 'MXN')}/año).
+              Cuota mensual ({formatCurrency(COMMERCIAL_HOTEL_TOTAL_GOAL_MXN, 'MXN')}) y anual × 12 ({formatCurrency(COMMERCIAL_HOTEL_ANNUAL_TOTAL_GOAL_MXN, 'MXN')}).
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -1461,10 +1461,10 @@ export function CommercialMetricsTab({
       <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
         <div className="border-b border-stone-200 pb-3">
           <h4 className="font-editorial text-2xl font-bold text-stone-900">
-            Volumen y Embudo por Fases del Pipeline (MXN)
+            Pipeline por Fases (MXN)
           </h4>
           <p className="text-xs text-stone-500">
-            Dinero real recaudado, porcentaje respecto al dinero ingresado y respecto a la meta anual
+            Ingreso real vs meta anual
           </p>
         </div>
 
@@ -1524,10 +1524,10 @@ export function CommercialMetricsTab({
             <span className="text-xl">💳</span>
             <div>
               <h4 className="font-bold text-amber-950 text-sm uppercase tracking-wider">
-                Estado General de Cobranza & Dinero Real
+                Cobranza
               </h4>
               <span className="text-xs text-amber-800">
-                Balance en tiempo real entre dinero real ingresado (anticipos + liquidaciones) y cuentas por cobrar
+                Ingresado vs saldo por cobrar
               </span>
             </div>
           </div>

@@ -980,13 +980,13 @@ export function CommercialSection({
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-2">
-              <span>Grupo Orgánico Hoteles Boutique</span>
+              <span>Grupo Orgánico</span>
             </div>
             <h2 className="font-editorial text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Comercialización & Ventas de Hoteles
+              Comercialización & Ventas
             </h2>
             <p className="text-emerald-100 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
-              Gestión de grupos, bodas, eventos MICE, cuentas corporativas y bloqueo de espacios con control de solapamiento de fechas.
+              Grupos, bodas, MICE y bloqueo de espacios.
             </p>
           </div>
 
@@ -1020,7 +1020,7 @@ export function CommercialSection({
                   : 'text-white/80 hover:text-white hover:bg-white/10'
               }`}
             >
-              📅 Calendario de Eventos & Bloqueos
+              📅 Calendario
             </button>
             <button
               onClick={() => setSubView('tabla')}

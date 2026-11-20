@@ -366,7 +366,7 @@ export function InvoicesTab({
               {stats.totalInvoices}
             </div>
             <div className="text-xs text-stone-500 mt-0.5">
-              En eventos confirmados
+              Eventos activos
             </div>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-xl font-bold border border-emerald-200/60">
@@ -384,7 +384,7 @@ export function InvoicesTab({
               {formatCurrency(stats.totalAmountMXN)}
             </div>
             <div className="text-xs text-stone-500 mt-0.5">
-              Suma de facturas adjuntas
+              Total adjunto
             </div>
           </div>
           <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center text-xl font-bold border border-teal-200/60">
@@ -403,7 +403,7 @@ export function InvoicesTab({
               {stats.enCursoConFactura} / {stats.enCursoTotal}
             </div>
             <div className="text-xs text-stone-500 mt-0.5">
-              Con factura vinculada
+              Con factura
             </div>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center text-xl font-bold border border-emerald-200">

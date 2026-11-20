@@ -56,7 +56,7 @@ export function Navbar({
                     : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                <span>🎨 Marketing & Comunicación</span>
+                <span>🎨 Marketing</span>
               </button>
             )}
             {allowedModules.includes('commercial') && (
@@ -90,7 +90,7 @@ export function Navbar({
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-            <span>Neon Realtime Activo</span>
+            <span>En línea</span>
           </div>
 
           {/* Centro de Notificaciones & Eventos Próximos */}

@@ -675,17 +675,14 @@ export function SalesSection({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold tracking-wider text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 uppercase">
-                Módulo Comercial & Fuerza de Ventas
-              </span>
-              <span className="text-xs font-medium text-stone-500">
-                · Ejecutivos: {executivesList.map((e) => e.name).join(', ')}
+                Fuerza de Ventas
               </span>
             </div>
             <h2 className="font-editorial text-2xl sm:text-3xl font-extrabold text-stone-900 mt-1">
-              Tablero de Ventas & Tareas Diarias
+              Tablero de Ventas
             </h2>
             <p className="text-xs text-stone-500 mt-0.5 max-w-2xl">
-              Control integral de metas comerciales: llamadas diarias, prospección, seguimiento, cotizaciones, visitas presenciales, reuniones comerciales y acuerdos comerciales.
+              Metas diarias, quincenales y cierres.
             </p>
           </div>
 
@@ -951,13 +948,13 @@ export function SalesSection({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-0.5 rounded-full inline-block">
-                  Corte Semanal Automático · Viernes
+                  Corte Semanal · Viernes
                 </span>
                 <h3 className="font-editorial text-2xl sm:text-3xl font-extrabold text-white mt-1">
-                  Reporte y Rendimiento de Fuerza de Ventas
+                  Reporte de Ventas
                 </h3>
                 <p className="text-xs text-stone-300 mt-0.5">
-                  Semana del {formatDate(currentWeekInfo.mondayStr)} al {formatDate(currentWeekInfo.fridayStr)} · Incluye metas quincenales y mensuales vigentes
+                  Semana del {formatDate(currentWeekInfo.mondayStr)} al {formatDate(currentWeekInfo.fridayStr)}
                 </p>
               </div>
 
@@ -1897,7 +1894,7 @@ export function SalesSection({
                           ) : (
                             <>
                               <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] font-medium">
-                                ⚠️ <strong>Cancelación de visita:</strong> Se deberá subir obligatoriamente la evidencia correspondiente (captura de correo, WhatsApp o aviso de cancelación).
+                                ⚠️ <strong>Cancelación:</strong> sube la evidencia (correo, WhatsApp o aviso).
                               </div>
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2219,7 +2216,7 @@ export function SalesSection({
                           ) : (
                             <>
                               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
-                                ⏳ <strong>Sin cierre por el momento:</strong> Registra obligatoriamente el siguiente paso y la fecha de seguimiento para mantener activa la oportunidad.
+                                ⏳ <strong>Sin cierre:</strong> registra siguiente paso y fecha de seguimiento.
                               </div>
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

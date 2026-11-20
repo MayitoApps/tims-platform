@@ -43,7 +43,7 @@ export function AuthGate() {
           </span>
         </div>
         <div className="text-[11px] text-stone-400 font-mono hidden sm:block">
-          Plataforma Segura · Grupo Hotelero
+          Grupo Hotelero
         </div>
       </div>
 
@@ -54,13 +54,13 @@ export function AuthGate() {
           <div className="space-y-2 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-linear-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 border border-white/10 text-xs text-amber-200">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Acceso Restringido para Colaboradores</span>
+              <span>Acceso Colaboradores</span>
             </div>
             <h1 className="font-editorial text-3xl sm:text-4xl font-semibold text-white tracking-tight pt-2">
               Bienvenido a TIMS
             </h1>
             <p className="text-xs sm:text-sm text-stone-300 leading-relaxed max-w-sm mx-auto">
-              Gestión estratégica unificada de <span className="text-rose-300 font-medium">Marketing & Comunicación</span> y <span className="text-emerald-300 font-medium">Comercialización de Hoteles</span>.
+              <span className="text-rose-300 font-medium">Marketing</span>, <span className="text-emerald-300 font-medium">Comercialización</span> y <span className="text-blue-300 font-medium">Ventas</span>.
             </p>
           </div>
 
@@ -100,7 +100,7 @@ export function AuthGate() {
 
           <div className="pt-2 text-center border-t border-white/5">
             <p className="text-[11px] text-stone-400">
-              Inicia sesión con tu correo corporativo autorizado para acceder a tus propiedades y herramientas asignadas.
+              Usa tu correo autorizado de Google.
             </p>
           </div>
 
@@ -109,7 +109,7 @@ export function AuthGate() {
 
       {/* Footer */}
       <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-400 z-10">
-        <div>© 2026 TIMS Hospitality Platform · Todos los derechos reservados</div>
+        <div>© 2026 TIMS Hospitality</div>
         <div className="flex items-center gap-4 text-[11px]">
           <span>Neon Realtime DB</span>
           <span>·</span>

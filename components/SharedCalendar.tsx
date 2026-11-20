@@ -229,8 +229,8 @@ export function SharedCalendar({
               </h2>
               <p className="text-xs text-stone-500 font-medium">
                 {mode === 'commercial'
-                  ? 'Calendario Exclusivo de Comercialización: Eventos, Bodas & Bloqueo de Espacios'
-                  : 'Calendario Exclusivo de Marketing: Campañas, Pauta Digital & Publicaciones PR'}
+                  ? 'Eventos, bodas y bloqueos'
+                  : 'Campañas, pauta y PR'}
               </p>
             </div>
           </div>

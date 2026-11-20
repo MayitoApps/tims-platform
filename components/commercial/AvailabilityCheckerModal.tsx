@@ -88,10 +88,10 @@ export function AvailabilityCheckerModal({
             </span>
             <div>
               <h3 className="font-editorial text-lg sm:text-xl font-bold tracking-tight">
-                Consultar Disponibilidad en Tiempo Real
+                Disponibilidad
               </h3>
               <p className="text-emerald-200 text-xs mt-0.5">
-                Verifica salones libres, bloqueos y ocupación de habitaciones por hotel y fecha
+                Salones y ocupación por hotel y fecha.
               </p>
             </div>
           </div>
