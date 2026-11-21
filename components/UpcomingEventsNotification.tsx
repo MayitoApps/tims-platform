@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { HotelDeal, AppNotification, UserProfile, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { HotelDeal, AppNotification, UserProfile, matchesUserIdentity } from '@/lib/types';
 import { getLocalDateStr } from '@/lib/utils';
 
 interface UpcomingEventsNotificationProps {
@@ -36,13 +36,8 @@ export function UpcomingEventsNotification({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const userIsAdmin = isUserAdmin(currentUser);
-
-  // Filtrado de notificaciones:
-  // Si es ADMIN -> Ve todos los movimientos importantes de la empresa.
-  // Si es USUARIO NORMAL -> Solo ve las notificaciones dirigidas estrictamente a él/ella.
+  // Filtrado estricto: cada usuario (incluidos administradores) solo recibe sus propias notificaciones.
   const visibleNotifications = notifications.filter((n) => {
-    if (userIsAdmin) return true;
     if (!currentUser) return false;
     return matchesUserIdentity(currentUser, n.targetEmail, n.targetName);
   });
@@ -52,10 +47,11 @@ export function UpcomingEventsNotification({
   const todayStr = getLocalDateStr();
   const todayMs = new Date(`${todayStr}T00:00:00`).getTime();
 
-  // Filter events within the next 15 days
+  // Próximos eventos propios dentro de los siguientes 15 días
   const upcomingEvents = deals
     .filter((d) => {
-      if (d.stage === 'perdido') return false;
+      if (d.stage === 'perdido' || !currentUser) return false;
+      if (!matchesUserIdentity(currentUser, d.assignedEmail, d.assignedRep)) return false;
       const checkInMs = new Date(`${d.checkInDate}T00:00:00`).getTime();
       const diffDays = Math.ceil((checkInMs - todayMs) / (1000 * 3600 * 24));
       return diffDays >= 0 && diffDays <= 15;
@@ -83,11 +79,10 @@ export function UpcomingEventsNotification({
       <button
         onClick={() => setIsOpen(!isOpen)}
         title="Centro de Notificaciones & Eventos"
-        className={`relative p-2 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
-          unreadCount > 0
+        className={`relative p-2 rounded-xl transition-all flex items-center justify-center cursor-pointer ${unreadCount > 0
             ? 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 ring-2 ring-amber-400/30'
             : 'bg-stone-100 text-stone-600 hover:text-stone-900 hover:bg-stone-200 border border-stone-200'
-        }`}
+          }`}
       >
         <span className="text-base sm:text-lg">🔔</span>
 
@@ -111,7 +106,7 @@ export function UpcomingEventsNotification({
                 </h4>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 font-mono text-stone-300">
-                {userIsAdmin ? '🛡️ Modo Administrador' : '👤 Notificaciones Personales'}
+                👤 Notificaciones Personales
               </span>
             </div>
 
@@ -120,11 +115,10 @@ export function UpcomingEventsNotification({
               <button
                 type="button"
                 onClick={() => setActiveTab('notifs')}
-                className={`py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'notifs'
+                className={`py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeTab === 'notifs'
                     ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
                     : 'text-stone-300 hover:text-white'
-                }`}
+                  }`}
               >
                 <span>🔔 Personales</span>
                 {unreadCount > 0 && (
@@ -137,11 +131,10 @@ export function UpcomingEventsNotification({
               <button
                 type="button"
                 onClick={() => setActiveTab('events')}
-                className={`py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'events'
+                className={`py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeTab === 'events'
                     ? 'bg-emerald-600 text-white font-bold shadow-xs'
                     : 'text-stone-300 hover:text-white'
-                }`}
+                  }`}
               >
                 <span>📅 Eventos ({eventCount})</span>
               </button>
@@ -153,9 +146,7 @@ export function UpcomingEventsNotification({
             <div className="max-h-96 overflow-y-auto divide-y divide-stone-100 p-1">
               <div className="flex items-center justify-between px-3 py-1.5 text-[11px] text-stone-500 bg-stone-50/80">
                 <span>
-                  {userIsAdmin
-                    ? 'Todos los movimientos de la plataforma'
-                    : `Para: ${currentUser?.name || 'Usuario'}`}
+                  {`Para: ${currentUser?.name || 'Usuario'}`}
                 </span>
                 {unreadCount > 0 && onMarkAllAsRead && (
                   <button
@@ -189,9 +180,8 @@ export function UpcomingEventsNotification({
                         if (onSelectNotification) onSelectNotification(notif);
                         setIsOpen(false);
                       }}
-                      className={`p-3 hover:bg-stone-50 rounded-xl transition-all cursor-pointer space-y-1 ${
-                        !notif.read ? 'bg-amber-50/40 border-l-3 border-amber-500' : ''
-                      }`}
+                      className={`p-3 hover:bg-stone-50 rounded-xl transition-all cursor-pointer space-y-1 ${!notif.read ? 'bg-amber-50/40 border-l-3 border-amber-500' : ''
+                        }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -214,7 +204,7 @@ export function UpcomingEventsNotification({
                           {notif.authorName ? `Por ${notif.authorName}` : ''}
                         </span>
                         <span className="font-semibold text-amber-800 uppercase tracking-wider text-[9px] bg-stone-100 px-1.5 py-0.5 rounded">
-                          {notif.linkSection === 'commercial' ? 'Comercial' : 'Marketing'}
+                          {notif.linkSection === 'commercial' ? 'Comercial' : notif.linkSection === 'sales' ? 'Ventas' : 'Marketing'}
                         </span>
                       </div>
                     </div>
@@ -227,9 +217,7 @@ export function UpcomingEventsNotification({
                     No tienes notificaciones pendientes.
                   </p>
                   <p className="text-[11px] text-stone-400 max-w-[280px] mx-auto">
-                    {userIsAdmin
-                      ? 'Aquí verás todos los comentarios, nuevos eventos y cambios en tiempo real.'
-                      : 'Solo recibirás notificaciones personales cuando alguien comente o te asigne un requerimiento.'}
+                    Solo recibirás avisos cuando te asignen tareas, tengas eventos propios próximos o pendientes importantes.
                   </p>
                 </div>
               )}
@@ -255,21 +243,20 @@ export function UpcomingEventsNotification({
                       </span>
 
                       <span
-                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                          diffDays === 0
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${diffDays === 0
                             ? 'bg-rose-500 text-white animate-pulse'
                             : diffDays === 1
-                            ? 'bg-amber-500 text-white'
-                            : isUrgent
-                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        }`}
+                              ? 'bg-amber-500 text-white'
+                              : isUrgent
+                                ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}
                       >
                         {diffDays === 0
                           ? '¡HOY ES EL EVENTO!'
                           : diffDays === 1
-                          ? '¡Inicia mañana!'
-                          : `En ${diffDays} días (${deal.checkInDate})`}
+                            ? '¡Inicia mañana!'
+                            : `En ${diffDays} días (${deal.checkInDate})`}
                       </span>
                     </div>
 

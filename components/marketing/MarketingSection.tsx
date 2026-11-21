@@ -16,6 +16,7 @@ import {
   AppNotification,
   ADMIN_EMAILS,
   isUserAdmin,
+  matchesUserIdentity,
   DESIGN_RESPONSIBLES,
   REQUIREMENT_FORMATS,
   getExecutiveEventStatus
@@ -320,6 +321,13 @@ export function MarketingSection({
     const finalTitle = tTitle.trim() || `${formatValue} - ${(tHotelTargets[0] || 'Hotel')}`;
     const mainHotel = tHotelTargets[0] || HOTEL_PROPERTIES[0];
 
+    const finalAssignedTo =
+      !isCurrentUserAdmin && (!tAssignedTo || tAssignedTo === 'Por asignar')
+        ? (currentUser?.name || 'Por asignar')
+        : (tAssignedTo || 'Por asignar');
+    const finalAssignedEmail =
+      !isCurrentUserAdmin && !tAssignedEmail ? currentUser?.email : tAssignedEmail;
+
     onAddMarketingTask({
       title: finalTitle,
       format: formatValue,
@@ -329,10 +337,8 @@ export function MarketingSection({
       stage: 'backlog', // Automáticamente a la columna "Solicitudes"
       priority: tPriority,
       requestedBy: tRequestedBy || currentUser?.name || 'Dirección / Gerencia',
-      assignedTo: !isCurrentUserAdmin && (!tAssignedTo || tAssignedTo === 'Por asignar')
-        ? (currentUser?.name || 'Por asignar')
-        : (tAssignedTo || 'Por asignar'),
-      assignedEmail: !isCurrentUserAdmin && !tAssignedEmail ? currentUser?.email : tAssignedEmail,
+      assignedTo: finalAssignedTo,
+      assignedEmail: finalAssignedEmail,
       dueDate: tDueDate,
       description: tDesc || 'Requerimiento de diseño / marketing.',
       assetUrl: tAssetUrl || undefined,
@@ -340,14 +346,18 @@ export function MarketingSection({
       comments: []
     });
 
-    if (onAddNotification) {
+    if (
+      onAddNotification &&
+      finalAssignedTo !== 'Por asignar' &&
+      !matchesUserIdentity(currentUser, finalAssignedEmail, finalAssignedTo)
+    ) {
       onAddNotification({
         id: `notif-${Date.now()}`,
-        title: `Nuevo requerimiento registrado`,
-        message: `Se registró '${finalTitle}' para entrega el ${tDueDate}.`,
+        title: `Nuevo requerimiento asignado`,
+        message: `Te asignaron '${finalTitle}' para entrega el ${tDueDate}.`,
         type: 'task_created',
-        targetEmail: tAssignedEmail,
-        targetName: tAssignedTo,
+        targetEmail: finalAssignedEmail,
+        targetName: finalAssignedTo,
         authorName: currentUser?.name || 'Dirección',
         authorEmail: currentUser?.email,
         linkSection: 'marketing',
@@ -423,6 +433,10 @@ export function MarketingSection({
     const finalTitle = editTTitle.trim() || editingTask.title;
     const mainHotel = editTHotelTargets[0] || editingTask.hotelTarget;
 
+    const reassigned =
+      (editTAssignedEmail || '').toLowerCase().trim() !== (editingTask.assignedEmail || '').toLowerCase().trim() ||
+      (editTAssignedTo || '').toLowerCase().trim() !== (editingTask.assignedTo || '').toLowerCase().trim();
+
     const updated: MarketingTask = {
       ...editingTask,
       title: finalTitle,
@@ -443,6 +457,28 @@ export function MarketingSection({
 
     if (onUpdateMarketingTask) {
       onUpdateMarketingTask(updated);
+    }
+    if (
+      reassigned &&
+      onAddNotification &&
+      editTAssignedTo &&
+      editTAssignedTo !== 'Por asignar' &&
+      !matchesUserIdentity(currentUser, editTAssignedEmail, editTAssignedTo)
+    ) {
+      onAddNotification({
+        id: `notif-${Date.now()}`,
+        title: `Requerimiento asignado`,
+        message: `Te asignaron '${updated.title}' para entrega el ${updated.dueDate}.`,
+        type: 'task_created',
+        targetEmail: editTAssignedEmail,
+        targetName: editTAssignedTo,
+        authorName: currentUser?.name || 'Marketing',
+        authorEmail: currentUser?.email,
+        linkSection: 'marketing',
+        targetId: updated.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
     }
     if (viewingTask && viewingTask.id === updated.id) {
       setViewingTask(updated);
@@ -477,7 +513,12 @@ export function MarketingSection({
       onUpdateMarketingTask(updatedTask);
     }
 
-    if (onAddNotification) {
+    if (
+      onAddNotification &&
+      viewingTask.assignedTo &&
+      viewingTask.assignedTo !== 'Por asignar' &&
+      !matchesUserIdentity(currentUser, viewingTask.assignedEmail, viewingTask.assignedTo)
+    ) {
       onAddNotification({
         id: `notif-${Date.now()}`,
         title: `Nuevo comentario en: ${viewingTask.title}`,
@@ -1634,6 +1675,43 @@ export function MarketingSection({
                 </div>
               </div>
 
+              {/* Responsable de la Tarea */}
+              <div>
+                <label className="block text-stone-800 font-bold mb-1.5">
+                  👤 Responsable de la Tarea:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {DESIGN_RESPONSIBLES.map((resp) => {
+                    const isSelected = tAssignedEmail === resp.email;
+                    return (
+                      <button
+                        key={resp.email}
+                        type="button"
+                        onClick={() => {
+                          setTAssignedTo(resp.name);
+                          setTAssignedEmail(resp.email);
+                        }}
+                        className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 text-left ${
+                          isSelected
+                            ? 'bg-purple-50 border-purple-600 ring-2 ring-purple-300'
+                            : 'bg-stone-50 hover:bg-stone-100 border-stone-200'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          isSelected ? 'bg-purple-800 text-white' : 'bg-stone-300 text-stone-700'
+                        }`}>
+                          {resp.initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-stone-900 text-xs">{resp.name}</div>
+                          <div className="text-[10px] text-stone-500 font-mono truncate">{resp.email}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Fecha de Entrega y Prioridad */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1819,9 +1897,9 @@ export function MarketingSection({
                 </div>
               </div>
 
-              {/* Responsable de Diseño */}
+              {/* Responsable de la Tarea */}
               <div>
-                <label className="block text-stone-700 font-bold mb-1">Responsable del Diseño</label>
+                <label className="block text-stone-700 font-bold mb-1">Responsable de la Tarea</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {DESIGN_RESPONSIBLES.map((resp) => {
                     const isSelected = editTAssignedEmail === resp.email;

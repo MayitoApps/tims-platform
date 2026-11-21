@@ -16,6 +16,7 @@ import {
   ADMIN_EMAILS,
   isAdminEmail,
   isUserAdmin,
+  matchesUserIdentity,
   getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
@@ -310,7 +311,11 @@ export function CommercialSection({
     onUpdateDeal(updatedDeal);
     setDealCommentText('');
 
-    if (onAddNotification) {
+    if (
+      onAddNotification &&
+      (viewingDeal.assignedEmail || viewingDeal.assignedRep) &&
+      !matchesUserIdentity(currentUser, viewingDeal.assignedEmail, viewingDeal.assignedRep)
+    ) {
       onAddNotification({
         id: `notif-${Date.now()}`,
         title: `Nueva nota en evento: ${viewingDeal.code}`,
@@ -457,7 +462,11 @@ export function CommercialSection({
       });
     }
 
-    if (onAddNotification && taskAssignedEmail) {
+    if (
+      onAddNotification &&
+      (taskAssignedEmail || taskAssignedTo) &&
+      !matchesUserIdentity(currentUser, taskAssignedEmail, taskAssignedTo)
+    ) {
       onAddNotification({
         id: `notif-${Date.now()}`,
         title: 'Nueva Tarea Comercial Asignada',
@@ -482,6 +491,10 @@ export function CommercialSection({
 
   const handleSaveTaskInfo = () => {
     if (!viewingTask) return;
+    const reassigned =
+      (editTaskAssignedEmail || '').toLowerCase().trim() !== (viewingTask.assignedEmail || '').toLowerCase().trim() ||
+      (editTaskAssignedTo || '').toLowerCase().trim() !== (viewingTask.assignedTo || '').toLowerCase().trim();
+
     const updated: CommercialTask = {
       ...viewingTask,
       title: editTaskTitle.trim() || viewingTask.title,
@@ -498,6 +511,29 @@ export function CommercialSection({
     if (onUpdateCommercialTask) {
       onUpdateCommercialTask(updated);
     }
+
+    if (
+      reassigned &&
+      onAddNotification &&
+      (editTaskAssignedEmail || editTaskAssignedTo) &&
+      !matchesUserIdentity(currentUser, editTaskAssignedEmail, editTaskAssignedTo)
+    ) {
+      onAddNotification({
+        id: `notif-${Date.now()}`,
+        title: 'Tarea Comercial Asignada',
+        message: `Te asignaron la tarea: "${updated.title}" (${updated.hotelTarget}).`,
+        type: 'task_created',
+        targetEmail: editTaskAssignedEmail,
+        targetName: editTaskAssignedTo,
+        authorName: currentUser?.name || 'Administración',
+        authorEmail: currentUser?.email,
+        linkSection: 'commercial',
+        targetId: updated.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
+    }
+
     setIsEditingTaskInfo(false);
   };
 
@@ -530,26 +566,26 @@ export function CommercialSection({
     }
     setTaskCommentText('');
 
-    // Notificación personal dirigida al responsable de la tarea
-    if (onAddNotification && viewingTask.assignedEmail) {
-      const currentEmail = (currentUser?.email || '').toLowerCase().trim();
-      const targetEmail = viewingTask.assignedEmail.toLowerCase().trim();
-      if (currentEmail !== targetEmail) {
-        onAddNotification({
-          id: `notif-${Date.now()}`,
-          title: `Comentario en tarea: ${viewingTask.code}`,
-          message: `${newComment.authorName}: "${newComment.text.slice(0, 90)}..." (Tarea: ${viewingTask.title})`,
-          type: 'comment',
-          targetEmail: viewingTask.assignedEmail,
-          targetName: viewingTask.assignedTo,
-          authorName: newComment.authorName,
-          authorEmail: newComment.authorEmail,
-          linkSection: 'commercial',
-          targetId: viewingTask.id,
-          createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-          read: false
-        });
-      }
+    // Notificación personal dirigida al responsable de la tarea (solo si comenta un tercero)
+    if (
+      onAddNotification &&
+      (viewingTask.assignedEmail || viewingTask.assignedTo) &&
+      !matchesUserIdentity(currentUser, viewingTask.assignedEmail, viewingTask.assignedTo)
+    ) {
+      onAddNotification({
+        id: `notif-${Date.now()}`,
+        title: `Comentario en tarea: ${viewingTask.code}`,
+        message: `${newComment.authorName}: "${newComment.text.slice(0, 90)}..." (Tarea: ${viewingTask.title})`,
+        type: 'comment',
+        targetEmail: viewingTask.assignedEmail,
+        targetName: viewingTask.assignedTo,
+        authorName: newComment.authorName,
+        authorEmail: newComment.authorEmail,
+        linkSection: 'commercial',
+        targetId: viewingTask.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
     }
   };
 
@@ -895,22 +931,6 @@ export function CommercialSection({
       contactPhone: phone.trim() || undefined,
       requirements: dealRequirements
     });
-
-    if (onAddNotification) {
-      onAddNotification({
-        id: `notif-${Date.now()}`,
-        title: `Nuevo RFP / Evento registrado`,
-        message: `${company} en ${hotel} (${formatCurrency(totalValNum, 'MXN')}). Registrado por: ${currentUser?.name || 'Comercial'}`,
-        type: 'deal_created',
-        targetEmail: currentUser?.email || 'admin@grupoorganico.com',
-        targetName: currentUser?.name || 'Administración',
-        authorName: currentUser?.name || 'Sistema Comercial',
-        authorEmail: currentUser?.email,
-        linkSection: 'commercial',
-        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-        read: false
-      });
-    }
 
     // Auto-enfocar el calendario en la fecha del nuevo evento
     if (checkIn) {

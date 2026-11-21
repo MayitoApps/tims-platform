@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables, mapRowToDeal } from '@/lib/db';
 import { INITIAL_DEALS } from '@/lib/initial-data';
-import { HotelDeal, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { HotelDeal, TEAM_USERS_DIRECTORY, isUserAdmin, matchesUserIdentity } from '@/lib/types';
 import { requireAuthSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 
@@ -69,6 +69,7 @@ export async function POST(request: Request) {
   try {
     const auth = await requireAuthSession();
     if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
 
     const raw: Partial<HotelDeal> = await request.json();
     const sql = getDb();
@@ -77,6 +78,18 @@ export async function POST(request: Request) {
     const createdAt = raw.createdAt || new Date().toISOString().split('T')[0];
     const totalValNum = Number(raw.totalValue) || 0;
     const depValNum = Number(raw.depositAmount) || 0;
+
+    // El propietario del evento se toma de quien lo da de alta (obligatorio para usuarios normales)
+    const userIsAdmin = isUserAdmin(session);
+    const resolvedRep = userIsAdmin
+      ? (raw.assignedRep?.trim() || session.name || 'Equipo Comercial')
+      : (session.name || raw.assignedRep?.trim() || 'Equipo Comercial');
+    const matchedDir = TEAM_USERS_DIRECTORY.find(
+      (u) => u.name.toLowerCase().trim() === resolvedRep.toLowerCase().trim()
+    );
+    const resolvedEmail = userIsAdmin
+      ? (raw.assignedEmail || matchedDir?.email || (resolvedRep === session.name ? session.email : undefined))
+      : session.email;
 
     const deal: HotelDeal = {
       ...raw,
@@ -98,8 +111,8 @@ export async function POST(request: Request) {
       attendeesCount: Number(raw.attendeesCount) || 0,
       checkInDate: (raw.checkInDate || new Date().toISOString().split('T')[0]).slice(0, 10),
       checkOutDate: (raw.checkOutDate || new Date().toISOString().split('T')[0]).slice(0, 10),
-      assignedRep: raw.assignedRep || 'Equipo Comercial',
-      assignedEmail: raw.assignedEmail || undefined,
+      assignedRep: resolvedRep,
+      assignedEmail: resolvedEmail,
       notes: raw.notes || '',
       comments: Array.isArray(raw.comments) ? raw.comments : [],
       contactEmail: raw.contactEmail || '',

@@ -395,12 +395,11 @@ export default function Home() {
       localStorage.setItem('tims_notifications', JSON.stringify(nextList));
     } catch {}
 
-    // Toast visible para el usuario si es destinatario o admin (SOLO UNA VEZ POR NOTIFICACIÓN)
+    // Toast visible únicamente si la notificación va dirigida al usuario actual
     if (!displayedToastIdsRef.current.has(notif.id)) {
       displayedToastIdsRef.current.add(notif.id);
-      const isTarget = notif.targetEmail && currentUser?.email && notif.targetEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim();
-      const isAdmin = isUserAdmin(currentUser);
-      if (isTarget || isAdmin) {
+      const isTarget = matchesUserIdentity(currentUser, notif.targetEmail, notif.targetName);
+      if (isTarget) {
         showToast(`🔔 ${notif.title}: ${notif.message.slice(0, 55)}...`);
       }
     }
@@ -443,6 +442,8 @@ export default function Home() {
       }
     } else if (notif.linkSection === 'marketing') {
       navigateToSection('marketing');
+    } else if (notif.linkSection === 'sales') {
+      navigateToSection('sales');
     }
   };
 
@@ -465,11 +466,11 @@ export default function Home() {
     }
   };
 
-  // Notificaciones automáticas ÚNICAS para eventos próximos a suceder (dentro de los próximos 7 días)
+  // Notificaciones automáticas personales y únicas (eventos propios próximos + tareas importantes por vencer + seguimientos de hoy)
   const notifiedEventsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!currentUser || deals.length === 0) return;
+    if (!currentUser) return;
 
     try {
       const saved = localStorage.getItem('tims_notified_upcoming_events');
@@ -484,51 +485,121 @@ export default function Home() {
     const todayStr = getLocalDateStr();
     const todayMs = new Date(`${todayStr}T00:00:00`).getTime();
 
+    const emitOnce = (notif: AppNotification) => {
+      if (notifiedEventsRef.current.has(notif.id)) return;
+      if (notifications.some((n) => n.id === notif.id)) {
+        notifiedEventsRef.current.add(notif.id);
+        return;
+      }
+      notifiedEventsRef.current.add(notif.id);
+      try {
+        localStorage.setItem(
+          'tims_notified_upcoming_events',
+          JSON.stringify(Array.from(notifiedEventsRef.current))
+        );
+      } catch {}
+      handleAddNotification(notif);
+    };
+
+    // 1. Eventos propios próximos (<= 7 días)
     visibleDeals.forEach((deal) => {
-      if (deal.stage === 'perdido') return;
-      if (!deal.checkInDate) return;
+      if (deal.stage === 'perdido' || !deal.checkInDate) return;
+      if (!matchesUserIdentity(currentUser, deal.assignedEmail, deal.assignedRep)) return;
 
       const checkInMs = new Date(`${deal.checkInDate}T00:00:00`).getTime();
       const diffDays = Math.ceil((checkInMs - todayMs) / (1000 * 3600 * 24));
+      if (diffDays < 0 || diffDays > 7) return;
 
-      // Solo si el evento está pronto a suceder (entre hoy y los próximos 7 días)
-      if (diffDays >= 0 && diffDays <= 7) {
-        const notifUniqueId = `upcoming-event-${deal.id}-${deal.checkInDate}`;
+      const daysLabel = diffDays === 0 ? '¡HOY!' : diffDays === 1 ? '¡Mañana!' : `en ${diffDays} días (${deal.checkInDate})`;
+      const paymentNote = deal.paymentStatus !== 'liquidado' ? ' Tiene saldo pendiente.' : '';
 
-        if (notifiedEventsRef.current.has(notifUniqueId)) return;
-        if (notifications.some((n) => n.id === notifUniqueId)) {
-          notifiedEventsRef.current.add(notifUniqueId);
-          return;
-        }
-
-        notifiedEventsRef.current.add(notifUniqueId);
-        try {
-          localStorage.setItem(
-            'tims_notified_upcoming_events',
-            JSON.stringify(Array.from(notifiedEventsRef.current))
-          );
-        } catch {}
-
-        const daysLabel = diffDays === 0 ? '¡HOY!' : diffDays === 1 ? '¡Mañana!' : `en ${diffDays} días (${deal.checkInDate})`;
-
-        const upcomingNotif: AppNotification = {
-          id: notifUniqueId,
-          title: `⏰ Evento próximo: ${deal.companyOrAgency}`,
-          message: `El evento "${deal.companyOrAgency}" en ${deal.hotelName} inicia ${daysLabel}. Verifica logística y anticipos.`,
-          type: 'event_active',
-          targetEmail: deal.assignedEmail || 'expansioncomercia.gohb@gmail.com',
-          targetName: deal.assignedRep || 'Fernanda Langarica',
-          authorName: 'Sistema TIMS',
-          linkSection: 'commercial',
-          targetId: deal.id,
-          createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
-          read: false
-        };
-
-        handleAddNotification(upcomingNotif);
-      }
+      emitOnce({
+        id: `upcoming-event-${deal.id}-${deal.checkInDate}`,
+        title: `⏰ Evento próximo: ${deal.companyOrAgency}`,
+        message: `Tu evento en ${deal.hotelName} inicia ${daysLabel}.${paymentNote}`,
+        type: 'event_active',
+        targetEmail: currentUser.email,
+        targetName: currentUser.name,
+        authorName: 'Sistema TIMS',
+        linkSection: 'commercial',
+        targetId: deal.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
     });
-  }, [visibleDeals, currentUser]);
+
+    // 2. Tareas comerciales importantes propias por vencer (<= 2 días) o vencidas
+    commercialTasks.forEach((task) => {
+      if (task.stage === 'terminada' || task.stage === 'cancelada' || !task.dueDate) return;
+      if (task.priority !== 'alta' && task.priority !== 'urgente') return;
+      if (!matchesUserIdentity(currentUser, task.assignedEmail, task.assignedTo)) return;
+
+      const dueMs = new Date(`${task.dueDate}T00:00:00`).getTime();
+      const diffDays = Math.ceil((dueMs - todayMs) / (1000 * 3600 * 24));
+      if (diffDays > 2) return;
+
+      const dueLabel = diffDays < 0 ? 'vencida' : diffDays === 0 ? 'vence HOY' : `vence en ${diffDays} día(s)`;
+      emitOnce({
+        id: `due-ctask-${task.id}-${task.dueDate}`,
+        title: `📌 Tarea prioritaria ${dueLabel}`,
+        message: `"${task.title}" (${task.hotelTarget}).`,
+        type: 'task_created',
+        targetEmail: currentUser.email,
+        targetName: currentUser.name,
+        authorName: 'Sistema TIMS',
+        linkSection: 'commercial',
+        targetId: task.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
+    });
+
+    // 3. Requerimientos de marketing importantes propios por vencer (<= 2 días) o vencidos
+    marketingTasks.forEach((task) => {
+      if (task.stage === 'aprobado' || !task.dueDate) return;
+      if (task.priority !== 'alta' && task.priority !== 'urgente') return;
+      if (!matchesUserIdentity(currentUser, task.assignedEmail, task.assignedTo)) return;
+
+      const dueMs = new Date(`${task.dueDate}T00:00:00`).getTime();
+      const diffDays = Math.ceil((dueMs - todayMs) / (1000 * 3600 * 24));
+      if (diffDays > 2) return;
+
+      const dueLabel = diffDays < 0 ? 'vencido' : diffDays === 0 ? 'vence HOY' : `vence en ${diffDays} día(s)`;
+      emitOnce({
+        id: `due-mtask-${task.id}-${task.dueDate}`,
+        title: `🎨 Requerimiento prioritario ${dueLabel}`,
+        message: `"${task.title}" (${task.hotelTarget}).`,
+        type: 'task_created',
+        targetEmail: currentUser.email,
+        targetName: currentUser.name,
+        authorName: 'Sistema TIMS',
+        linkSection: 'marketing',
+        targetId: task.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
+    });
+
+    // 4. Seguimientos de ventas programados para hoy
+    salesActivities.forEach((act) => {
+      if (!act.nextDate || act.nextDate !== todayStr) return;
+      if (!matchesUserIdentity(currentUser, act.executiveEmail, act.executiveName)) return;
+
+      emitOnce({
+        id: `followup-sales-${act.id}-${todayStr}`,
+        title: `🔄 Seguimiento programado hoy`,
+        message: `${act.clientName || 'Cliente'}${act.nextAction ? `: ${act.nextAction}` : ''}`,
+        type: 'task_created',
+        targetEmail: currentUser.email,
+        targetName: currentUser.name,
+        authorName: 'Sistema TIMS',
+        linkSection: 'sales',
+        targetId: act.id,
+        createdAt: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+        read: false
+      });
+    });
+  }, [visibleDeals, commercialTasks, marketingTasks, salesActivities, currentUser]);
 
   // -----------------------------------------------------------------
   // MARKETING ACTIONS (WITH DB PERSISTENCE)

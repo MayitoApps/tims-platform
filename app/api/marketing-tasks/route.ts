@@ -53,6 +53,7 @@ export async function POST(request: Request) {
   try {
     const auth = await requireAuthSession();
     if (auth.errorResponse) return auth.errorResponse;
+    const { session } = auth;
 
     const raw: Partial<MarketingTask> = await request.json();
     const taskId = raw.id || `mtask-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       category: raw.category || 'diseno_grafico',
       stage: raw.stage || 'backlog',
       priority: raw.priority || 'alta',
-      requestedBy: raw.requestedBy || 'Marketing',
+      requestedBy: raw.requestedBy || session.name || 'Marketing',
       assignedTo: raw.assignedTo || 'Diseño',
       assignedEmail: raw.assignedEmail || undefined,
       dueDate: (raw.dueDate || new Date().toISOString().split('T')[0]).slice(0, 10),

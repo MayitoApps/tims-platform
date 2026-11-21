@@ -252,7 +252,7 @@ export interface AppNotification {
   targetName?: string;  // Nombre del destinatario
   authorName?: string;
   authorEmail?: string;
-  linkSection: 'marketing' | 'commercial';
+  linkSection: 'marketing' | 'commercial' | 'sales';
   targetId?: string;    // ID del requerimiento o ID del deal
   createdAt: string;
   read?: boolean;
@@ -300,6 +300,18 @@ export const DESIGN_RESPONSIBLES = [
     email: 'mkt.gohb@gmail.com',
     role: 'Marketing, Ventas y Comercialización',
     initials: 'EA'
+  },
+  {
+    name: 'Fernanda Langarica',
+    email: 'expansioncomercia.gohb@gmail.com',
+    role: 'Administrador · Comercialización y Ventas',
+    initials: 'FL'
+  },
+  {
+    name: 'Alejandra Ocaña',
+    email: 'marketinggrupoorganico@gmail.com',
+    role: 'Administrador · Comercialización y Ventas',
+    initials: 'AO'
   }
 ];
 
