@@ -105,8 +105,12 @@ export function CommercialSection({
   );
 
   useEffect(() => {
+    if (!isCurrentUserAdmin && subView === 'reporte') {
+      setSubView('pipeline');
+      return;
+    }
     writePersistedNavValue('tims_commercial_subview', subView, 'commercial', subView);
-  }, [subView]);
+  }, [subView, isCurrentUserAdmin]);
   const [selectedHotelFilter, setSelectedHotelFilter] = useState('all');
 
   const totalInvoicesCount = useMemo(() => {
@@ -1052,16 +1056,18 @@ export function CommercialSection({
             >
               Tabla de Negociaciones
             </button>
-            <button
-              onClick={() => setSubView('reporte')}
-              className={`px-3.5 py-2 rounded-lg transition-all ${
-                subView === 'reporte'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              Métricas
-            </button>
+            {isCurrentUserAdmin && (
+              <button
+                onClick={() => setSubView('reporte')}
+                className={`px-3.5 py-2 rounded-lg transition-all ${
+                  subView === 'reporte'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                Métricas
+              </button>
+            )}
             <button
               onClick={() => setSubView('facturas')}
               className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
@@ -1798,7 +1804,7 @@ export function CommercialSection({
       )}
 
       {/* SUB-VIEW 4: REPORTE & MÉTRICAS VISUALES EN PESOS MEXICANOS (MXN) */}
-      {subView === 'reporte' && (
+      {subView === 'reporte' && isCurrentUserAdmin && (
         <CommercialMetricsTab
           deals={deals}
           filteredDeals={filteredDeals}

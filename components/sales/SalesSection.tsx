@@ -951,7 +951,7 @@ export function SalesSection({
                   Corte Semanal · Viernes
                 </span>
                 <h3 className="font-editorial text-2xl sm:text-3xl font-extrabold text-white mt-1">
-                  Reporte de Ventas
+                  {isCurrentUserAdmin ? 'Reporte de Ventas' : 'Mi Reporte de Ventas'}
                 </h3>
                 <p className="text-xs text-stone-300 mt-0.5">
                   Semana del {formatDate(currentWeekInfo.mondayStr)} al {formatDate(currentWeekInfo.fridayStr)}
@@ -1031,7 +1031,7 @@ export function SalesSection({
           </div>
 
           {/* Tarjetas de Desglose y Progreso por Ejecutivo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className={weeklyStats.execBreakdown.length === 1 ? 'grid grid-cols-1 max-w-3xl gap-6' : 'grid grid-cols-1 md:grid-cols-2 gap-6'}>
             {weeklyStats.execBreakdown.map((item) => (
               <div
                 key={item.executive.id}
