@@ -14,9 +14,11 @@ import {
   COMMERCIAL_HOTEL_ANNUAL_TOTAL_GOAL_MXN,
   COMMERCIAL_EMPRESARIAL_ANNUAL_TOTAL_GOAL_MXN,
   COMMERCIAL_MONTHLY_OTAM_GOALS,
+  TEAM_USERS_DIRECTORY,
   getCommercialExecutiveGoal,
   getCommercialExecutiveAnnualGoal,
   getExecutiveEventStatus,
+  isAdminEmail,
   isEmpresarialOrOtamDeal,
   matchesUserIdentity,
   normalizeIdentityText
@@ -341,7 +343,7 @@ export function CommercialMetricsTab({
       annualGoalMXN: u.commercialAnnualGoalMXN ?? (typeof u.commercialGoalMXN === 'number' ? u.commercialGoalMXN * 12 : null)
     }));
 
-    // Incluir si algún otro colaborador fuera de los oficiales tuviera deals activos asignados en el periodo
+    // Incluir si algún otro colaborador comercial (no administrador sin tarjeta) tuviera deals activos en el periodo
     periodFilteredDeals.forEach((d) => {
       const alreadyIncluded = list.some((ex) =>
         matchesUserIdentity({ email: ex.email, name: ex.name }, d.assignedEmail, d.assignedRep)
@@ -349,6 +351,14 @@ export function CommercialMetricsTab({
       if (!alreadyIncluded && (d.assignedEmail || d.assignedRep) && d.stage !== 'perdido') {
         const repName = d.assignedRep || d.assignedEmail || 'Colaborador';
         const repEmail = d.assignedEmail || '';
+        const matchedDir = TEAM_USERS_DIRECTORY.find((u) =>
+          matchesUserIdentity({ email: u.email, name: u.name }, repEmail, repName)
+        );
+        const isExcludedAdmin =
+          (matchedDir && matchedDir.role === 'admin' && !matchedDir.showInSalesBoard) ||
+          (!matchedDir && isAdminEmail(repEmail));
+        if (isExcludedAdmin) return;
+
         list.push({
           name: repName,
           email: repEmail,

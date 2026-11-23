@@ -280,7 +280,7 @@ export async function ensureTables(): Promise<boolean> {
       );
     `;
 
-    const rosterMigrationId = 'roster_reset_2026_11_23_v3';
+    const rosterMigrationId = 'roster_reset_2026_11_23_v4';
     const existingMig = await sql`SELECT id FROM app_migrations WHERE id = ${rosterMigrationId} LIMIT 1;`;
     if (existingMig.length === 0) {
       // Conservar avatares de Google existentes para correos que permanecen en la plantilla oficial

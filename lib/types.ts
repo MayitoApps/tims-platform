@@ -155,7 +155,7 @@ export const TEAM_USERS_DIRECTORY: DirectoryUserDef[] = [
   {
     id: 'usr-fernanda-samaniego',
     name: 'Fernanda Samaniego',
-    email: 'pendiente.fernanda.samaniego@tims.local',
+    email: 'comercializacion2ohb@gmail.com',
     role: 'sales',
     initials: 'FS',
     department: 'Comercialización y Ventas',
@@ -165,6 +165,28 @@ export const TEAM_USERS_DIRECTORY: DirectoryUserDef[] = [
     commercialGoalMXN: 241600,
     commercialAnnualGoalMXN: 2899200,
     commercialGoalOrder: 7
+  },
+  {
+    id: 'usr-diana-marin',
+    name: 'Diana Marin',
+    email: 'redessocialesatencionaclientes@gmail.com',
+    role: 'sales',
+    initials: 'DM',
+    department: 'Comercialización y Ventas',
+    modules: ['commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: false
+  },
+  {
+    id: 'usr-camila-martinez',
+    name: 'Camila Martinez',
+    email: 'jefederecepcionesgrupoorganico@gmail.com',
+    role: 'sales',
+    initials: 'CM',
+    department: 'Comercialización y Ventas',
+    modules: ['commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: false
   }
 ];
 
