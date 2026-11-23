@@ -565,8 +565,9 @@ export interface HotelFactsheet {
 // -------------------------------------------------------------
 export type SalesActivityType =
   | 'llamada'          // 5 Llamadas diarias
+  | 'correo'           // 5 Correos comerciales diarios (25 a la semana)
   | 'prospecto'        // 2 nuevos prospectos cada semana y media
-  | 'seguimiento'      // Seguimiento a clientes con evidencia
+  | 'seguimiento'      // 2 Seguimientos diarios (10 a la semana)
   | 'cotizacion'       // 3 cotizaciones por semana
   | 'visita'           // Visitas presenciales: 1 cada 15 días (o cada 3 semanas)
   | 'reunion'          // Reuniones comerciales (Zoom, Meet o scouting): 1 cada 15 días
@@ -681,6 +682,19 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     borderColor: 'border-blue-200'
   },
   {
+    type: 'correo',
+    title: 'Correos Comerciales',
+    shortTitle: 'Correos',
+    icon: '✉️',
+    cadence: 'diaria',
+    targetCount: 5,
+    targetLabel: '5 diarios (25/sem)',
+    description: 'Destinatario, asunto, hora y vínculo o copia del mensaje.',
+    color: 'text-sky-700',
+    accentBg: 'bg-sky-50',
+    borderColor: 'border-sky-200'
+  },
+  {
     type: 'prospecto',
     title: 'Prospectos Nuevos',
     shortTitle: 'Prospectos',
@@ -698,9 +712,9 @@ export const SALES_TASK_CATEGORIES: SalesTaskCategoryDef[] = [
     title: 'Seguimiento de Clientes',
     shortTitle: 'Seguimiento',
     icon: '🔄',
-    cadence: 'semanal',
-    targetCount: 5,
-    targetLabel: 'Seguimiento y evidencia',
+    cadence: 'diaria',
+    targetCount: 2,
+    targetLabel: '2 diarios (10/sem)',
     description: 'Respuesta, siguiente fecha y evidencia.',
     color: 'text-amber-700',
     accentBg: 'bg-amber-50',

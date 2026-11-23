@@ -251,11 +251,11 @@ export function SalesSection({
     let periodLabel = 'Semana actual';
     let secondaryNote: string | undefined;
 
-    if (catType === 'llamada') {
+    if (catType === 'llamada' || catType === 'correo' || catType === 'seguimiento') {
       // Meta diaria: hoy
       currentCount = execActs.filter((a) => a.date === today).length;
       periodLabel = 'Hoy';
-    } else if (catType === 'cotizacion' || catType === 'prospecto' || catType === 'seguimiento') {
+    } else if (catType === 'cotizacion' || catType === 'prospecto') {
       // Meta semanal: semana actual
       currentCount = execActs.filter(
         (a) => a.date >= currentWeekInfo.mondayStr && a.date <= currentWeekInfo.sundayStr
@@ -374,6 +374,16 @@ export function SalesSection({
       baseActivity.clientName = clientName.trim();
       baseActivity.answered = answered;
       baseActivity.notes = notes.trim();
+    } else if (categoryType === 'correo') {
+      if (!evidenceUrl.trim() && !notes.trim()) {
+        setUploadError('Debes agregar el vínculo o una copia del mensaje enviado.');
+        return;
+      }
+      baseActivity.email = email.trim();
+      baseActivity.clientName = email.trim();
+      baseActivity.subject = subject.trim();
+      baseActivity.evidenceUrl = evidenceUrl.trim() || undefined;
+      baseActivity.notes = notes.trim() || undefined;
     } else if (categoryType === 'prospecto') {
       baseActivity.clientName = clientName.trim();
       baseActivity.phone = phone.trim();
@@ -537,6 +547,7 @@ export function SalesSection({
 
     const totalCalls = weekActs.filter((a) => a.type === 'llamada');
     const answeredCalls = totalCalls.filter((a) => a.answered);
+    const totalEmails = weekActs.filter((a) => a.type === 'correo');
     const totalProspects = weekActs.filter((a) => a.type === 'prospecto');
     const totalFollowups = weekActs.filter((a) => a.type === 'seguimiento');
     const totalQuotes = weekActs.filter((a) => a.type === 'cotizacion');
@@ -565,6 +576,7 @@ export function SalesSection({
       const eAllActs = visibleActivities.filter((a) => matchesExecutiveActivity(a, exec));
       const eCalls = eWeekActs.filter((a) => a.type === 'llamada');
       const eAnswered = eCalls.filter((a) => a.answered);
+      const eEmails = eWeekActs.filter((a) => a.type === 'correo');
       const eProspects = eWeekActs.filter((a) => a.type === 'prospecto');
       const eFollowups = eWeekActs.filter((a) => a.type === 'seguimiento');
       const eQuotes = eWeekActs.filter((a) => a.type === 'cotizacion');
@@ -581,15 +593,17 @@ export function SalesSection({
       const eAgreementsFollowup = eAgreementsMonth.filter((a) => a.agreementStatus === 'sin_cierre');
 
       // Goals
-      const callsGoal = 25; // 5 daily * 5 days
+      const callsGoal = 25; // 5 diarios * 5 días
+      const emailsGoal = 25; // 5 diarios * 5 días
       const prospectsGoal = 2; // 2 every week and a half
-      const followupsGoal = 5; // 5 seguimientos con evidencia
+      const followupsGoal = 10; // 2 diarios * 5 días
       const quotesGoal = 3; // 3 weekly
       const visitsGoal = 1; // 1 cada 15-21 días
       const meetingsGoal = 1; // 1 cada 15 días
       const agreementsGoal = 1; // 1 cierre al mes
 
       const callsProg = calculateProgressPercent(eCalls.length, callsGoal);
+      const emailsProg = calculateProgressPercent(eEmails.length, emailsGoal);
       const prospectsProg = calculateProgressPercent(eProspects.length, prospectsGoal);
       const followupsProg = calculateProgressPercent(eFollowups.length, followupsGoal);
       const quotesProg = calculateProgressPercent(eQuotes.length, quotesGoal);
@@ -598,6 +612,7 @@ export function SalesSection({
       const agreementsProg = calculateProgressPercent(eAgreementsClosed.length, agreementsGoal);
 
       const callsPercent = callsProg.rounded;
+      const emailsPercent = emailsProg.rounded;
       const prospectsPercent = prospectsProg.rounded;
       const followupsPercent = followupsProg.rounded;
       const quotesPercent = quotesProg.rounded;
@@ -607,13 +622,14 @@ export function SalesSection({
 
       const overallScore = Math.round(
         (callsProg.capped +
+          emailsProg.capped +
           prospectsProg.capped +
           followupsProg.capped +
           quotesProg.capped +
           visitsProg.capped +
           meetingsProg.capped +
           agreementsProg.capped) /
-          7
+          8
       );
 
       return {
@@ -622,6 +638,8 @@ export function SalesSection({
         calls: eCalls.length,
         callsAnswered: eAnswered.length,
         callsPercent,
+        emails: eEmails.length,
+        emailsPercent,
         prospects: eProspects.length,
         prospectsPercent,
         followups: eFollowups.length,
@@ -648,10 +666,12 @@ export function SalesSection({
       totalCalls: totalCalls.length,
       callsGoalPercent: calculateProgressPercent(totalCalls.length, teamSize * 25).rounded,
       answeredCallsRate: totalCalls.length > 0 ? Math.round((answeredCalls.length / totalCalls.length) * 100) : 0,
+      totalEmails: totalEmails.length,
+      emailsGoalPercent: calculateProgressPercent(totalEmails.length, teamSize * 25).rounded,
       totalProspects: totalProspects.length,
       prospectsGoalPercent: calculateProgressPercent(totalProspects.length, teamSize * 2).rounded,
       totalFollowups: totalFollowups.length,
-      followupsGoalPercent: calculateProgressPercent(totalFollowups.length, teamSize * 5).rounded,
+      followupsGoalPercent: calculateProgressPercent(totalFollowups.length, teamSize * 10).rounded,
       totalQuotes: totalQuotes.length,
       quotesGoalPercent: calculateProgressPercent(totalQuotes.length, teamSize * 3).rounded,
       totalQuoteAmount,
@@ -969,12 +989,20 @@ export function SalesSection({
             </div>
 
             {/* KPIs Globales */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 pt-2">
               <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-0.5">
                 <span className="text-[10px] uppercase font-bold text-stone-400 block">📞 Llamadas</span>
                 <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalCalls}</span>
                 <span className="text-[10px] text-emerald-400 font-semibold block">
                   {weeklyStats.callsGoalPercent}% meta · {weeklyStats.answeredCallsRate}% resp.
+                </span>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-stone-400 block">✉️ Correos</span>
+                <span className="font-mono text-xl font-extrabold text-white">{weeklyStats.totalEmails}</span>
+                <span className="text-[10px] text-emerald-400 font-semibold block">
+                  {weeklyStats.emailsGoalPercent}% meta
                 </span>
               </div>
 
@@ -1084,6 +1112,26 @@ export function SalesSection({
                     </div>
                   </div>
 
+                  {/* Correos Comerciales */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-stone-700">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>✉️</span> Correos Comerciales (Meta semanal: 25)
+                      </span>
+                      <span className="font-mono font-bold text-stone-900">
+                        {item.emails}/25 · {item.emailsPercent}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          item.emailsPercent >= 100 ? 'bg-emerald-600' : 'bg-sky-600'
+                        }`}
+                        style={{ width: `${Math.min(100, item.emailsPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+
                   {/* Prospectos */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-stone-700">
@@ -1108,10 +1156,10 @@ export function SalesSection({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-stone-700">
                       <span className="font-bold flex items-center gap-1.5">
-                        <span>🔄</span> Seguimiento de Clientes (Meta: 5)
+                        <span>🔄</span> Seguimiento de Clientes (Meta semanal: 10)
                       </span>
                       <span className="font-mono font-bold text-stone-900">
-                        {item.followups}/5 · {item.followupsPercent}%
+                        {item.followups}/10 · {item.followupsPercent}%
                       </span>
                     </div>
                     <div className="h-2 w-full bg-stone-100 rounded-full overflow-hidden border border-stone-200">
@@ -1450,6 +1498,62 @@ export function SalesSection({
                               value={notes}
                               onChange={(e) => setNotes(e.target.value)}
                               placeholder="Acuerdos, motivo de la llamada, fecha tentativa o interés del cliente..."
+                              className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* FORM: CORREOS COMERCIALES (5 diarios / 25 semanales) */}
+                      {activeModal.categoryType === 'correo' && (
+                        <div className="space-y-3 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Destinatario</label>
+                              <input
+                                type="text"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Ej. compras@empresa.com o Nombre"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-stone-700 font-bold mb-1">Asunto</label>
+                              <input
+                                type="text"
+                                required
+                                value={subject}
+                                onChange={(e) => setSubject(e.target.value)}
+                                placeholder="Ej. Propuesta eventos corporativos 2027"
+                                className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-stone-700 font-bold mb-1">
+                              Vínculo del correo / Drive / Captura (opcional si pegas copia)
+                            </label>
+                            <input
+                              type="url"
+                              value={evidenceUrl}
+                              onChange={(e) => setEvidenceUrl(e.target.value)}
+                              placeholder="https://..."
+                              className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-stone-700 font-bold mb-1">
+                              Copia del mensaje (opcional si pegas vínculo)
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={notes}
+                              onChange={(e) => setNotes(e.target.value)}
+                              placeholder="Pega aquí el texto o resumen del correo enviado..."
                               className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 resize-none"
                             />
                           </div>
@@ -2319,11 +2423,14 @@ export function SalesSection({
                                 <div className="flex items-start justify-between gap-2">
                                   <div>
                                     <div className="font-bold text-stone-900 text-sm">
-                                      {act.clientName || act.company || act.receiverName || act.topic || 'Registro sin título'}
+                                      {act.type === 'correo'
+                                        ? (act.subject || act.email || act.clientName || 'Correo enviado')
+                                        : (act.clientName || act.company || act.receiverName || act.topic || 'Registro sin título')}
                                     </div>
                                     <div className="flex items-center flex-wrap gap-2 text-[10px] text-stone-500 font-mono mt-0.5">
                                       <span>📅 {formatDate(act.date)}</span>
                                       {act.time && <span>· ⏰ {act.time}h</span>}
+                                      {act.type === 'correo' && act.email && <span>· ✉️ {act.email}</span>}
                                       {act.phone && <span>· 📞 {act.phone}</span>}
                                       {act.hotel && <span>· 🏨 {act.hotel}</span>}
                                       {act.folio && <span>· #{act.folio}</span>}
