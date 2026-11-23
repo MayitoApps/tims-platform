@@ -160,6 +160,7 @@ export function MarketingSection({
   const [editCStart, setEditCStart] = useState(mktTodayStr);
   const [editCEnd, setEditCEnd] = useState(mktNextMonthStr);
   const [editCChannels, setEditCChannels] = useState('Instagram Ads, Meta Ads');
+  const [editCDriveUrl, setEditCDriveUrl] = useState('');
   const [editCDesc, setEditCDesc] = useState('');
 
   // Modals - Edit & Delete States (Publications)
@@ -217,6 +218,7 @@ export function MarketingSection({
   const [cStart, setCStart] = useState(mktTodayStr);
   const [cEnd, setCEnd] = useState(mktNextMonthStr);
   const [cChannels, setCChannels] = useState('Instagram Ads, Meta Ads, Google Ads');
+  const [cDriveUrl, setCDriveUrl] = useState('');
   const [cDesc, setCDesc] = useState('');
 
   // Form states - Publication
@@ -249,6 +251,11 @@ export function MarketingSection({
     e.preventDefault();
     if (!cTitle.trim()) return;
 
+    const cleanDriveUrl = cDriveUrl.trim();
+    const externalLinks = cleanDriveUrl
+      ? [{ id: `lnk-drive-${Date.now()}`, title: 'Carpeta Drive (Artes y Diseños)', url: cleanDriveUrl, platform: 'drive' as const }]
+      : [];
+
     onAddCampaign({
       title: cTitle,
       hotelTarget: cHotel,
@@ -258,15 +265,13 @@ export function MarketingSection({
       startDate: cStart,
       endDate: cEnd,
       channels: cChannels.split(',').map((s) => s.trim()).filter(Boolean),
-      externalLinks: [
-        { id: 'lnk-1', title: 'Figma Creativos', url: 'https://figma.com', platform: 'figma' },
-        { id: 'lnk-2', title: 'Drive Fotos Oficiales', url: 'https://drive.google.com', platform: 'drive' }
-      ],
+      externalLinks,
       leadOwner: currentUser?.name || 'Marketing Team',
       description: cDesc || 'Campaña estratégica de promoción y captación directa para Grupo Orgánico.'
     });
 
     setCTitle('');
+    setCDriveUrl('');
     setIsCampaignModalOpen(false);
   };
 
@@ -612,6 +617,7 @@ export function MarketingSection({
     setEditCStart(c.startDate);
     setEditCEnd(c.endDate);
     setEditCChannels(c.channels.join(', '));
+    setEditCDriveUrl(c.externalLinks?.find((l) => l.platform === 'drive')?.url || '');
     setEditCDesc(c.description || '');
     setIsEditCampaignModalOpen(true);
   };
@@ -621,6 +627,21 @@ export function MarketingSection({
   const handleSaveEditCampaign = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCampaign || !editCTitle.trim()) return;
+
+    const existingOtherLinks = (editingCampaign.externalLinks || []).filter((l) => l.platform !== 'drive');
+    const existingDriveLink = (editingCampaign.externalLinks || []).find((l) => l.platform === 'drive');
+    const cleanDriveUrl = editCDriveUrl.trim();
+    const updatedExternalLinks = cleanDriveUrl
+      ? [
+          ...existingOtherLinks,
+          {
+            id: existingDriveLink?.id || `lnk-drive-${Date.now()}`,
+            title: 'Carpeta Drive (Artes y Diseños)',
+            url: cleanDriveUrl,
+            platform: 'drive' as const
+          }
+        ]
+      : existingOtherLinks;
 
     const updated: MarketingCampaign = {
       ...editingCampaign,
@@ -632,11 +653,15 @@ export function MarketingSection({
       startDate: editCStart,
       endDate: editCEnd,
       channels: editCChannels.split(',').map((s) => s.trim()).filter(Boolean),
+      externalLinks: updatedExternalLinks,
       description: editCDesc
     };
 
     if (onUpdateCampaign) {
       onUpdateCampaign(updated);
+    }
+    if (viewingCampaign && viewingCampaign.id === updated.id) {
+      setViewingCampaign(updated);
     }
     setIsEditCampaignModalOpen(false);
     setEditingCampaign(null);
@@ -1353,6 +1378,19 @@ export function MarketingSection({
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">
+                  📁 Carpeta de Google Drive (Artes y Diseños)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/drive/folders/..."
+                  value={cDriveUrl}
+                  onChange={(e) => setCDriveUrl(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-stone-200">
@@ -2202,6 +2240,19 @@ export function MarketingSection({
                     className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">
+                  📁 Carpeta de Google Drive (Artes y Diseños)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/drive/folders/..."
+                  value={editCDriveUrl}
+                  onChange={(e) => setEditCDriveUrl(e.target.value)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
               </div>
 
               <div className="flex justify-between items-center pt-3 border-t border-stone-200">
