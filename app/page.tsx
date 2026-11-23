@@ -229,7 +229,23 @@ export default function Home() {
       return res.json();
     };
 
-    const syncDataFromCloud = () => {
+    const SYNC_INTERVAL_MS = 25000;
+    const USERS_SYNC_INTERVAL_MS = 120000;
+    let lastSyncAt = 0;
+    let lastUsersSyncAt = 0;
+    let syncInterval: ReturnType<typeof setInterval> | null = null;
+
+    const syncDataFromCloud = (force = false) => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+      const now = Date.now();
+      // Evita ráfagas duplicadas cuando focus y visibilitychange se disparan juntos
+      if (!force && now - lastSyncAt < 3000) {
+        return;
+      }
+      lastSyncAt = now;
+
       // Sync Notifications con preservación de lectura local
       safeFetchJson('/api/notifications')
         .then((data) => {
@@ -285,14 +301,17 @@ export default function Home() {
         })
         .catch(() => {});
 
-      // Sync Registered Users (para asignaciones y perfiles)
-      safeFetchJson('/api/users')
-        .then((data) => {
-          if (data && Array.isArray(data.users)) {
-            setRegisteredUsers(data.users);
-          }
-        })
-        .catch(() => {});
+      // Sync Registered Users cada ~2 minutos (cambia con poca frecuencia)
+      if (now - lastUsersSyncAt >= USERS_SYNC_INTERVAL_MS) {
+        lastUsersSyncAt = now;
+        safeFetchJson('/api/users')
+          .then((data) => {
+            if (data && Array.isArray(data.users)) {
+              setRegisteredUsers(data.users);
+            }
+          })
+          .catch(() => {});
+      }
 
       // Sync Campaigns
       safeFetchJson('/api/campaigns')
@@ -343,16 +362,44 @@ export default function Home() {
         .catch(() => {});
     };
 
-    // Consulta inicial inmediata al autenticarse
-    syncDataFromCloud();
+    const startPolling = () => {
+      if (syncInterval) return;
+      syncInterval = setInterval(() => syncDataFromCloud(), SYNC_INTERVAL_MS);
+    };
 
-    // Sincronización recurrente en segundo plano (cada 8 segundos y cuando la ventana toma foco)
-    const syncInterval = setInterval(syncDataFromCloud, 8000);
-    const onWindowFocus = () => syncDataFromCloud();
+    const stopPolling = () => {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        syncInterval = null;
+      }
+    };
+
+    // Consulta inicial inmediata al autenticarse (si la pestaña está visible)
+    syncDataFromCloud(true);
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+      startPolling();
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        stopPolling();
+      } else {
+        syncDataFromCloud();
+        startPolling();
+      }
+    };
+
+    const onWindowFocus = () => {
+      syncDataFromCloud();
+      startPolling();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('focus', onWindowFocus);
 
     return () => {
-      clearInterval(syncInterval);
+      stopPolling();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', onWindowFocus);
     };
   }, [currentUser]);
