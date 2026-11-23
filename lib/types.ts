@@ -23,6 +23,7 @@ export interface DirectoryUserDef {
   showInSalesBoard: boolean;
   showInMarketing: boolean;
   commercialGoalMXN?: number;
+  commercialAnnualGoalMXN?: number;
   commercialGoalOrder?: number;
 }
 
@@ -120,7 +121,8 @@ export const TEAM_USERS_DIRECTORY: DirectoryUserDef[] = [
     modules: ['commercial', 'sales'],
     showInSalesBoard: true,
     showInMarketing: false,
-    commercialGoalMXN: 483000,
+    commercialGoalMXN: 362200,
+    commercialAnnualGoalMXN: 4446400,
     commercialGoalOrder: 3
   },
   {
@@ -146,8 +148,23 @@ export const TEAM_USERS_DIRECTORY: DirectoryUserDef[] = [
     modules: ['commercial', 'sales'],
     showInSalesBoard: true,
     showInMarketing: false,
-    commercialGoalMXN: 483000,
+    commercialGoalMXN: 362200,
+    commercialAnnualGoalMXN: 4446400,
     commercialGoalOrder: 2
+  },
+  {
+    id: 'usr-fernanda-samaniego',
+    name: 'Fernanda Samaniego',
+    email: 'pendiente.fernanda.samaniego@tims.local',
+    role: 'sales',
+    initials: 'FS',
+    department: 'Comercialización y Ventas',
+    modules: ['commercial', 'sales'],
+    showInSalesBoard: true,
+    showInMarketing: false,
+    commercialGoalMXN: 241600,
+    commercialAnnualGoalMXN: 2899200,
+    commercialGoalOrder: 7
   }
 ];
 
@@ -758,8 +775,10 @@ export const COMMERCIAL_EXECUTIVE_MONTHLY_TOTAL_GOAL_MXN = COMMERCIAL_EXECUTIVE_
   (sum, u) => sum + (u.commercialGoalMXN || 0),
   0
 );
-export const COMMERCIAL_EXECUTIVE_ANNUAL_TOTAL_GOAL_MXN =
-  COMMERCIAL_EXECUTIVE_MONTHLY_TOTAL_GOAL_MXN * 12;
+export const COMMERCIAL_EXECUTIVE_ANNUAL_TOTAL_GOAL_MXN = COMMERCIAL_EXECUTIVE_GOALS.reduce(
+  (sum, u) => sum + (u.commercialAnnualGoalMXN ?? (u.commercialGoalMXN || 0) * 12),
+  0
+);
 
 export function getCommercialExecutiveGoal(email?: string | null, name?: string | null): number | null {
   const cleanEmail = (email || '').toLowerCase().trim();
@@ -770,6 +789,18 @@ export function getCommercialExecutiveGoal(email?: string | null, name?: string 
       (cleanName && normalizeIdentityText(u.name) === cleanName)
   );
   return found?.commercialGoalMXN ?? null;
+}
+
+export function getCommercialExecutiveAnnualGoal(email?: string | null, name?: string | null): number | null {
+  const cleanEmail = (email || '').toLowerCase().trim();
+  const cleanName = normalizeIdentityText(name);
+  const found = COMMERCIAL_EXECUTIVE_GOALS.find(
+    (u) =>
+      (cleanEmail && u.email.toLowerCase().trim() === cleanEmail) ||
+      (cleanName && normalizeIdentityText(u.name) === cleanName)
+  );
+  if (!found || typeof found.commercialGoalMXN !== 'number') return null;
+  return found.commercialAnnualGoalMXN ?? found.commercialGoalMXN * 12;
 }
 
 export interface HotelCommercialGoalDef {

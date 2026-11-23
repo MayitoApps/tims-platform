@@ -15,6 +15,7 @@ import {
   COMMERCIAL_EMPRESARIAL_ANNUAL_TOTAL_GOAL_MXN,
   COMMERCIAL_MONTHLY_OTAM_GOALS,
   getCommercialExecutiveGoal,
+  getCommercialExecutiveAnnualGoal,
   getExecutiveEventStatus,
   isEmpresarialOrOtamDeal,
   matchesUserIdentity,
@@ -46,6 +47,7 @@ interface ExecutiveMetricRow {
   initials: string;
   avatar?: string;
   goalMXN: number | null;
+  annualGoalMXN: number | null;
 }
 
 function getProgressBarColor(percent: number, fallback = 'bg-blue-600'): string {
@@ -323,7 +325,8 @@ export function CommercialMetricsTab({
           role: currentUser.department || 'Ejecutivo Comercial',
           initials: currentUser.initials || currentUser.name.slice(0, 2).toUpperCase(),
           avatar: currentUser.avatar || avatarByEmail.get(currentUser.email.toLowerCase().trim()),
-          goalMXN: getCommercialExecutiveGoal(currentUser.email, currentUser.name)
+          goalMXN: getCommercialExecutiveGoal(currentUser.email, currentUser.name),
+          annualGoalMXN: getCommercialExecutiveAnnualGoal(currentUser.email, currentUser.name)
         }
       ];
     }
@@ -334,10 +337,11 @@ export function CommercialMetricsTab({
       role: u.department,
       initials: u.initials,
       avatar: avatarByEmail.get(u.email.toLowerCase().trim()),
-      goalMXN: u.commercialGoalMXN ?? null
+      goalMXN: u.commercialGoalMXN ?? null,
+      annualGoalMXN: u.commercialAnnualGoalMXN ?? (typeof u.commercialGoalMXN === 'number' ? u.commercialGoalMXN * 12 : null)
     }));
 
-    // Incluir si algún otro colaborador fuera de los 6 tuviera deals activos asignados en el periodo
+    // Incluir si algún otro colaborador fuera de los oficiales tuviera deals activos asignados en el periodo
     periodFilteredDeals.forEach((d) => {
       const alreadyIncluded = list.some((ex) =>
         matchesUserIdentity({ email: ex.email, name: ex.name }, d.assignedEmail, d.assignedRep)
@@ -351,7 +355,8 @@ export function CommercialMetricsTab({
           role: 'Colaborador Comercial',
           initials: repName.slice(0, 2).toUpperCase(),
           avatar: repEmail ? avatarByEmail.get(repEmail.toLowerCase().trim()) : undefined,
-          goalMXN: getCommercialExecutiveGoal(repEmail, repName)
+          goalMXN: getCommercialExecutiveGoal(repEmail, repName),
+          annualGoalMXN: getCommercialExecutiveAnnualGoal(repEmail, repName)
         });
       }
     });
@@ -417,12 +422,19 @@ export function CommercialMetricsTab({
   const collectedRatioProgress = calculateProgressPercent(totalRealIncome, portfolioBase);
   const pendingRatioProgress = calculateProgressPercent(totalPendingBalance, portfolioBase);
 
-  // Totales del equipo ejecutivo (mensual vs anual × 12)
+  // Totales del equipo ejecutivo (mensual vs anual)
   const executiveMonthlyTotalGoalMXN = useMemo(
     () => executivesWithGoals.reduce((sum, ex) => sum + (ex.goalMXN || 0), 0),
     [executivesWithGoals]
   );
-  const executiveAnnualTotalGoalMXN = executiveMonthlyTotalGoalMXN * 12;
+  const executiveAnnualTotalGoalMXN = useMemo(
+    () =>
+      executivesWithGoals.reduce(
+        (sum, ex) => sum + (ex.annualGoalMXN ?? (ex.goalMXN || 0) * 12),
+        0
+      ),
+    [executivesWithGoals]
+  );
 
   const executiveTeamRealIncome = useMemo(
     () =>
@@ -1136,7 +1148,7 @@ export function CommercialMetricsTab({
             const pipelineVal = activeDeals.reduce((acc, d) => acc + (Number(d.totalValue) || 0), 0);
 
             const monthlyGoal = exec.goalMXN || 0;
-            const annualGoal = monthlyGoal * 12;
+            const annualGoal = exec.annualGoalMXN ?? monthlyGoal * 12;
             const activeGoal = cadenceView === 'annual' ? annualGoal : monthlyGoal;
             const execProgress = calculateProgressPercent(activeRealVal, activeGoal);
             const secondaryProgress =
@@ -1261,7 +1273,9 @@ export function CommercialMetricsTab({
                     <span className="text-stone-600 truncate">
                       {cadenceView === 'annual'
                         ? `Meta Mensual (${focusMonthLabel}): ${formatCurrency(monthlyGoal, 'MXN')}`
-                        : `Meta Anual (×12): ${formatCurrency(annualGoal, 'MXN')}`}
+                        : annualGoal === monthlyGoal * 12
+                          ? `Meta Anual (×12): ${formatCurrency(annualGoal, 'MXN')}`
+                          : `Meta Anual: ${formatCurrency(annualGoal, 'MXN')}`}
                     </span>
                     <span className="font-bold text-emerald-900 shrink-0">
                       {cadenceView === 'annual'
