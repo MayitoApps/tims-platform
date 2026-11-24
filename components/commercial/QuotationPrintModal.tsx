@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { HotelDeal, DealRequirement, PaymentStatus, HotelDealStage } from '@/lib/types';
+import { HotelDeal, DealRequirement, DealTimelineItem, PaymentStatus, HotelDealStage } from '@/lib/types';
 import { HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
@@ -37,6 +37,11 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
   const [editNotes, setEditNotes] = useState(currentDeal.notes || '');
   const [editRequirements, setEditRequirements] = useState<DealRequirement[]>(currentDeal.requirements ? [...currentDeal.requirements] : []);
   const [newReqInput, setNewReqInput] = useState('');
+  const [editTimeline, setEditTimeline] = useState<DealTimelineItem[]>(currentDeal.timeline ? [...currentDeal.timeline] : []);
+  const [newTimelineActivity, setNewTimelineActivity] = useState('');
+  const [newTimelineDescription, setNewTimelineDescription] = useState('');
+  const [newTimelineStart, setNewTimelineStart] = useState('09:00');
+  const [newTimelineEnd, setNewTimelineEnd] = useState('10:00');
 
   const hotelSpaces = HOTEL_SPACES[currentDeal.hotelName] || [];
   const hotelRooms = HOTEL_ROOM_TYPES[currentDeal.hotelName] || [];
@@ -82,6 +87,24 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
     );
   };
 
+  const handleAddTimelineItem = () => {
+    if (!newTimelineActivity.trim()) return;
+    const item: DealTimelineItem = {
+      id: `tl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      activity: newTimelineActivity.trim(),
+      description: newTimelineDescription.trim() || undefined,
+      startTime: newTimelineStart || '09:00',
+      endTime: newTimelineEnd || '10:00'
+    };
+    setEditTimeline((prev) => [...prev, item].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+    setNewTimelineActivity('');
+    setNewTimelineDescription('');
+  };
+
+  const handleRemoveTimelineItem = (id: string) => {
+    setEditTimeline((prev) => prev.filter((t) => t.id !== id));
+  };
+
   const handleToggleSpace = (spaceName: string) => {
     setEditSelectedSpaces((prev) =>
       prev.includes(spaceName) ? prev.filter((s) => s !== spaceName) : [...prev, spaceName]
@@ -111,6 +134,7 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
       paymentDueDate: editPaymentDueDate || undefined,
       selectedSpaces: editSelectedSpaces,
       requirements: editRequirements,
+      timeline: editTimeline,
       notes: editNotes
     };
 
@@ -144,18 +168,22 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
   const statusBadge = getPaymentStatusBadge(currentDeal.paymentStatus);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto flex items-start justify-center p-2 sm:p-6 print:p-0 print:bg-white print:fixed print:inset-0">
-      {/* Estilos específicos para impresión directa de la Orden de Servicio */}
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto flex items-start justify-center p-2 sm:p-6 print:p-0 print:bg-white print:static print:inset-auto print:overflow-visible print:block print:h-auto">
+      {/* Estilos específicos para impresión directa de la Orden de Servicio (Tamaño Carta, multi-hoja) */}
       <style dangerouslySetInnerHTML={{
         __html: `
           @media print {
             @page {
-              margin: 1.2cm;
+              margin: 12mm;
               size: letter portrait;
             }
-            body {
+            html, body {
+              height: auto !important;
+              overflow: visible !important;
               background: white !important;
               color: black !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             body * {
               visibility: hidden;
@@ -167,15 +195,31 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
               position: absolute;
               left: 0;
               top: 0;
-              width: 100%;
+              width: 100% !important;
+              max-width: none !important;
+              height: auto !important;
+              overflow: visible !important;
               padding: 0 !important;
               margin: 0 !important;
+            }
+            #printable-quotation thead {
+              display: table-header-group;
+            }
+            #printable-quotation tr,
+            #printable-quotation .print-avoid-break {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            #printable-quotation h3,
+            #printable-quotation h4 {
+              break-after: avoid;
+              page-break-after: avoid;
             }
           }
         `
       }} />
 
-      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden print:shadow-none print:rounded-none border border-stone-200">
+      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden print:shadow-none print:rounded-none print:overflow-visible print:border-0 print:max-w-none print:w-full print:static print:h-auto border border-stone-200">
         
         {/* Top Control Bar (Hidden when printing) */}
         <div className="bg-stone-900 text-white px-5 sm:px-7 py-3.5 flex items-center justify-between border-b border-stone-800 print:hidden">
@@ -442,6 +486,86 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Grid 3b: Minuto a Minuto del Evento */}
+            <div className="bg-white border border-stone-200 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>⏱️</span> Minuto a Minuto para la Orden de Servicio
+                </label>
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 text-[11px] font-mono font-bold">
+                  {editTimeline.length} actividades
+                </span>
+              </div>
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <input
+                    type="text"
+                    value={newTimelineActivity}
+                    onChange={(e) => setNewTimelineActivity(e.target.value)}
+                    placeholder="Nombre de la actividad (ej. Montaje, Coffee Break...)"
+                    className="sm:col-span-6 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  <input
+                    type="time"
+                    value={newTimelineStart}
+                    onChange={(e) => setNewTimelineStart(e.target.value)}
+                    className="sm:col-span-2 border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white text-xs"
+                  />
+                  <input
+                    type="time"
+                    value={newTimelineEnd}
+                    onChange={(e) => setNewTimelineEnd(e.target.value)}
+                    className="sm:col-span-2 border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddTimelineItem}
+                    className="sm:col-span-2 px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    + Agregar
+                  </button>
+                </div>
+                <textarea
+                  rows={2}
+                  value={newTimelineDescription}
+                  onChange={(e) => setNewTimelineDescription(e.target.value)}
+                  placeholder="Descripción o detalles de la actividad (opcional: montaje, equipo audiovisual, menú, responsables...)"
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-y"
+                />
+              </div>
+              {editTimeline.length > 0 && (
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {editTimeline.map((tl) => (
+                    <div
+                      key={tl.id}
+                      className="flex items-start justify-between gap-2 p-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs"
+                    >
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <span className="font-mono font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shrink-0 mt-0.5">
+                          {tl.startTime} - {tl.endTime}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-stone-900 break-words">{tl.activity}</div>
+                          {tl.description && (
+                            <p className="text-[11px] text-stone-600 mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
+                              {tl.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTimelineItem(tl.id)}
+                        className="text-stone-400 hover:text-rose-600 p-1 shrink-0"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Grid 4: Espacios del hotel */}
@@ -770,6 +894,49 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
             )}
           </div>
 
+          {/* 4b. MINUTO A MINUTO DEL EVENTO */}
+          {currentDeal.timeline && currentDeal.timeline.length > 0 && (
+            <div className="space-y-2.5">
+              <div className="border-b border-stone-200 pb-1 flex items-center justify-between">
+                <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>⏱️</span> Minuto a Minuto del Evento
+                </h3>
+                <span className="text-[10px] font-mono font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  {currentDeal.timeline.length} actividades
+                </span>
+              </div>
+              <div className="border border-stone-200 rounded-xl overflow-hidden print:overflow-visible">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-stone-100 border-b border-stone-200 text-stone-600 font-bold uppercase text-[10px]">
+                      <th className="py-2 px-3 w-36">Horario</th>
+                      <th className="py-2 px-3">Actividad y Detalles</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {[...currentDeal.timeline]
+                      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                      .map((tl, i) => (
+                        <tr key={tl.id || i} className="bg-white align-top">
+                          <td className="py-2.5 px-3 font-mono font-bold text-emerald-900 whitespace-nowrap">
+                            {tl.startTime} – {tl.endTime}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="font-bold text-stone-900 break-words">{tl.activity}</div>
+                            {tl.description && (
+                              <p className="text-[11px] text-stone-600 mt-1 whitespace-pre-wrap break-words leading-relaxed">
+                                {tl.description}
+                              </p>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* 5. Observaciones, Banquete y Logística Especial */}
           {currentDeal.notes && (
             <div className="space-y-1.5 bg-stone-50/90 p-4 rounded-xl border border-stone-200">
@@ -837,7 +1004,7 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
           </div>
 
           {/* 8. Firmas de Aprobación y Conformidad */}
-          <div className="pt-8 grid grid-cols-3 gap-6 text-center text-xs">
+          <div className="pt-8 grid grid-cols-3 gap-6 text-center text-xs print-avoid-break">
             <div>
               <div className="border-b border-stone-400 pb-7 mb-2" />
               <div className="font-bold text-stone-900">{currentDeal.assignedRep}</div>

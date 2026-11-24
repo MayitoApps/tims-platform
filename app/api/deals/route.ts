@@ -48,6 +48,7 @@ export async function GET() {
           comments: [],
           invoices: [],
           requirements: [],
+          timeline: [],
           contractUrl: undefined,
           contractFileName: undefined,
           expediente: undefined
@@ -121,6 +122,7 @@ export async function POST(request: Request) {
       contactEmail: raw.contactEmail || '',
       contactPhone: raw.contactPhone || '',
       requirements: Array.isArray(raw.requirements) ? raw.requirements : [],
+      timeline: Array.isArray(raw.timeline) ? raw.timeline : [],
       invoices: Array.isArray(raw.invoices) ? raw.invoices : [],
       contractUrl: raw.contractUrl || undefined,
       contractFileName: raw.contractFileName || undefined,
@@ -141,7 +143,7 @@ export async function POST(request: Request) {
         deposit_amount, payment_status, payment_due_date,
         room_nights, attendees_count, check_in_date, check_out_date,
         assigned_rep, assigned_email, notes, comments, contact_email, contact_phone,
-        requirements, invoices, contract_url, contract_file_name, expediente, created_at
+        requirements, timeline, invoices, contract_url, contract_file_name, expediente, created_at
       ) VALUES (
         ${deal.id}, ${deal.code}, ${deal.clientName}, ${deal.companyOrAgency},
         ${deal.hotelName}, ${deal.category},
@@ -156,6 +158,7 @@ export async function POST(request: Request) {
         ${JSON.stringify(deal.comments)}::jsonb,
         ${deal.contactEmail || ''}, ${deal.contactPhone || ''},
         ${JSON.stringify(deal.requirements)}::jsonb,
+        ${JSON.stringify(deal.timeline)}::jsonb,
         ${JSON.stringify(deal.invoices)}::jsonb,
         ${deal.contractUrl || null},
         ${deal.contractFileName || null},
@@ -187,6 +190,7 @@ export async function POST(request: Request) {
         contact_email = EXCLUDED.contact_email,
         contact_phone = EXCLUDED.contact_phone,
         requirements = EXCLUDED.requirements,
+        timeline = EXCLUDED.timeline,
         invoices = EXCLUDED.invoices,
         contract_url = EXCLUDED.contract_url,
         contract_file_name = EXCLUDED.contract_file_name,

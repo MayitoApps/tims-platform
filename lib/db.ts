@@ -71,6 +71,7 @@ export async function ensureTables(): Promise<boolean> {
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS assigned_email TEXT;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS requirements JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS timeline JSONB DEFAULT '[]'::jsonb;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS invoices JSONB DEFAULT '[]'::jsonb;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS contract_url TEXT;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS contract_file_name TEXT;`;
@@ -383,6 +384,7 @@ export function mapRowToDeal(row: any): HotelDeal {
     contactEmail: row.contact_email || '',
     contactPhone: row.contact_phone || '',
     requirements: typeof row.requirements === 'string' ? JSON.parse(row.requirements) : (row.requirements || []),
+    timeline: typeof row.timeline === 'string' ? JSON.parse(row.timeline) : (row.timeline || []),
     invoices: typeof row.invoices === 'string' ? JSON.parse(row.invoices) : (row.invoices || []),
     contractUrl: row.contract_url || undefined,
     contractFileName: row.contract_file_name || undefined,

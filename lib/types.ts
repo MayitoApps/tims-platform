@@ -506,6 +506,14 @@ export interface DealRequirement {
   createdAt?: string;
 }
 
+export interface DealTimelineItem {
+  id: string;
+  activity: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface DealInvoice {
   id: string;
   folio: string;               // Folio fiscal o interno (ej. FAC-1002, UUID)
@@ -564,6 +572,7 @@ export interface HotelDeal {
   contactEmail?: string;
   contactPhone?: string;
   requirements?: DealRequirement[];
+  timeline?: DealTimelineItem[]; // Minuto a minuto de actividades del evento
   invoices?: DealInvoice[];
   contractUrl?: string;      // PDF, imagen o enlace del contrato firmado
   contractFileName?: string; // Nombre del archivo de contrato

@@ -20,6 +20,7 @@ interface ExpedientesTabProps {
   currentUser?: UserProfile | null;
   isCurrentUserAdmin: boolean;
   onUpdateDeal: (deal: HotelDeal) => void;
+  onOpenServiceOrder: (deal: HotelDeal) => void;
 }
 
 type ExpedienteSlotKey =
@@ -49,7 +50,7 @@ const EXPEDIENTE_SLOTS: SlotConfig[] = [
   {
     key: 'serviceOrder',
     title: '2. Orden de Servicio',
-    subtitle: 'PDF o imagen',
+    subtitle: 'Generada automáticamente con la información, requerimientos y minuto a minuto',
     icon: '📋',
     accept: 'application/pdf,image/*'
   },
@@ -81,6 +82,10 @@ function isSlotCompleted(deal: HotelDeal, key: ExpedienteSlotKey): boolean {
   if (key === 'contract') {
     return Boolean(deal.contractUrl?.trim());
   }
+  if (key === 'serviceOrder') {
+    // La Orden de Servicio se genera directamente desde la aplicación con toda la info del evento
+    return true;
+  }
   const doc = deal.expediente?.[key];
   return Boolean(doc?.fileUrl?.trim() || (key === 'operationsHandover' && doc?.notes?.trim()));
 }
@@ -97,7 +102,8 @@ export function ExpedientesTab({
   selectedHotelFilter,
   currentUser,
   isCurrentUserAdmin,
-  onUpdateDeal
+  onUpdateDeal,
+  onOpenServiceOrder
 }: ExpedientesTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'todos' | 'completos' | 'pendientes'>('todos');
@@ -479,7 +485,15 @@ export function ExpedientesTab({
                         </div>
                       </div>
 
-                      {fileUrl && (
+                      {slot.key === 'serviceOrder' ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenServiceOrder(activeDeal)}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-2xs cursor-pointer shrink-0"
+                        >
+                          📄 Ver / Imprimir Orden de Servicio ↗
+                        </button>
+                      ) : fileUrl ? (
                         <div className="flex items-center gap-2 shrink-0">
                           <a
                             href={safeExternalUrl(fileUrl)}
@@ -500,46 +514,48 @@ export function ExpedientesTab({
                             Quitar
                           </button>
                         </div>
-                      )}
+                      ) : null}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                      <label className="cursor-pointer bg-white hover:bg-stone-100 border border-stone-300 text-stone-800 font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors">
-                        <span>{isUploading ? '⏳ Subiendo...' : '📎 Subir Archivo'}</span>
-                        <input
-                          type="file"
-                          accept={slot.accept}
-                          disabled={isUploading}
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) handleFileUpload(activeDeal, slot.key, f);
-                          }}
-                          className="hidden"
-                        />
-                      </label>
+                    {slot.key !== 'serviceOrder' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                        <label className="cursor-pointer bg-white hover:bg-stone-100 border border-stone-300 text-stone-800 font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors">
+                          <span>{isUploading ? '⏳ Subiendo...' : '📎 Subir Archivo'}</span>
+                          <input
+                            type="file"
+                            accept={slot.accept}
+                            disabled={isUploading}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleFileUpload(activeDeal, slot.key, f);
+                            }}
+                            className="hidden"
+                          />
+                        </label>
 
-                      <div className="flex gap-1.5">
-                        <input
-                          type="url"
-                          placeholder="O pega enlace (Drive / URL)..."
-                          value={urlDrafts[slot.key] ?? ''}
-                          onChange={(e) =>
-                            setUrlDrafts((prev) => ({ ...prev, [slot.key]: e.target.value }))
-                          }
-                          className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const val = (urlDrafts[slot.key] || '').trim();
-                            saveSlotDoc(activeDeal, slot.key, { fileUrl: val, fileName: '' });
-                          }}
-                          className="px-3 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs cursor-pointer shrink-0"
-                        >
-                          Guardar
-                        </button>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="url"
+                            placeholder="O pega enlace (Drive / URL)..."
+                            value={urlDrafts[slot.key] ?? ''}
+                            onChange={(e) =>
+                              setUrlDrafts((prev) => ({ ...prev, [slot.key]: e.target.value }))
+                            }
+                            className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const val = (urlDrafts[slot.key] || '').trim();
+                              saveSlotDoc(activeDeal, slot.key, { fileUrl: val, fileName: '' });
+                            }}
+                            className="px-3 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs cursor-pointer shrink-0"
+                          >
+                            Guardar
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {slot.allowText && (
                       <div className="space-y-1.5 pt-1">

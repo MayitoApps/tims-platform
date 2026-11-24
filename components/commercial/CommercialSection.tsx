@@ -6,6 +6,7 @@ import {
   HotelDealStage,
   DealCategory,
   DealRequirement,
+  DealTimelineItem,
   UserProfile,
   RequestedRoomType,
   PaymentStatus,
@@ -215,6 +216,11 @@ export function CommercialSection({
   const [editAssignedRepEmail, setEditAssignedRepEmail] = useState(currentUser?.email || '');
   const [editRequirements, setEditRequirements] = useState<DealRequirement[]>([]);
   const [editReqInput, setEditReqInput] = useState('');
+  const [editTimeline, setEditTimeline] = useState<DealTimelineItem[]>([]);
+  const [editTimelineActivity, setEditTimelineActivity] = useState('');
+  const [editTimelineDescription, setEditTimelineDescription] = useState('');
+  const [editTimelineStart, setEditTimelineStart] = useState('09:00');
+  const [editTimelineEnd, setEditTimelineEnd] = useState('10:00');
   const [editContractUrl, setEditContractUrl] = useState('');
   const [editContractFileName, setEditContractFileName] = useState('');
   const [isUploadingContract, setIsUploadingContract] = useState(false);
@@ -246,6 +252,11 @@ export function CommercialSection({
   const [assignedRepEmail, setAssignedRepEmail] = useState(currentUser?.email || '');
   const [dealRequirements, setDealRequirements] = useState<DealRequirement[]>([]);
   const [dealReqInput, setDealReqInput] = useState('');
+  const [dealTimeline, setDealTimeline] = useState<DealTimelineItem[]>([]);
+  const [timelineActivity, setTimelineActivity] = useState('');
+  const [timelineDescription, setTimelineDescription] = useState('');
+  const [timelineStart, setTimelineStart] = useState('09:00');
+  const [timelineEnd, setTimelineEnd] = useState('10:00');
 
   // Quick requirement input in viewingDeal modal
   const [viewingReqInput, setViewingReqInput] = useState('');
@@ -647,6 +658,11 @@ export function CommercialSection({
     setEditAssignedRepEmail(deal.assignedEmail || currentUser?.email || '');
     setEditRequirements(deal.requirements ? [...deal.requirements] : []);
     setEditReqInput('');
+    setEditTimeline(deal.timeline ? [...deal.timeline] : []);
+    setEditTimelineActivity('');
+    setEditTimelineDescription('');
+    setEditTimelineStart('09:00');
+    setEditTimelineEnd('10:00');
     setEditContractUrl(deal.contractUrl || '');
     setEditContractFileName(deal.contractFileName || '');
     setContractUploadError(null);
@@ -700,6 +716,42 @@ export function CommercialSection({
     setEditRequirements((prev) =>
       prev.map((r) => (r.id === reqId ? { ...r, completed: !r.completed } : r))
     );
+  };
+
+  const handleAddDealTimelineItem = () => {
+    if (!timelineActivity.trim()) return;
+    const item: DealTimelineItem = {
+      id: `tl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      activity: timelineActivity.trim(),
+      description: timelineDescription.trim() || undefined,
+      startTime: timelineStart || '09:00',
+      endTime: timelineEnd || '10:00'
+    };
+    setDealTimeline((prev) => [...prev, item].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+    setTimelineActivity('');
+    setTimelineDescription('');
+  };
+
+  const handleRemoveDealTimelineItem = (tlId: string) => {
+    setDealTimeline((prev) => prev.filter((t) => t.id !== tlId));
+  };
+
+  const handleAddEditTimelineItem = () => {
+    if (!editTimelineActivity.trim()) return;
+    const item: DealTimelineItem = {
+      id: `tl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      activity: editTimelineActivity.trim(),
+      description: editTimelineDescription.trim() || undefined,
+      startTime: editTimelineStart || '09:00',
+      endTime: editTimelineEnd || '10:00'
+    };
+    setEditTimeline((prev) => [...prev, item].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+    setEditTimelineActivity('');
+    setEditTimelineDescription('');
+  };
+
+  const handleRemoveEditTimelineItem = (tlId: string) => {
+    setEditTimeline((prev) => prev.filter((t) => t.id !== tlId));
   };
 
   // Palomear requerimiento directamente en la tarjeta o modal de vista
@@ -870,6 +922,7 @@ export function CommercialSection({
       contactEmail: editEmail,
       contactPhone: editPhone,
       requirements: editRequirements,
+      timeline: editTimeline,
       contractUrl: editContractUrl.trim() || undefined,
       contractFileName: editContractFileName.trim() || undefined
     };
@@ -950,7 +1003,8 @@ export function CommercialSection({
       notes: notes || 'Solicitud de bloqueo de espacios y cotización oficial.',
       contactEmail: email.trim() || undefined,
       contactPhone: phone.trim() || undefined,
-      requirements: dealRequirements
+      requirements: dealRequirements,
+      timeline: dealTimeline
     });
 
     // Auto-enfocar el calendario en la fecha del nuevo evento
@@ -973,6 +1027,9 @@ export function CommercialSection({
     setPaymentDueDate('');
     setDealRequirements([]);
     setDealReqInput('');
+    setDealTimeline([]);
+    setTimelineActivity('');
+    setTimelineDescription('');
     setCheckIn(getLocalDateStr());
     setCheckOut(getLocalDateStr(new Date(Date.now() + 2 * 86400000)));
     setIsDealModalOpen(false);
@@ -1868,6 +1925,7 @@ export function CommercialSection({
           currentUser={currentUser}
           isCurrentUserAdmin={isCurrentUserAdmin}
           onUpdateDeal={onUpdateDeal}
+          onOpenServiceOrder={(deal) => setQuotationDeal(deal)}
         />
       )}
 
@@ -2344,6 +2402,108 @@ export function CommercialSection({
                 ) : (
                   <div className="text-[11px] text-stone-400 italic bg-white/60 p-2.5 rounded-xl border border-dashed border-stone-200 text-center">
                     Aún no has agregado requerimientos. Escribe uno arriba y presiona "Agregar" o la tecla Enter.
+                  </div>
+                )}
+              </div>
+
+              {/* MINUTO A MINUTO (Actividades con horario para Orden de Servicio) */}
+              <div className="bg-blue-50/50 border border-blue-200/90 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>⏱️</span> Minuto a Minuto
+                    </label>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      Agrega las actividades del evento y su horario; aparecerán en la Orden de Servicio.
+                    </p>
+                  </div>
+                  {dealTimeline.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-mono font-bold border border-blue-300">
+                      {dealTimeline.length} {dealTimeline.length === 1 ? 'actividad' : 'actividades'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                    <input
+                      type="text"
+                      value={timelineActivity}
+                      onChange={(e) => setTimelineActivity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddDealTimelineItem();
+                        }
+                      }}
+                      placeholder="Nombre de la actividad (ej. Recepción, Banquete, Ceremonia...)"
+                      className="sm:col-span-6 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                    <input
+                      type="time"
+                      value={timelineStart}
+                      onChange={(e) => setTimelineStart(e.target.value)}
+                      title="Hora inicio"
+                      className="sm:col-span-2 border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white text-xs"
+                    />
+                    <input
+                      type="time"
+                      value={timelineEnd}
+                      onChange={(e) => setTimelineEnd(e.target.value)}
+                      title="Hora fin"
+                      className="sm:col-span-2 border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddDealTimelineItem}
+                      className="sm:col-span-2 px-3 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    >
+                      + Agregar
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={timelineDescription}
+                    onChange={(e) => setTimelineDescription(e.target.value)}
+                    placeholder="Descripción o detalles de la actividad (opcional: montaje, equipo, responsables, menú...)"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y"
+                  />
+                </div>
+
+                {dealTimeline.length > 0 ? (
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {dealTimeline.map((tl) => (
+                      <div
+                        key={tl.id}
+                        className="flex items-start justify-between gap-2 p-2.5 bg-white rounded-xl border border-stone-200 text-xs shadow-2xs"
+                      >
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <span className="font-mono font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shrink-0 mt-0.5">
+                            {tl.startTime} – {tl.endTime}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-stone-900 font-semibold break-words">{tl.activity}</div>
+                            {tl.description && (
+                              <p className="text-[11px] text-stone-600 mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
+                                {tl.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDealTimelineItem(tl.id)}
+                          className="text-stone-400 hover:text-rose-600 p-1 rounded-md transition-colors shrink-0 text-sm"
+                          title="Eliminar actividad"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-stone-400 italic bg-white/60 p-2.5 rounded-xl border border-dashed border-stone-200 text-center">
+                    Sin actividades en el minuto a minuto aún.
                   </div>
                 )}
               </div>
@@ -2951,6 +3111,108 @@ export function CommercialSection({
                 ) : (
                   <div className="text-[11px] text-stone-400 italic bg-white/60 p-2.5 rounded-xl border border-dashed border-stone-200 text-center">
                     No hay requerimientos en la lista. Escribe uno arriba para agregarlo.
+                  </div>
+                )}
+              </div>
+
+              {/* MINUTO A MINUTO (EDICIÓN) */}
+              <div className="bg-blue-50/50 border border-blue-200/90 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>⏱️</span> Minuto a Minuto
+                    </label>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      Actividades y horarios del evento para la Orden de Servicio.
+                    </p>
+                  </div>
+                  {editTimeline.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-mono font-bold border border-blue-300">
+                      {editTimeline.length} {editTimeline.length === 1 ? 'actividad' : 'actividades'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                    <input
+                      type="text"
+                      value={editTimelineActivity}
+                      onChange={(e) => setEditTimelineActivity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddEditTimelineItem();
+                        }
+                      }}
+                      placeholder="Nombre de la actividad (ej. Recepción, Banquete...)"
+                      className="sm:col-span-6 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                    <input
+                      type="time"
+                      value={editTimelineStart}
+                      onChange={(e) => setEditTimelineStart(e.target.value)}
+                      title="Hora inicio"
+                      className="sm:col-span-2 border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white text-xs"
+                    />
+                    <input
+                      type="time"
+                      value={editTimelineEnd}
+                      onChange={(e) => setEditTimelineEnd(e.target.value)}
+                      title="Hora fin"
+                      className="sm:col-span-2 border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddEditTimelineItem}
+                      className="sm:col-span-2 px-3 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    >
+                      + Agregar
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={editTimelineDescription}
+                    onChange={(e) => setEditTimelineDescription(e.target.value)}
+                    placeholder="Descripción o detalles de la actividad (opcional: montaje, equipo, responsables, menú...)"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none resize-y"
+                  />
+                </div>
+
+                {editTimeline.length > 0 ? (
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {editTimeline.map((tl) => (
+                      <div
+                        key={tl.id}
+                        className="flex items-start justify-between gap-2 p-2.5 bg-white rounded-xl border border-stone-200 text-xs shadow-2xs"
+                      >
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <span className="font-mono font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shrink-0 mt-0.5">
+                            {tl.startTime} – {tl.endTime}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-stone-900 font-semibold break-words">{tl.activity}</div>
+                            {tl.description && (
+                              <p className="text-[11px] text-stone-600 mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
+                                {tl.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditTimelineItem(tl.id)}
+                          className="text-stone-400 hover:text-rose-600 p-1 rounded-md transition-colors shrink-0 text-sm"
+                          title="Eliminar actividad"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-stone-400 italic bg-white/60 p-2.5 rounded-xl border border-dashed border-stone-200 text-center">
+                    Sin actividades en el minuto a minuto aún.
                   </div>
                 )}
               </div>
@@ -3666,6 +3928,37 @@ export function CommercialSection({
                     </button>
                   </div>
                 </div>
+
+                {/* Minuto a Minuto */}
+                {viewingDeal.timeline && viewingDeal.timeline.length > 0 && (
+                  <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-4 space-y-2.5">
+                    <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <span>⏱️</span> Minuto a Minuto ({viewingDeal.timeline.length})
+                    </h4>
+                    <div className="space-y-1.5">
+                      {[...viewingDeal.timeline]
+                        .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                        .map((tl) => (
+                          <div
+                            key={tl.id}
+                            className="flex items-start gap-2.5 p-2.5 bg-white rounded-xl border border-stone-200 text-xs"
+                          >
+                            <span className="font-mono font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 shrink-0 mt-0.5">
+                              {tl.startTime} – {tl.endTime}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-stone-900 break-words">{tl.activity}</div>
+                              {tl.description && (
+                                <p className="text-[11px] text-stone-600 mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
+                                  {tl.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Notas Generales Adicionales */}
                 {viewingDeal.notes && (
