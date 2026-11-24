@@ -53,19 +53,6 @@ export const TEAM_USERS_DIRECTORY: DirectoryUserDef[] = [
     commercialGoalOrder: 1
   },
   {
-    id: 'usr-fernanda-langarica',
-    name: 'Fernanda Langarica',
-    email: 'expansioncomercia.gohb@gmail.com',
-    role: 'admin',
-    initials: 'FL',
-    department: 'Administración · Comercialización y Ventas',
-    modules: ['marketing', 'commercial', 'sales'],
-    showInSalesBoard: true,
-    showInMarketing: false,
-    commercialGoalMXN: 241000,
-    commercialGoalOrder: 5
-  },
-  {
     id: 'usr-eduardo-barajas',
     name: 'Eduardo Barajas',
     email: 'eduardo@organicohotelboutique.com',
@@ -142,10 +129,10 @@ export const TEAM_USERS_DIRECTORY: DirectoryUserDef[] = [
     id: 'usr-elizabeth-albarran',
     name: 'Elizabeth Albarran',
     email: 'coordinacionventasohb@gmail.com',
-    role: 'sales',
+    role: 'admin',
     initials: 'EL',
-    department: 'Comercialización y Ventas',
-    modules: ['commercial', 'sales'],
+    department: 'Administración · Comercialización y Ventas',
+    modules: ['marketing', 'commercial', 'sales'],
     showInSalesBoard: true,
     showInMarketing: false,
     commercialGoalMXN: 362200,
@@ -224,7 +211,7 @@ export interface TaskComment {
 export const ADMIN_EMAILS = [
   'artes.grupoorganico@gmail.com',
   'marketinggrupoorganico@gmail.com',
-  'expansioncomercia.gohb@gmail.com',
+  'coordinacionventasohb@gmail.com',
   'eduardo@organicohotelboutique.com',
   'manuel@organicohotelboutique.com',
   'marisol@organicohotelboutique.com'
@@ -339,12 +326,6 @@ export const DESIGN_RESPONSIBLES = [
     email: 'mkt.gohb@gmail.com',
     role: 'Marketing, Ventas y Comercialización',
     initials: 'EA'
-  },
-  {
-    name: 'Fernanda Langarica',
-    email: 'expansioncomercia.gohb@gmail.com',
-    role: 'Administrador · Comercialización y Ventas',
-    initials: 'FL'
   },
   {
     name: 'Alejandra Ocaña',

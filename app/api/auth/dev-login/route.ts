@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const targetUser =
     (emailParam ? getDirectoryUserByEmail(emailParam) : undefined) ||
     (roleParam === 'sales'
-      ? getDirectoryUserByEmail('expansioncomercia.gohb@gmail.com')
+      ? getDirectoryUserByEmail('otamexperiencias1@gmail.com')
       : getDirectoryUserByEmail('artes.grupoorganico@gmail.com')) ||
     TEAM_USERS_DIRECTORY[0];
 

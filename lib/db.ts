@@ -280,7 +280,7 @@ export async function ensureTables(): Promise<boolean> {
       );
     `;
 
-    const rosterMigrationId = 'roster_reset_2026_11_23_v4';
+    const rosterMigrationId = 'roster_reset_2026_11_24_v5';
     const existingMig = await sql`SELECT id FROM app_migrations WHERE id = ${rosterMigrationId} LIMIT 1;`;
     if (existingMig.length === 0) {
       // Conservar avatares de Google existentes para correos que permanecen en la plantilla oficial
@@ -290,7 +290,17 @@ export async function ensureTables(): Promise<boolean> {
         if (r.email && r.avatar) avatarMap.set(String(r.email).toLowerCase().trim(), String(r.avatar));
       });
 
-      // Dar de baja todos los usuarios anteriores
+      // Eliminar cualquier registro previo de Fernanda Langarica en toda la base de datos
+      await sql`DELETE FROM hotel_deals WHERE LOWER(COALESCE(assigned_email, '')) IN ('expansioncomercia.gohb@gmail.com', 'expansioncomercia@gmail.com') OR LOWER(COALESCE(assigned_rep, '')) IN ('fernanda langarica', 'fernanda langárica');`;
+      await sql`DELETE FROM commercial_tasks WHERE LOWER(COALESCE(assigned_email, '')) IN ('expansioncomercia.gohb@gmail.com', 'expansioncomercia@gmail.com') OR LOWER(COALESCE(assigned_to, '')) IN ('fernanda langarica', 'fernanda langárica') OR LOWER(COALESCE(created_by, '')) IN ('fernanda langarica', 'fernanda langárica');`;
+      await sql`DELETE FROM marketing_tasks WHERE LOWER(COALESCE(assigned_email, '')) IN ('expansioncomercia.gohb@gmail.com', 'expansioncomercia@gmail.com') OR LOWER(COALESCE(assigned_to, '')) IN ('fernanda langarica', 'fernanda langárica') OR LOWER(COALESCE(requested_by, '')) IN ('fernanda langarica', 'fernanda langárica');`;
+      await sql`DELETE FROM marketing_campaigns WHERE LOWER(COALESCE(lead_owner, '')) IN ('fernanda langarica', 'fernanda langárica');`;
+      await sql`DELETE FROM content_publications WHERE LOWER(COALESCE(responsible, '')) IN ('fernanda langarica', 'fernanda langárica');`;
+      await sql`DELETE FROM creative_briefs WHERE LOWER(COALESCE(author, '')) IN ('fernanda langarica', 'fernanda langárica');`;
+      await sql`DELETE FROM sales_activities WHERE LOWER(COALESCE(executive_email, '')) IN ('expansioncomercia.gohb@gmail.com', 'expansioncomercia@gmail.com') OR LOWER(COALESCE(executive_name, '')) IN ('fernanda langarica', 'fernanda langárica');`;
+      await sql`DELETE FROM app_notifications WHERE LOWER(COALESCE(target_email, '')) IN ('expansioncomercia.gohb@gmail.com', 'expansioncomercia@gmail.com') OR LOWER(COALESCE(author_email, '')) IN ('expansioncomercia.gohb@gmail.com', 'expansioncomercia@gmail.com') OR LOWER(COALESCE(target_name, '')) IN ('fernanda langarica', 'fernanda langárica') OR LOWER(COALESCE(author_name, '')) IN ('fernanda langarica', 'fernanda langárica');`;
+
+      // Dar de baja todos los usuarios anteriores y sincronizar la plantilla oficial vigente
       await sql`DELETE FROM user_profiles;`;
 
       // Dar de alta la nueva plantilla oficial de 10 usuarios listos para sincronizar con Google

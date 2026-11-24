@@ -927,8 +927,8 @@ export function CommercialSection({
       attendeesCount: parseInt(attendees) || 50,
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      assignedRep: currentUser?.name || 'Fernanda Langarica',
-      assignedEmail: currentUser?.email || 'expansioncomercia.gohb@gmail.com',
+      assignedRep: currentUser?.name || 'Alejandra Ocaña',
+      assignedEmail: currentUser?.email || 'marketinggrupoorganico@gmail.com',
       comments: [],
       notes: notes || 'Solicitud de bloqueo de espacios y cotización oficial.',
       contactEmail: email.trim() || undefined,
@@ -1018,63 +1018,57 @@ export function CommercialSection({
           <div className="flex flex-wrap items-center gap-1.5 bg-black/25 backdrop-blur-md p-1.5 rounded-xl text-xs font-semibold">
             <button
               onClick={() => setSubView('pipeline')}
-              className={`px-3.5 py-2 rounded-lg transition-all ${
-                subView === 'pipeline'
+              className={`px-3.5 py-2 rounded-lg transition-all ${subView === 'pipeline'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               Pipeline Grupos ({deals.length})
             </button>
             <button
               onClick={() => setSubView('tareas')}
-              className={`px-3.5 py-2 rounded-lg transition-all ${
-                subView === 'tareas'
+              className={`px-3.5 py-2 rounded-lg transition-all ${subView === 'tareas'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               📌 Tareas Comerciales ({commercialTasks.length})
             </button>
             <button
               onClick={() => setSubView('calendario')}
-              className={`px-3.5 py-2 rounded-lg transition-all ${
-                subView === 'calendario'
+              className={`px-3.5 py-2 rounded-lg transition-all ${subView === 'calendario'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               📅 Calendario
             </button>
             <button
               onClick={() => setSubView('tabla')}
-              className={`px-3.5 py-2 rounded-lg transition-all ${
-                subView === 'tabla'
+              className={`px-3.5 py-2 rounded-lg transition-all ${subView === 'tabla'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               Tabla de Negociaciones
             </button>
             {isCurrentUserAdmin && (
               <button
                 onClick={() => setSubView('reporte')}
-                className={`px-3.5 py-2 rounded-lg transition-all ${
-                  subView === 'reporte'
+                className={`px-3.5 py-2 rounded-lg transition-all ${subView === 'reporte'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
+                  }`}
               >
                 Métricas
               </button>
             )}
             <button
               onClick={() => setSubView('facturas')}
-              className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                subView === 'facturas'
+              className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${subView === 'facturas'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-white/80 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <span>🧾 Facturas</span>
               {totalInvoicesCount > 0 && (
@@ -1186,11 +1180,10 @@ export function CommercialSection({
                     setDraggedTaskId(null);
                     setDragOverTaskStage(null);
                   }}
-                  className={`rounded-2xl border transition-all p-3.5 flex flex-col min-h-[500px] ${
-                    isOver
+                  className={`rounded-2xl border transition-all p-3.5 flex flex-col min-h-[500px] ${isOver
                       ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-300'
                       : 'bg-stone-50/80 border-stone-200'
-                  }`}
+                    }`}
                 >
                   {/* Column Header */}
                   <div className="flex items-center justify-between pb-3 border-b border-stone-200 mb-3">
@@ -1239,21 +1232,19 @@ export function CommercialSection({
                             }}
                             onDragEnd={() => setDraggedTaskId(null)}
                             onClick={() => openViewingTask(task)}
-                            className={`bg-white rounded-xl p-3.5 border transition-all cursor-pointer shadow-2xs hover:shadow-md hover:border-emerald-300 space-y-2.5 ${
-                              draggedTaskId === task.id ? 'opacity-40 scale-95' : 'opacity-100'
-                            }`}
+                            className={`bg-white rounded-xl p-3.5 border transition-all cursor-pointer shadow-2xs hover:shadow-md hover:border-emerald-300 space-y-2.5 ${draggedTaskId === task.id ? 'opacity-40 scale-95' : 'opacity-100'
+                              }`}
                           >
                             {/* Meta: Code + Priority */}
                             <div className="flex items-center justify-between text-[10px]">
                               <span className="font-mono font-bold text-stone-400">{task.code}</span>
                               <span
-                                className={`font-bold px-2 py-0.5 rounded-full border ${
-                                  isUrgent
+                                className={`font-bold px-2 py-0.5 rounded-full border ${isUrgent
                                     ? 'bg-rose-50 text-rose-700 border-rose-200'
                                     : isHigh
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                    : 'bg-slate-50 text-slate-700 border-slate-200'
-                                }`}
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-slate-50 text-slate-700 border-slate-200'
+                                  }`}
                               >
                                 {task.priority === 'urgente' ? '🔴 Urgente' : task.priority === 'alta' ? '⚡ Alta' : '🔵 Media'}
                               </span>
@@ -1311,7 +1302,7 @@ export function CommercialSection({
                                     onClick={() => {
                                       const prevStage: CommercialTaskStage =
                                         col.id === 'cancelada' ? 'en_proceso' :
-                                        col.id === 'terminada' ? 'en_proceso' : 'solicitud';
+                                          col.id === 'terminada' ? 'en_proceso' : 'solicitud';
                                       onUpdateCommercialTaskStage && onUpdateCommercialTaskStage(task.id, prevStage);
                                     }}
                                     className="px-1.5 py-0.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-[9px] font-bold cursor-pointer"
@@ -1325,7 +1316,7 @@ export function CommercialSection({
                                     onClick={() => {
                                       const nextStage: CommercialTaskStage =
                                         col.id === 'solicitud' ? 'en_proceso' :
-                                        col.id === 'en_proceso' ? 'terminada' : 'terminada';
+                                          col.id === 'en_proceso' ? 'terminada' : 'terminada';
                                       onUpdateCommercialTaskStage && onUpdateCommercialTaskStage(task.id, nextStage);
                                     }}
                                     className="px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded text-[9px] font-bold cursor-pointer"
@@ -1364,21 +1355,19 @@ export function CommercialSection({
             <div className="flex items-center gap-1.5 self-end sm:self-auto bg-stone-100 p-1 rounded-xl border border-stone-200 text-xs">
               <button
                 onClick={() => setBoardLayout('fit')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
-                  boardLayout === 'fit'
+                className={`px-3 py-1 rounded-lg font-semibold transition-all ${boardLayout === 'fit'
                     ? 'bg-white text-emerald-950 shadow-xs'
                     : 'text-stone-500 hover:text-stone-900'
-                }`}
+                  }`}
               >
                 Ajustar a Pantalla (Sin Scroll)
               </button>
               <button
                 onClick={() => setBoardLayout('scroll')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-all ${
-                  boardLayout === 'scroll'
+                className={`px-3 py-1 rounded-lg font-semibold transition-all ${boardLayout === 'scroll'
                     ? 'bg-white text-emerald-950 shadow-xs'
                     : 'text-stone-500 hover:text-stone-900'
-                }`}
+                  }`}
               >
                 Columnas Anchas
               </button>
@@ -1417,13 +1406,11 @@ export function CommercialSection({
                     setDraggedDealId(null);
                     setDragOverStage(null);
                   }}
-                  className={`transition-all duration-200 rounded-2xl p-3 flex flex-col min-h-[500px] max-h-[82vh] border ${
-                    boardLayout === 'scroll' ? 'w-80 shrink-0' : 'w-full'
-                  } ${
-                    isOver
+                  className={`transition-all duration-200 rounded-2xl p-3 flex flex-col min-h-[500px] max-h-[82vh] border ${boardLayout === 'scroll' ? 'w-80 shrink-0' : 'w-full'
+                    } ${isOver
                       ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-400/60 shadow-md'
                       : 'bg-stone-100/70 border-stone-200'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-stone-200/90 mb-2.5">
                     <div className="flex items-center gap-1.5 min-w-0">
@@ -1456,11 +1443,10 @@ export function CommercialSection({
                             setDraggedDealId(null);
                             setDragOverStage(null);
                           }}
-                          className={`bg-white border rounded-xl p-2.5 shadow-2xs hover:shadow-md transition-all space-y-1.5 cursor-pointer ${
-                            isBeingDragged
+                          className={`bg-white border rounded-xl p-2.5 shadow-2xs hover:shadow-md transition-all space-y-1.5 cursor-pointer ${isBeingDragged
                               ? 'opacity-35 border-dashed border-emerald-500 scale-98 cursor-grabbing'
                               : 'border-stone-200 hover:border-emerald-400 hover:ring-1 hover:ring-emerald-300/40'
-                          }`}
+                            }`}
                         >
                           {/* Fila 1: Código + Hotel (Sin conteo de dinero en tarjeta) */}
                           <div className="flex items-center justify-between gap-1">
@@ -1512,11 +1498,10 @@ export function CommercialSection({
                                   <span>☑️</span> Requerimientos:
                                 </span>
                                 <span
-                                  className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-bold ${
-                                    deal.requirements.every((r) => r.completed)
+                                  className={`px-1.5 py-0.2 rounded font-mono text-[9px] font-bold ${deal.requirements.every((r) => r.completed)
                                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                       : 'bg-amber-100 text-amber-800 border border-amber-300'
-                                  }`}
+                                    }`}
                                 >
                                   {deal.requirements.filter((r) => r.completed).length}/{deal.requirements.length} (
                                   {calculateProgressPercent(
@@ -1530,9 +1515,8 @@ export function CommercialSection({
                               {/* Barra de progreso */}
                               <div className="h-1.5 w-full bg-stone-200 rounded-full overflow-hidden">
                                 <div
-                                  className={`h-full transition-all duration-300 ${
-                                    deal.requirements.every((r) => r.completed) ? 'bg-emerald-600' : 'bg-emerald-500'
-                                  }`}
+                                  className={`h-full transition-all duration-300 ${deal.requirements.every((r) => r.completed) ? 'bg-emerald-600' : 'bg-emerald-500'
+                                    }`}
                                   style={{
                                     width: `${Math.round(
                                       (deal.requirements.filter((r) => r.completed).length / deal.requirements.length) * 100
@@ -1555,11 +1539,10 @@ export function CommercialSection({
                                       className="mt-0.5 h-3.5 w-3.5 accent-emerald-600 rounded cursor-pointer shrink-0"
                                     />
                                     <span
-                                      className={`leading-tight flex-1 text-left ${
-                                        req.completed
+                                      className={`leading-tight flex-1 text-left ${req.completed
                                           ? 'line-through text-stone-400 font-normal'
                                           : 'text-stone-800 font-medium'
-                                      }`}
+                                        }`}
                                     >
                                       {req.text}
                                     </span>
@@ -1574,19 +1557,18 @@ export function CommercialSection({
                             {/* Estado de pago pill & Botón rápido PDF */}
                             <div className="flex items-center gap-1.5">
                               <span
-                                className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
-                                  deal.paymentStatus === 'liquidado'
+                                className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${deal.paymentStatus === 'liquidado'
                                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                                     : deal.paymentStatus === 'anticipo_pagado'
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                    : 'bg-rose-100 text-rose-800 border border-rose-200'
-                                }`}
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                      : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  }`}
                               >
                                 {deal.paymentStatus === 'liquidado'
                                   ? '● Liquidado'
                                   : deal.paymentStatus === 'anticipo_pagado'
-                                  ? '● Anticipo'
-                                  : '○ Sin pago'}
+                                    ? '● Anticipo'
+                                    : '○ Sin pago'}
                               </span>
 
                               <button
@@ -1681,11 +1663,10 @@ export function CommercialSection({
                       <td className="py-3 px-4 font-mono font-bold text-emerald-800">
                         <div>{deal.code}</div>
                         {deal.requirements && deal.requirements.length > 0 && (
-                          <span className={`inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded font-sans font-bold border ${
-                            deal.requirements.every((r) => r.completed)
+                          <span className={`inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded font-sans font-bold border ${deal.requirements.every((r) => r.completed)
                               ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                               : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}>
+                            }`}>
                             ✓ {deal.requirements.filter((r) => r.completed).length}/{deal.requirements.length} reqs (
                             {calculateProgressPercent(
                               deal.requirements.filter((r) => r.completed).length,
@@ -1727,13 +1708,12 @@ export function CommercialSection({
                         <div>{formatCurrency(deal.totalValue, deal.currency)}</div>
                         <div className="flex items-center gap-1 mt-0.5 font-sans font-normal text-[10px]">
                           <span
-                            className={`px-1.5 py-0.2 rounded font-bold ${
-                              deal.paymentStatus === 'liquidado'
+                            className={`px-1.5 py-0.2 rounded font-bold ${deal.paymentStatus === 'liquidado'
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : deal.paymentStatus === 'anticipo_pagado'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
                           >
                             {deal.paymentStatus === 'liquidado' ? 'Liquidado' : deal.paymentStatus === 'anticipo_pagado' ? 'Anticipo Pagado' : 'Pendiente'}
                           </span>
@@ -1937,16 +1917,15 @@ export function CommercialSection({
                       <div
                         key={space.id}
                         onClick={() => handleToggleSpace(space.name)}
-                        className={`p-2 rounded-xl border cursor-pointer transition-all flex items-start gap-2 ${
-                          isSelected
+                        className={`p-2 rounded-xl border cursor-pointer transition-all flex items-start gap-2 ${isSelected
                             ? 'bg-emerald-100/90 border-emerald-500 text-emerald-950 font-bold shadow-2xs'
                             : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-100'
-                        }`}
+                          }`}
                       >
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => {}}
+                          onChange={() => { }}
                           className="mt-0.5 rounded-sm accent-emerald-600"
                         />
                         <div className="leading-tight">
@@ -1979,11 +1958,10 @@ export function CommercialSection({
                     return (
                       <div
                         key={rt.id}
-                        className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between ${
-                          qty > 0
+                        className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between ${qty > 0
                             ? 'bg-emerald-50/90 border-emerald-500 text-stone-900 shadow-2xs'
                             : 'bg-white border-stone-200 text-stone-700'
-                        }`}
+                          }`}
                       >
                         <div>
                           <div className="flex items-center justify-between gap-1">
@@ -2445,7 +2423,7 @@ export function CommercialSection({
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => {}}
+                          onChange={() => { }}
                           className="accent-emerald-600 rounded"
                         />
                         <span className="truncate" title={space.description}>
@@ -2793,11 +2771,10 @@ export function CommercialSection({
                             className="h-4 w-4 accent-emerald-600 rounded cursor-pointer shrink-0"
                           />
                           <span
-                            className={`break-words ${
-                              req.completed
+                            className={`break-words ${req.completed
                                 ? 'line-through text-stone-400 font-normal'
                                 : 'text-stone-800 font-medium'
-                            }`}
+                              }`}
                           >
                             {req.text}
                           </span>
@@ -2981,22 +2958,20 @@ export function CommercialSection({
               <button
                 type="button"
                 onClick={() => setViewingTab('info')}
-                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewingTab === 'info'
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${viewingTab === 'info'
                     ? 'border-emerald-700 text-emerald-900 bg-emerald-50/60 rounded-t-lg'
                     : 'border-transparent text-stone-500 hover:text-stone-900'
-                }`}
+                  }`}
               >
                 <span>📋 Ficha del Evento & Cotización</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewingTab('comments')}
-                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewingTab === 'comments'
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${viewingTab === 'comments'
                     ? 'border-emerald-700 text-emerald-900 bg-emerald-50/60 rounded-t-lg'
                     : 'border-transparent text-stone-500 hover:text-stone-900'
-                }`}
+                  }`}
               >
                 <span>💬 Notas & Comentarios de Administradores</span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
@@ -3006,11 +2981,10 @@ export function CommercialSection({
               <button
                 type="button"
                 onClick={() => setViewingTab('invoices')}
-                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewingTab === 'invoices'
+                className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${viewingTab === 'invoices'
                     ? 'border-emerald-700 text-emerald-900 bg-emerald-50/60 rounded-t-lg'
                     : 'border-transparent text-stone-500 hover:text-stone-900'
-                }`}
+                  }`}
               >
                 <span>🧾 Facturas ({viewingDeal.invoices?.length || 0})</span>
               </button>
@@ -3195,396 +3169,389 @@ export function CommercialSection({
               </div>
             ) : (
               <>
-            {/* Tarjetas Métricas Principales */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
-                  Valor Total
-                </span>
-                <div className="font-mono text-lg sm:text-xl font-extrabold text-emerald-950">
-                  {formatCurrency(viewingDeal.totalValue, viewingDeal.currency)}
-                </div>
-                <span className="text-[10px] text-emerald-700 font-medium">Cotizado</span>
-              </div>
-
-              <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
-                  Room Nights
-                </span>
-                <div className="font-mono text-lg sm:text-xl font-extrabold text-amber-950">
-                  {viewingDeal.roomNights} <span className="text-xs font-sans text-amber-800 font-normal">RN</span>
-                </div>
-                <span className="text-[10px] text-amber-700 font-medium">Hospedaje Grupal</span>
-              </div>
-
-              <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">
-                  Asistentes
-                </span>
-                <div className="font-mono text-lg sm:text-xl font-extrabold text-blue-950">
-                  {viewingDeal.attendeesCount || 'N/A'} <span className="text-xs font-sans text-blue-800 font-normal">pax</span>
-                </div>
-                <span className="text-[10px] text-blue-700 font-medium">Banquete / Evento</span>
-              </div>
-
-              <div className="bg-purple-50/80 border border-purple-200 rounded-2xl p-3.5 space-y-0.5">
-                <span className="text-[10px] uppercase font-bold text-purple-800 tracking-wider block">
-                  Estancia
-                </span>
-                <div className="font-mono text-lg sm:text-xl font-extrabold text-purple-950">
-                  {getStayNights(viewingDeal.checkInDate, viewingDeal.checkOutDate)} <span className="text-xs font-sans text-purple-800 font-normal">noches</span>
-                </div>
-                <span className="text-[10px] text-purple-700 font-medium">{formatDate(viewingDeal.checkInDate)}</span>
-              </div>
-            </div>
-
-            {/* Control de Anticipos y Estado Financiero */}
-            <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-                  <span>💳</span> Resumen de Anticipos y Cobranza
-                </h4>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                    viewingDeal.paymentStatus === 'liquidado'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : viewingDeal.paymentStatus === 'anticipo_pagado'
-                      ? 'bg-amber-100 text-amber-800 border-amber-300'
-                      : 'bg-rose-100 text-rose-800 border-rose-300'
-                  }`}
-                >
-                  {viewingDeal.paymentStatus === 'liquidado'
-                    ? 'LIQUIDADO 100%'
-                    : viewingDeal.paymentStatus === 'anticipo_pagado'
-                    ? 'ANTICIPO ABONADO'
-                    : 'PENDIENTE DE PAGO'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
-                <div className="bg-white p-3 rounded-xl border border-amber-200/80">
-                  <span className="text-[10px] text-stone-500 uppercase font-semibold block">Anticipo / Pago Recibido:</span>
-                  <span className="font-mono text-base font-extrabold text-stone-900">
-                    {formatCurrency(viewingDeal.paymentStatus === 'liquidado' ? viewingDeal.totalValue : (viewingDeal.depositAmount || 0), viewingDeal.currency)}
-                  </span>
-                </div>
-
-                <div className="bg-white p-3 rounded-xl border border-amber-200/80">
-                  <span className="text-[10px] text-stone-500 uppercase font-semibold block">Saldo Pendiente:</span>
-                  <span className="font-mono text-base font-extrabold text-emerald-950">
-                    {formatCurrency(viewingDeal.paymentStatus === 'liquidado' ? 0 : Math.max(0, viewingDeal.totalValue - (viewingDeal.depositAmount || 0)), viewingDeal.currency)}
-                  </span>
-                </div>
-
-                <div className="bg-white p-3 rounded-xl border border-amber-200/80">
-                  <span className="text-[10px] text-stone-500 uppercase font-semibold block">Fecha Límite de Liquidación:</span>
-                  <span className="font-bold text-stone-900">
-                    {viewingDeal.paymentDueDate ? formatDate(viewingDeal.paymentDueDate) : 'Sin fecha límite registrada'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Fechas de Evento */}
-            <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-lg shrink-0">
-                  📅
-                </span>
-                <div>
-                  <span className="font-bold text-stone-900 block text-sm">
-                    {formatDate(viewingDeal.checkInDate)} → {formatDate(viewingDeal.checkOutDate)}
-                  </span>
-                  <span className="text-stone-500 text-[11px]">
-                    Bloqueo de calendario en {viewingDeal.hotelName} ({getStayNights(viewingDeal.checkInDate, viewingDeal.checkOutDate)} noches de ocupación)
-                  </span>
-                </div>
-              </div>
-              <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-stone-200/80 text-stone-800 font-bold self-start sm:self-auto">
-                Check-in: 15:00 hrs · Check-out: 12:00 hrs
-              </span>
-            </div>
-
-            {/* Espacios Reservados Oficiales */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <span>🏛️</span> Espacios Reservados del Hotel:
-                </h4>
-                <span className="text-[11px] font-bold text-emerald-800">
-                  {viewingDeal.selectedSpaces?.length || 0} área(s) bloqueada(s)
-                </span>
-              </div>
-              {viewingDeal.selectedSpaces && viewingDeal.selectedSpaces.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {viewingDeal.selectedSpaces.map((sp, idx) => {
-                    const spaceInfo = (HOTEL_SPACES[viewingDeal.hotelName] || []).find((s) => s.name === sp);
-                    return (
-                      <div key={idx} className="bg-emerald-50/70 border border-emerald-200/90 rounded-xl p-3 space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-emerald-800 font-bold">✓</span>
-                          <span className="font-bold text-emerald-950 text-xs">{sp}</span>
-                        </div>
-                        {spaceInfo && (
-                          <p className="text-[11px] text-stone-600 leading-snug">
-                            {spaceInfo.description}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-stone-400 text-xs italic bg-stone-50 p-3 rounded-xl border border-dashed border-stone-200">
-                  Sin espacios específicos asignados (Aplica a toda la propiedad o por definir).
-                </p>
-              )}
-            </div>
-
-            {/* Desglose de Habitaciones Solicitadas */}
-            {viewingDeal.requestedRooms && viewingDeal.requestedRooms.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                    <span>🛏️</span> Habitaciones Solicitadas por Tipo:
-                  </h4>
-                  <span className="text-[11px] font-bold text-amber-800">
-                    {viewingDeal.requestedRooms.reduce((acc, r) => acc + r.count, 0)} habitaciones totales
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                  {viewingDeal.requestedRooms.map((rm, idx) => {
-                    const roomInfo = (HOTEL_ROOM_TYPES[viewingDeal.hotelName] || []).find((r) => r.name === rm.roomTypeName);
-                    return (
-                      <div key={idx} className="bg-amber-50/70 border border-amber-200/90 rounded-xl p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-amber-950 text-xs">{rm.roomTypeName}</span>
-                          <span className="font-mono font-extrabold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md text-xs">
-                            {rm.count}x
-                          </span>
-                        </div>
-                        {roomInfo && (
-                          <div className="text-[10px] text-stone-600">
-                            Capacidad: <strong>{roomInfo.capacity}</strong>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Datos de Contacto y Ejecutivo */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-stone-50 border border-stone-200 rounded-2xl p-4 text-xs">
-              <div>
-                <span className="text-stone-500 font-medium block">Ejecutivo Comercial:</span>
-                <span className="font-bold text-stone-900 text-sm">{viewingDeal.assignedRep}</span>
-              </div>
-              <div>
-                <span className="text-stone-500 font-medium block">Correo de Contacto:</span>
-                {viewingDeal.contactEmail ? (
-                  <a
-                    href={`mailto:${viewingDeal.contactEmail}`}
-                    className="font-bold text-emerald-700 hover:text-emerald-900 underline block truncate"
-                  >
-                    ✉️ {viewingDeal.contactEmail}
-                  </a>
-                ) : (
-                  <span className="text-stone-400">No especificado</span>
-                )}
-              </div>
-              <div>
-                <span className="text-stone-500 font-medium block">Teléfono / WhatsApp:</span>
-                {viewingDeal.contactPhone ? (
-                  <a
-                    href={`tel:${viewingDeal.contactPhone}`}
-                    className="font-bold text-emerald-700 hover:text-emerald-900 underline block"
-                  >
-                    📞 {viewingDeal.contactPhone}
-                  </a>
-                ) : (
-                  <span className="text-stone-400">No especificado</span>
-                )}
-              </div>
-            </div>
-
-            {/* Lista de Requerimientos Interactiva para Palomear */}
-            <div className="bg-emerald-50/50 border border-emerald-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/70 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">☑️</span>
-                  <div>
-                    <h4 className="font-bold text-stone-900 text-xs sm:text-sm uppercase tracking-wider">
-                      Lista de Requerimientos del Evento
-                    </h4>
-                    <span className="text-[11px] text-stone-500">
-                      Palomea cada requerimiento conforme se prepare o cumpla en el hotel
+                {/* Tarjetas Métricas Principales */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                      Valor Total
                     </span>
-                  </div>
-                </div>
-
-                {viewingDeal.requirements && viewingDeal.requirements.length > 0 && (
-                  <div className="flex items-center gap-2 self-start sm:self-auto">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${
-                        viewingDeal.requirements.every((r) => r.completed)
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : 'bg-amber-100 text-amber-800 border-amber-300'
-                      }`}
-                    >
-                      {viewingDeal.requirements.filter((r) => r.completed).length} de {viewingDeal.requirements.length} cumplidos (
-                      {calculateProgressPercent(
-                        viewingDeal.requirements.filter((r) => r.completed).length,
-                        viewingDeal.requirements.length
-                      ).rounded}
-                      %)
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Barra de Progreso Global de Requerimientos */}
-              {viewingDeal.requirements && viewingDeal.requirements.length > 0 && (
-                <div className="space-y-1">
-                  <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-500 ${
-                        viewingDeal.requirements.every((r) => r.completed) ? 'bg-emerald-600' : 'bg-emerald-500'
-                      }`}
-                      style={{
-                        width: `${Math.round(
-                          (viewingDeal.requirements.filter((r) => r.completed).length / viewingDeal.requirements.length) * 100
-                        )}%`
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Items de Requerimientos */}
-              <div className="space-y-2">
-                {viewingDeal.requirements && viewingDeal.requirements.length > 0 ? (
-                  viewingDeal.requirements.map((req, idx) => (
-                    <div
-                      key={req.id}
-                      className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${
-                        req.completed
-                          ? 'bg-emerald-50/80 border-emerald-200'
-                          : 'bg-white border-stone-200 shadow-2xs hover:border-emerald-300'
-                      }`}
-                    >
-                      <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={req.completed}
-                          onChange={() => handleToggleDealRequirement(viewingDeal, req.id)}
-                          className="h-4 w-4 accent-emerald-600 rounded cursor-pointer shrink-0"
-                        />
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold shrink-0 ${
-                            req.completed ? 'bg-emerald-200/80 text-emerald-900' : 'bg-stone-100 text-stone-600'
-                          }`}>
-                            #{idx + 1}
-                          </span>
-                          <span
-                            className={`text-xs break-words leading-snug ${
-                              req.completed
-                                ? 'line-through text-stone-400 font-normal'
-                                : 'text-stone-900 font-semibold'
-                            }`}
-                          >
-                            {req.text}
-                          </span>
-                        </div>
-                      </label>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteRequirementFromViewingDeal(req.id)}
-                        className="text-stone-300 hover:text-rose-600 p-1.5 rounded-lg transition-colors shrink-0"
-                        title="Eliminar requerimiento"
-                      >
-                        🗑️
-                      </button>
+                    <div className="font-mono text-lg sm:text-xl font-extrabold text-emerald-950">
+                      {formatCurrency(viewingDeal.totalValue, viewingDeal.currency)}
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4 text-xs text-stone-400 italic bg-white/70 rounded-xl border border-dashed border-stone-200">
-                    No hay requerimientos específicos dados de alta en este evento.
+                    <span className="text-[10px] text-emerald-700 font-medium">Cotizado</span>
+                  </div>
+
+                  <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
+                      Room Nights
+                    </span>
+                    <div className="font-mono text-lg sm:text-xl font-extrabold text-amber-950">
+                      {viewingDeal.roomNights} <span className="text-xs font-sans text-amber-800 font-normal">RN</span>
+                    </div>
+                    <span className="text-[10px] text-amber-700 font-medium">Hospedaje Grupal</span>
+                  </div>
+
+                  <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-3.5 space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">
+                      Asistentes
+                    </span>
+                    <div className="font-mono text-lg sm:text-xl font-extrabold text-blue-950">
+                      {viewingDeal.attendeesCount || 'N/A'} <span className="text-xs font-sans text-blue-800 font-normal">pax</span>
+                    </div>
+                    <span className="text-[10px] text-blue-700 font-medium">Banquete / Evento</span>
+                  </div>
+
+                  <div className="bg-purple-50/80 border border-purple-200 rounded-2xl p-3.5 space-y-0.5">
+                    <span className="text-[10px] uppercase font-bold text-purple-800 tracking-wider block">
+                      Estancia
+                    </span>
+                    <div className="font-mono text-lg sm:text-xl font-extrabold text-purple-950">
+                      {getStayNights(viewingDeal.checkInDate, viewingDeal.checkOutDate)} <span className="text-xs font-sans text-purple-800 font-normal">noches</span>
+                    </div>
+                    <span className="text-[10px] text-purple-700 font-medium">{formatDate(viewingDeal.checkInDate)}</span>
+                  </div>
+                </div>
+
+                {/* Control de Anticipos y Estado Financiero */}
+                <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+                      <span>💳</span> Resumen de Anticipos y Cobranza
+                    </h4>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${viewingDeal.paymentStatus === 'liquidado'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : viewingDeal.paymentStatus === 'anticipo_pagado'
+                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                            : 'bg-rose-100 text-rose-800 border-rose-300'
+                        }`}
+                    >
+                      {viewingDeal.paymentStatus === 'liquidado'
+                        ? 'LIQUIDADO 100%'
+                        : viewingDeal.paymentStatus === 'anticipo_pagado'
+                          ? 'ANTICIPO ABONADO'
+                          : 'PENDIENTE DE PAGO'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                    <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+                      <span className="text-[10px] text-stone-500 uppercase font-semibold block">Anticipo / Pago Recibido:</span>
+                      <span className="font-mono text-base font-extrabold text-stone-900">
+                        {formatCurrency(viewingDeal.paymentStatus === 'liquidado' ? viewingDeal.totalValue : (viewingDeal.depositAmount || 0), viewingDeal.currency)}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+                      <span className="text-[10px] text-stone-500 uppercase font-semibold block">Saldo Pendiente:</span>
+                      <span className="font-mono text-base font-extrabold text-emerald-950">
+                        {formatCurrency(viewingDeal.paymentStatus === 'liquidado' ? 0 : Math.max(0, viewingDeal.totalValue - (viewingDeal.depositAmount || 0)), viewingDeal.currency)}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+                      <span className="text-[10px] text-stone-500 uppercase font-semibold block">Fecha Límite de Liquidación:</span>
+                      <span className="font-bold text-stone-900">
+                        {viewingDeal.paymentDueDate ? formatDate(viewingDeal.paymentDueDate) : 'Sin fecha límite registrada'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fechas de Evento */}
+                <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <span className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-lg shrink-0">
+                      📅
+                    </span>
+                    <div>
+                      <span className="font-bold text-stone-900 block text-sm">
+                        {formatDate(viewingDeal.checkInDate)} → {formatDate(viewingDeal.checkOutDate)}
+                      </span>
+                      <span className="text-stone-500 text-[11px]">
+                        Bloqueo de calendario en {viewingDeal.hotelName} ({getStayNights(viewingDeal.checkInDate, viewingDeal.checkOutDate)} noches de ocupación)
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-stone-200/80 text-stone-800 font-bold self-start sm:self-auto">
+                    Check-in: 15:00 hrs · Check-out: 12:00 hrs
+                  </span>
+                </div>
+
+                {/* Espacios Reservados Oficiales */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🏛️</span> Espacios Reservados del Hotel:
+                    </h4>
+                    <span className="text-[11px] font-bold text-emerald-800">
+                      {viewingDeal.selectedSpaces?.length || 0} área(s) bloqueada(s)
+                    </span>
+                  </div>
+                  {viewingDeal.selectedSpaces && viewingDeal.selectedSpaces.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {viewingDeal.selectedSpaces.map((sp, idx) => {
+                        const spaceInfo = (HOTEL_SPACES[viewingDeal.hotelName] || []).find((s) => s.name === sp);
+                        return (
+                          <div key={idx} className="bg-emerald-50/70 border border-emerald-200/90 rounded-xl p-3 space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-emerald-800 font-bold">✓</span>
+                              <span className="font-bold text-emerald-950 text-xs">{sp}</span>
+                            </div>
+                            {spaceInfo && (
+                              <p className="text-[11px] text-stone-600 leading-snug">
+                                {spaceInfo.description}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-stone-400 text-xs italic bg-stone-50 p-3 rounded-xl border border-dashed border-stone-200">
+                      Sin espacios específicos asignados (Aplica a toda la propiedad o por definir).
+                    </p>
+                  )}
+                </div>
+
+                {/* Desglose de Habitaciones Solicitadas */}
+                {viewingDeal.requestedRooms && viewingDeal.requestedRooms.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🛏️</span> Habitaciones Solicitadas por Tipo:
+                      </h4>
+                      <span className="text-[11px] font-bold text-amber-800">
+                        {viewingDeal.requestedRooms.reduce((acc, r) => acc + r.count, 0)} habitaciones totales
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {viewingDeal.requestedRooms.map((rm, idx) => {
+                        const roomInfo = (HOTEL_ROOM_TYPES[viewingDeal.hotelName] || []).find((r) => r.name === rm.roomTypeName);
+                        return (
+                          <div key={idx} className="bg-amber-50/70 border border-amber-200/90 rounded-xl p-3 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-amber-950 text-xs">{rm.roomTypeName}</span>
+                              <span className="font-mono font-extrabold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md text-xs">
+                                {rm.count}x
+                              </span>
+                            </div>
+                            {roomInfo && (
+                              <div className="text-[10px] text-stone-600">
+                                Capacidad: <strong>{roomInfo.capacity}</strong>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-              </div>
 
-              {/* Input rápido para agregar un requerimiento adicional sobre la marcha */}
-              <div className="flex gap-2 pt-1 border-t border-emerald-200/60">
-                <input
-                  type="text"
-                  value={viewingReqInput}
-                  onChange={(e) => setViewingReqInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddRequirementToViewingDeal();
-                    }
-                  }}
-                  placeholder="+ Agregar requerimiento rápido (ej. Proyector extra, Coffee break a las 16:00)..."
-                  className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddRequirementToViewingDeal}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
-                >
-                  + Agregar
-                </button>
-              </div>
-            </div>
-
-            {/* Notas Generales Adicionales */}
-            {viewingDeal.notes && (
-              <div className="space-y-1.5">
-                <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <span>📝</span> Notas y Observaciones Adicionales:
-                </h4>
-                <div className="bg-white p-4 rounded-2xl border border-stone-200 text-stone-700 text-xs leading-relaxed whitespace-pre-wrap">
-                  {viewingDeal.notes}
+                {/* Datos de Contacto y Ejecutivo */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-stone-50 border border-stone-200 rounded-2xl p-4 text-xs">
+                  <div>
+                    <span className="text-stone-500 font-medium block">Ejecutivo Comercial:</span>
+                    <span className="font-bold text-stone-900 text-sm">{viewingDeal.assignedRep}</span>
+                  </div>
+                  <div>
+                    <span className="text-stone-500 font-medium block">Correo de Contacto:</span>
+                    {viewingDeal.contactEmail ? (
+                      <a
+                        href={`mailto:${viewingDeal.contactEmail}`}
+                        className="font-bold text-emerald-700 hover:text-emerald-900 underline block truncate"
+                      >
+                        ✉️ {viewingDeal.contactEmail}
+                      </a>
+                    ) : (
+                      <span className="text-stone-400">No especificado</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-stone-500 font-medium block">Teléfono / WhatsApp:</span>
+                    {viewingDeal.contactPhone ? (
+                      <a
+                        href={`tel:${viewingDeal.contactPhone}`}
+                        className="font-bold text-emerald-700 hover:text-emerald-900 underline block"
+                      >
+                        📞 {viewingDeal.contactPhone}
+                      </a>
+                    ) : (
+                      <span className="text-stone-400">No especificado</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
 
-            {/* Fase y Control de Pipeline */}
-            <div className="space-y-2 pt-2 border-t border-stone-200">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-stone-800 uppercase tracking-wider">
-                  Etapa en el Pipeline Comercial:
-                </span>
-                <span className="text-stone-500">Cambia la fase directamente:</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                {STAGES.map((s) => {
-                  const isCurrent = viewingDeal.stage === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        onUpdateDealStage(viewingDeal.id, s.id);
-                        setViewingDeal({ ...viewingDeal, stage: s.id });
+                {/* Lista de Requerimientos Interactiva para Palomear */}
+                <div className="bg-emerald-50/50 border border-emerald-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/70 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">☑️</span>
+                      <div>
+                        <h4 className="font-bold text-stone-900 text-xs sm:text-sm uppercase tracking-wider">
+                          Lista de Requerimientos del Evento
+                        </h4>
+                        <span className="text-[11px] text-stone-500">
+                          Palomea cada requerimiento conforme se prepare o cumpla en el hotel
+                        </span>
+                      </div>
+                    </div>
+
+                    {viewingDeal.requirements && viewingDeal.requirements.length > 0 && (
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${viewingDeal.requirements.every((r) => r.completed)
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
+                            }`}
+                        >
+                          {viewingDeal.requirements.filter((r) => r.completed).length} de {viewingDeal.requirements.length} cumplidos (
+                          {calculateProgressPercent(
+                            viewingDeal.requirements.filter((r) => r.completed).length,
+                            viewingDeal.requirements.length
+                          ).rounded}
+                          %)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Barra de Progreso Global de Requerimientos */}
+                  {viewingDeal.requirements && viewingDeal.requirements.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="h-2.5 w-full bg-stone-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-500 ${viewingDeal.requirements.every((r) => r.completed) ? 'bg-emerald-600' : 'bg-emerald-500'
+                            }`}
+                          style={{
+                            width: `${Math.round(
+                              (viewingDeal.requirements.filter((r) => r.completed).length / viewingDeal.requirements.length) * 100
+                            )}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Items de Requerimientos */}
+                  <div className="space-y-2">
+                    {viewingDeal.requirements && viewingDeal.requirements.length > 0 ? (
+                      viewingDeal.requirements.map((req, idx) => (
+                        <div
+                          key={req.id}
+                          className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${req.completed
+                              ? 'bg-emerald-50/80 border-emerald-200'
+                              : 'bg-white border-stone-200 shadow-2xs hover:border-emerald-300'
+                            }`}
+                        >
+                          <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={req.completed}
+                              onChange={() => handleToggleDealRequirement(viewingDeal, req.id)}
+                              className="h-4 w-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+                            />
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold shrink-0 ${req.completed ? 'bg-emerald-200/80 text-emerald-900' : 'bg-stone-100 text-stone-600'
+                                }`}>
+                                #{idx + 1}
+                              </span>
+                              <span
+                                className={`text-xs break-words leading-snug ${req.completed
+                                    ? 'line-through text-stone-400 font-normal'
+                                    : 'text-stone-900 font-semibold'
+                                  }`}
+                              >
+                                {req.text}
+                              </span>
+                            </div>
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRequirementFromViewingDeal(req.id)}
+                            className="text-stone-300 hover:text-rose-600 p-1.5 rounded-lg transition-colors shrink-0"
+                            title="Eliminar requerimiento"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-xs text-stone-400 italic bg-white/70 rounded-xl border border-dashed border-stone-200">
+                        No hay requerimientos específicos dados de alta en este evento.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Input rápido para agregar un requerimiento adicional sobre la marcha */}
+                  <div className="flex gap-2 pt-1 border-t border-emerald-200/60">
+                    <input
+                      type="text"
+                      value={viewingReqInput}
+                      onChange={(e) => setViewingReqInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddRequirementToViewingDeal();
+                        }
                       }}
-                      className={`px-2 py-1.5 rounded-xl text-[11px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${
-                        isCurrent
-                          ? 'bg-emerald-800 text-white border-emerald-900 shadow-xs'
-                          : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
-                      }`}
+                      placeholder="+ Agregar requerimiento rápido (ej. Proyector extra, Coffee break a las 16:00)..."
+                      className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddRequirementToViewingDeal}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
                     >
-                      <span className={`w-2 h-2 rounded-full ${s.colorDot}`} />
-                      <span className="truncate">{s.title.split(' ')[0]}</span>
+                      + Agregar
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-            </>
+                  </div>
+                </div>
+
+                {/* Notas Generales Adicionales */}
+                {viewingDeal.notes && (
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <span>📝</span> Notas y Observaciones Adicionales:
+                    </h4>
+                    <div className="bg-white p-4 rounded-2xl border border-stone-200 text-stone-700 text-xs leading-relaxed whitespace-pre-wrap">
+                      {viewingDeal.notes}
+                    </div>
+                  </div>
+                )}
+
+                {/* Fase y Control de Pipeline */}
+                <div className="space-y-2 pt-2 border-t border-stone-200">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-stone-800 uppercase tracking-wider">
+                      Etapa en el Pipeline Comercial:
+                    </span>
+                    <span className="text-stone-500">Cambia la fase directamente:</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                    {STAGES.map((s) => {
+                      const isCurrent = viewingDeal.stage === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            onUpdateDealStage(viewingDeal.id, s.id);
+                            setViewingDeal({ ...viewingDeal, stage: s.id });
+                          }}
+                          className={`px-2 py-1.5 rounded-xl text-[11px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${isCurrent
+                              ? 'bg-emerald-800 text-white border-emerald-900 shadow-xs'
+                              : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                            }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${s.colorDot}`} />
+                          <span className="truncate">{s.title.split(' ')[0]}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
             )}
 
             {/* Acciones del Footer */}
@@ -3833,11 +3800,10 @@ export function CommercialSection({
                 <button
                   type="submit"
                   disabled={Boolean(isAssigneeOperatingEvent(taskAssignedEmail || taskAssignedTo))}
-                  className={`px-5 py-2.5 rounded-xl text-white font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                    isAssigneeOperatingEvent(taskAssignedEmail || taskAssignedTo)
+                  className={`px-5 py-2.5 rounded-xl text-white font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${isAssigneeOperatingEvent(taskAssignedEmail || taskAssignedTo)
                       ? 'bg-stone-400 cursor-not-allowed'
                       : 'bg-emerald-700 hover:bg-emerald-800'
-                  }`}
+                    }`}
                 >
                   <span>Guardar y Asignar Tarea</span>
                 </button>
@@ -3858,9 +3824,8 @@ export function CommercialSection({
                   <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-stone-100 text-stone-700 border border-stone-200">
                     {viewingTask.code}
                   </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    COMMERCIAL_TASK_STAGES.find((s) => s.id === viewingTask.stage)?.bgBadge || 'bg-stone-100 text-stone-800'
-                  }`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${COMMERCIAL_TASK_STAGES.find((s) => s.id === viewingTask.stage)?.bgBadge || 'bg-stone-100 text-stone-800'
+                    }`}>
                     {COMMERCIAL_TASK_STAGES.find((s) => s.id === viewingTask.stage)?.title || viewingTask.stage}
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -3883,22 +3848,20 @@ export function CommercialSection({
               <button
                 type="button"
                 onClick={() => setViewingTaskTab('info')}
-                className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer ${
-                  viewingTaskTab === 'info'
+                className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer ${viewingTaskTab === 'info'
                     ? 'border-emerald-700 text-emerald-900'
                     : 'border-transparent text-stone-500 hover:text-stone-800'
-                }`}
+                  }`}
               >
                 📋 Información de la Tarea
               </button>
               <button
                 type="button"
                 onClick={() => setViewingTaskTab('comments')}
-                className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-                  viewingTaskTab === 'comments'
+                className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${viewingTaskTab === 'comments'
                     ? 'border-emerald-700 text-emerald-900'
                     : 'border-transparent text-stone-500 hover:text-stone-800'
-                }`}
+                  }`}
               >
                 <span>💬 Notas & Comentarios</span>
                 <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono">

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { isAdminEmail, isUserAdmin } from './types';
+import { getDirectoryUserByEmail, isAdminEmail, isUserAdmin } from './types';
 
 export const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate'
@@ -167,13 +167,24 @@ export async function createSessionCookie(user: {
   return session;
 }
 
-// Extract and verify active session
+// Extract and verify active session (invalidando de inmediato cuentas dadas de baja)
 export async function getSession(): Promise<AuthSession | null> {
   const cookieStore = await cookies();
   const cookie = cookieStore.get(COOKIE_NAME);
   if (!cookie?.value) return null;
 
-  return verifySessionToken(cookie.value);
+  const session = await verifySessionToken(cookie.value);
+  if (!session) return null;
+
+  const dirUser = getDirectoryUserByEmail(session.email);
+  if (!dirUser && !isAdminEmail(session.email)) {
+    return null;
+  }
+
+  return {
+    ...session,
+    role: isAdminEmail(session.email) ? 'admin' : (dirUser?.role || session.role)
+  };
 }
 
 // Clear session cookie
