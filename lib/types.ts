@@ -550,6 +550,8 @@ export interface HotelDeal {
   contactPhone?: string;
   requirements?: DealRequirement[];
   invoices?: DealInvoice[];
+  contractUrl?: string;      // PDF, imagen o enlace del contrato firmado
+  contractFileName?: string; // Nombre del archivo de contrato
   createdAt: string;
 }
 

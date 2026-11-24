@@ -47,7 +47,9 @@ export async function GET() {
           notes: '',
           comments: [],
           invoices: [],
-          requirements: []
+          requirements: [],
+          contractUrl: undefined,
+          contractFileName: undefined
         };
       });
     }
@@ -119,6 +121,8 @@ export async function POST(request: Request) {
       contactPhone: raw.contactPhone || '',
       requirements: Array.isArray(raw.requirements) ? raw.requirements : [],
       invoices: Array.isArray(raw.invoices) ? raw.invoices : [],
+      contractUrl: raw.contractUrl || undefined,
+      contractFileName: raw.contractFileName || undefined,
       createdAt
     };
 
@@ -134,7 +138,8 @@ export async function POST(request: Request) {
         selected_spaces, requested_rooms, stage, total_value, currency,
         deposit_amount, payment_status, payment_due_date,
         room_nights, attendees_count, check_in_date, check_out_date,
-        assigned_rep, assigned_email, notes, comments, contact_email, contact_phone, requirements, invoices, created_at
+        assigned_rep, assigned_email, notes, comments, contact_email, contact_phone,
+        requirements, invoices, contract_url, contract_file_name, created_at
       ) VALUES (
         ${deal.id}, ${deal.code}, ${deal.clientName}, ${deal.companyOrAgency},
         ${deal.hotelName}, ${deal.category},
@@ -150,6 +155,8 @@ export async function POST(request: Request) {
         ${deal.contactEmail || ''}, ${deal.contactPhone || ''},
         ${JSON.stringify(deal.requirements)}::jsonb,
         ${JSON.stringify(deal.invoices)}::jsonb,
+        ${deal.contractUrl || null},
+        ${deal.contractFileName || null},
         ${deal.createdAt}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -177,6 +184,9 @@ export async function POST(request: Request) {
         contact_email = EXCLUDED.contact_email,
         contact_phone = EXCLUDED.contact_phone,
         requirements = EXCLUDED.requirements,
+        invoices = EXCLUDED.invoices,
+        contract_url = EXCLUDED.contract_url,
+        contract_file_name = EXCLUDED.contract_file_name;
         invoices = EXCLUDED.invoices,
         updated_at = CURRENT_TIMESTAMP;
     `;

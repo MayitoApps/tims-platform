@@ -210,6 +210,13 @@ export function CommercialSection({
   const [editAssignedRepEmail, setEditAssignedRepEmail] = useState(currentUser?.email || '');
   const [editRequirements, setEditRequirements] = useState<DealRequirement[]>([]);
   const [editReqInput, setEditReqInput] = useState('');
+  const [editContractUrl, setEditContractUrl] = useState('');
+  const [editContractFileName, setEditContractFileName] = useState('');
+  const [isUploadingContract, setIsUploadingContract] = useState(false);
+  const [contractUploadError, setContractUploadError] = useState<string | null>(null);
+  const [pendingContractDeal, setPendingContractDeal] = useState<HotelDeal | null>(null);
+  const [pendingContractUrl, setPendingContractUrl] = useState('');
+  const [pendingContractFileName, setPendingContractFileName] = useState('');
 
   // Form states - Deal
   const [clientName, setClientName] = useState('');
@@ -635,6 +642,9 @@ export function CommercialSection({
     setEditAssignedRepEmail(deal.assignedEmail || currentUser?.email || '');
     setEditRequirements(deal.requirements ? [...deal.requirements] : []);
     setEditReqInput('');
+    setEditContractUrl(deal.contractUrl || '');
+    setEditContractFileName(deal.contractFileName || '');
+    setContractUploadError(null);
     setEditConflictError(null);
 
     const roomMap: Record<string, number> = {};
@@ -854,7 +864,9 @@ export function CommercialSection({
       notes: editNotes,
       contactEmail: editEmail,
       contactPhone: editPhone,
-      requirements: editRequirements
+      requirements: editRequirements,
+      contractUrl: editContractUrl.trim() || undefined,
+      contractFileName: editContractFileName.trim() || undefined
     };
 
     onUpdateDeal(updated);
@@ -987,12 +999,58 @@ export function CommercialSection({
     setIsDealModalOpen(true);
   };
 
+  const uploadContractFile = async (
+    file: File,
+    onDone: (url: string, fileName: string) => void
+  ) => {
+    if (file.size > 25 * 1024 * 1024) {
+      setContractUploadError('El archivo supera el máximo permitido (25MB).');
+      return;
+    }
+    try {
+      setIsUploadingContract(true);
+      setContractUploadError(null);
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Error al subir el contrato');
+      }
+      onDone(data.url, file.name);
+    } catch (err) {
+      setContractUploadError((err as Error).message || 'No se pudo subir el contrato.');
+    } finally {
+      setIsUploadingContract(false);
+    }
+  };
+
+  const requestStageChange = (dealOrId: HotelDeal | string, nextStage: HotelDealStage) => {
+    const targetDeal =
+      typeof dealOrId === 'string'
+        ? deals.find((d) => d.id === dealOrId)
+        : dealOrId;
+    if (!targetDeal) return;
+
+    if (nextStage === 'contratado' && !targetDeal.contractUrl) {
+      setPendingContractDeal(targetDeal);
+      setPendingContractUrl('');
+      setPendingContractFileName('');
+      setContractUploadError(null);
+      return;
+    }
+    onUpdateDealStage(targetDeal.id, nextStage);
+    if (viewingDeal && viewingDeal.id === targetDeal.id) {
+      setViewingDeal({ ...viewingDeal, stage: nextStage });
+    }
+  };
+
   const moveStage = (deal: HotelDeal, direction: 'prev' | 'next') => {
     const idx = STAGES.findIndex((s) => s.id === deal.stage);
     if (direction === 'prev' && idx > 0) {
-      onUpdateDealStage(deal.id, STAGES[idx - 1].id);
+      requestStageChange(deal, STAGES[idx - 1].id);
     } else if (direction === 'next' && idx < STAGES.length - 1) {
-      onUpdateDealStage(deal.id, STAGES[idx + 1].id);
+      requestStageChange(deal, STAGES[idx + 1].id);
     }
   };
 
@@ -1401,7 +1459,7 @@ export function CommercialSection({
                     e.preventDefault();
                     const dealId = e.dataTransfer.getData('text/plain') || draggedDealId;
                     if (dealId) {
-                      onUpdateDealStage(dealId, col.id);
+                      requestStageChange(dealId, col.id);
                     }
                     setDraggedDealId(null);
                     setDragOverStage(null);
@@ -1694,7 +1752,7 @@ export function CommercialSection({
                         <select
                           value={deal.stage}
                           onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => onUpdateDealStage(deal.id, e.target.value as HotelDealStage)}
+                          onChange={(e) => requestStageChange(deal, e.target.value as HotelDealStage)}
                           className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${badge.bg} ${badge.text} ${badge.border} cursor-pointer focus:outline-none`}
                         >
                           <option value="rfp_recibido">RFP Recibido</option>
@@ -2396,6 +2454,76 @@ export function CommercialSection({
                   </select>
                 </div>
               </div>
+
+              {/* CONTRATO FIRMADO (PDF, Imagen o Enlace) */}
+              {(editStage === 'contratado' || editContractUrl) && (
+                <div className="bg-emerald-50/80 border border-emerald-300 rounded-2xl p-4 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                      <span>📄</span> Contrato Firmado (PDF, Imagen o Enlace)
+                    </label>
+                    {editContractUrl && (
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={safeExternalUrl(editContractUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-bold text-emerald-800 underline hover:text-emerald-950"
+                        >
+                          {editContractFileName || 'Ver contrato'} ↗
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditContractUrl('');
+                            setEditContractFileName('');
+                          }}
+                          className="text-[10px] font-bold text-rose-700 hover:underline cursor-pointer"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {contractUploadError && (
+                    <div className="text-[11px] font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5">
+                      ⚠️ {contractUploadError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <label className="cursor-pointer bg-white hover:bg-emerald-100/60 border border-emerald-300 text-emerald-900 font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors">
+                      <span>{isUploadingContract ? '⏳ Subiendo...' : '📎 Subir PDF o Imagen'}</span>
+                      <input
+                        type="file"
+                        accept="application/pdf,image/*"
+                        disabled={isUploadingContract}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            uploadContractFile(f, (url, name) => {
+                              setEditContractUrl(url);
+                              setEditContractFileName(name);
+                            });
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="O pega el enlace (Drive, Dropbox...)"
+                      value={editContractUrl}
+                      onChange={(e) => {
+                        setEditContractUrl(e.target.value);
+                        if (!e.target.value) setEditContractFileName('');
+                      }}
+                      className="w-full border border-emerald-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* SELECCIÓN DE ESPACIOS */}
               <div className="space-y-2 bg-stone-50 p-3 rounded-xl border border-stone-200">
@@ -3521,6 +3649,31 @@ export function CommercialSection({
                   </div>
                 )}
 
+                {/* Contrato Firmado adjunto */}
+                {viewingDeal.contractUrl && (
+                  <div className="bg-emerald-50/90 border border-emerald-300 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-lg">📄</span>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">
+                          Contrato Firmado
+                        </span>
+                        <span className="text-xs font-semibold text-stone-800 truncate block">
+                          {viewingDeal.contractFileName || 'Documento adjunto'}
+                        </span>
+                      </div>
+                    </div>
+                    <a
+                      href={safeExternalUrl(viewingDeal.contractUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shrink-0 shadow-2xs"
+                    >
+                      Ver Contrato ↗
+                    </a>
+                  </div>
+                )}
+
                 {/* Fase y Control de Pipeline */}
                 <div className="space-y-2 pt-2 border-t border-stone-200">
                   <div className="flex items-center justify-between text-xs">
@@ -3536,8 +3689,7 @@ export function CommercialSection({
                         <button
                           key={s.id}
                           onClick={() => {
-                            onUpdateDealStage(viewingDeal.id, s.id);
-                            setViewingDeal({ ...viewingDeal, stage: s.id });
+                            requestStageChange(viewingDeal, s.id);
                           }}
                           className={`px-2 py-1.5 rounded-xl text-[11px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${isCurrent
                               ? 'bg-emerald-800 text-white border-emerald-900 shadow-xs'
@@ -3593,6 +3745,128 @@ export function CommercialSection({
           </div>
         </div>
       )}
+      {/* MODAL RÁPIDO PARA ADJUNTAR CONTRATO FIRMADO AL MOVER TARJETA */}
+      {pendingContractDeal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start justify-between border-b border-stone-200 pb-3">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Contrato Firmado
+                </span>
+                <h3 className="font-editorial text-xl font-bold text-stone-900 mt-1">
+                  {pendingContractDeal.companyOrAgency}
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Sube el PDF, imagen o pega el enlace del contrato firmado.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingContractDeal(null)}
+                className="text-stone-400 hover:text-stone-700 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {contractUploadError && (
+              <div className="text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                ⚠️ {contractUploadError}
+              </div>
+            )}
+
+            <div className="space-y-3 text-xs">
+              <label className="cursor-pointer bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors">
+                <span>
+                  {isUploadingContract
+                    ? '⏳ Subiendo archivo...'
+                    : pendingContractFileName
+                    ? `✓ ${pendingContractFileName}`
+                    : '📎 Subir PDF o Imagen del Contrato'}
+                </span>
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  disabled={isUploadingContract}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      uploadContractFile(f, (url, name) => {
+                        setPendingContractUrl(url);
+                        setPendingContractFileName(name);
+                      });
+                    }
+                  }}
+                  className="hidden"
+                />
+              </label>
+
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">
+                  O pega el enlace del contrato
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={pendingContractUrl}
+                  onChange={(e) => {
+                    setPendingContractUrl(e.target.value);
+                    if (!e.target.value) setPendingContractFileName('');
+                  }}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-stone-200 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateDealStage(pendingContractDeal.id, 'contratado');
+                  if (viewingDeal && viewingDeal.id === pendingContractDeal.id) {
+                    setViewingDeal({ ...viewingDeal, stage: 'contratado' });
+                  }
+                  setPendingContractDeal(null);
+                }}
+                className="px-3 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-semibold cursor-pointer"
+              >
+                Mover sin adjuntar
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingContractDeal(null)}
+                  className="px-3.5 py-2 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isUploadingContract || !pendingContractUrl.trim()}
+                  onClick={() => {
+                    const updated: HotelDeal = {
+                      ...pendingContractDeal,
+                      stage: 'contratado',
+                      contractUrl: pendingContractUrl.trim(),
+                      contractFileName: pendingContractFileName.trim() || undefined
+                    };
+                    onUpdateDeal(updated);
+                    if (viewingDeal && viewingDeal.id === updated.id) {
+                      setViewingDeal(updated);
+                    }
+                    setPendingContractDeal(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-40 text-white font-bold shadow-xs cursor-pointer"
+                >
+                  Guardar y Firmar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE ORDEN DE SERVICIO IMPRIMIBLE EN PDF */}
       {quotationDeal && (
         <QuotationPrintModal

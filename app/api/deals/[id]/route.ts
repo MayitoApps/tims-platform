@@ -68,6 +68,8 @@ export async function PUT(
           contact_phone = COALESCE(${updates.contactPhone}, contact_phone),
           requirements = COALESCE(${updates.requirements ? JSON.stringify(updates.requirements) : null}::jsonb, requirements),
           invoices = COALESCE(${updates.invoices ? JSON.stringify(updates.invoices) : null}::jsonb, invoices),
+          contract_url = CASE WHEN ${updates.contractUrl !== undefined} THEN ${updates.contractUrl || null} ELSE contract_url END,
+          contract_file_name = CASE WHEN ${updates.contractFileName !== undefined} THEN ${updates.contractFileName || null} ELSE contract_file_name END,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id};
       `;
