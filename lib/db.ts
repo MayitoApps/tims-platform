@@ -74,6 +74,7 @@ export async function ensureTables(): Promise<boolean> {
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS invoices JSONB DEFAULT '[]'::jsonb;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS contract_url TEXT;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS contract_file_name TEXT;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS expediente JSONB DEFAULT '{}'::jsonb;`;
 
     // 2. Marketing Tasks Table
     await sql`
@@ -385,6 +386,7 @@ export function mapRowToDeal(row: any): HotelDeal {
     invoices: typeof row.invoices === 'string' ? JSON.parse(row.invoices) : (row.invoices || []),
     contractUrl: row.contract_url || undefined,
     contractFileName: row.contract_file_name || undefined,
+    expediente: typeof row.expediente === 'string' ? JSON.parse(row.expediente) : (row.expediente || undefined),
     createdAt: row.created_at
   };
 }

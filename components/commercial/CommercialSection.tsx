@@ -26,6 +26,7 @@ import { QuotationPrintModal } from './QuotationPrintModal';
 import { AvailabilityCheckerModal } from './AvailabilityCheckerModal';
 import { InvoicesTab } from './InvoicesTab';
 import { CommercialMetricsTab } from './CommercialMetricsTab';
+import { ExpedientesTab } from './ExpedientesTab';
 
 interface CommercialSectionProps {
   deals: HotelDeal[];
@@ -94,10 +95,10 @@ export function CommercialSection({
   const isCurrentUserAdmin = isUserAdmin(currentUser);
   const calendarDeals = allDealsForCalendar || deals;
 
-  const [subView, setSubView] = useState<'pipeline' | 'tareas' | 'calendario' | 'tabla' | 'reporte' | 'facturas'>(() =>
+  const [subView, setSubView] = useState<'pipeline' | 'tareas' | 'calendario' | 'tabla' | 'expedientes' | 'reporte' | 'facturas'>(() =>
     readPersistedNavValue(
       'tims_commercial_subview',
-      ['pipeline', 'tareas', 'calendario', 'tabla', 'reporte', 'facturas'] as const,
+      ['pipeline', 'tareas', 'calendario', 'tabla', 'expedientes', 'reporte', 'facturas'] as const,
       'pipeline',
       1,
       'commercial'
@@ -115,6 +116,10 @@ export function CommercialSection({
 
   const totalInvoicesCount = useMemo(() => {
     return deals.reduce((acc, d) => acc + (d.invoices?.length || 0), 0);
+  }, [deals]);
+
+  const contractedDealsCount = useMemo(() => {
+    return deals.filter((d) => d.stage === 'contratado').length;
   }, [deals]);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<HotelDealStage | null>(null);
@@ -1110,6 +1115,20 @@ export function CommercialSection({
             >
               Tabla de Negociaciones
             </button>
+            <button
+              onClick={() => setSubView('expedientes')}
+              className={`px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 ${subView === 'expedientes'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+            >
+              <span>📁 Expedientes</span>
+              {contractedDealsCount > 0 && (
+                <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full">
+                  {contractedDealsCount}
+                </span>
+              )}
+            </button>
             {isCurrentUserAdmin && (
               <button
                 onClick={() => setSubView('reporte')}
@@ -1841,7 +1860,18 @@ export function CommercialSection({
         </div>
       )}
 
-      {/* SUB-VIEW 4: REPORTE & MÉTRICAS VISUALES EN PESOS MEXICANOS (MXN) */}
+      {/* SUB-VIEW 4: EXPEDIENTES DE EVENTOS FIRMADOS */}
+      {subView === 'expedientes' && (
+        <ExpedientesTab
+          deals={deals}
+          selectedHotelFilter={selectedHotelFilter}
+          currentUser={currentUser}
+          isCurrentUserAdmin={isCurrentUserAdmin}
+          onUpdateDeal={onUpdateDeal}
+        />
+      )}
+
+      {/* SUB-VIEW 5: REPORTE & MÉTRICAS VISUALES EN PESOS MEXICANOS (MXN) */}
       {subView === 'reporte' && isCurrentUserAdmin && (
         <CommercialMetricsTab
           deals={deals}

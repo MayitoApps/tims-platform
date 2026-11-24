@@ -49,7 +49,8 @@ export async function GET() {
           invoices: [],
           requirements: [],
           contractUrl: undefined,
-          contractFileName: undefined
+          contractFileName: undefined,
+          expediente: undefined
         };
       });
     }
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
       invoices: Array.isArray(raw.invoices) ? raw.invoices : [],
       contractUrl: raw.contractUrl || undefined,
       contractFileName: raw.contractFileName || undefined,
+      expediente: raw.expediente || undefined,
       createdAt
     };
 
@@ -139,7 +141,7 @@ export async function POST(request: Request) {
         deposit_amount, payment_status, payment_due_date,
         room_nights, attendees_count, check_in_date, check_out_date,
         assigned_rep, assigned_email, notes, comments, contact_email, contact_phone,
-        requirements, invoices, contract_url, contract_file_name, created_at
+        requirements, invoices, contract_url, contract_file_name, expediente, created_at
       ) VALUES (
         ${deal.id}, ${deal.code}, ${deal.clientName}, ${deal.companyOrAgency},
         ${deal.hotelName}, ${deal.category},
@@ -157,6 +159,7 @@ export async function POST(request: Request) {
         ${JSON.stringify(deal.invoices)}::jsonb,
         ${deal.contractUrl || null},
         ${deal.contractFileName || null},
+        ${JSON.stringify(deal.expediente || {})}::jsonb,
         ${deal.createdAt}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -186,7 +189,8 @@ export async function POST(request: Request) {
         requirements = EXCLUDED.requirements,
         invoices = EXCLUDED.invoices,
         contract_url = EXCLUDED.contract_url,
-        contract_file_name = EXCLUDED.contract_file_name;
+        contract_file_name = EXCLUDED.contract_file_name,
+        expediente = EXCLUDED.expediente;
         invoices = EXCLUDED.invoices,
         updated_at = CURRENT_TIMESTAMP;
     `;

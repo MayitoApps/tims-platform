@@ -522,6 +522,21 @@ export interface DealInvoice {
   createdAt: string;
 }
 
+export interface DealExpedienteDoc {
+  fileUrl?: string;
+  fileName?: string;
+  notes?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface DealExpediente {
+  serviceOrder?: DealExpedienteDoc;
+  paymentProof?: DealExpedienteDoc;
+  operationsHandover?: DealExpedienteDoc;
+  welcomeEmail?: DealExpedienteDoc;
+}
+
 export interface HotelDeal {
   id: string;
   code: string;
@@ -552,6 +567,7 @@ export interface HotelDeal {
   invoices?: DealInvoice[];
   contractUrl?: string;      // PDF, imagen o enlace del contrato firmado
   contractFileName?: string; // Nombre del archivo de contrato
+  expediente?: DealExpediente; // Documentos del expediente (Orden de servicio, pago, entrega, bienvenida)
   createdAt: string;
 }
 
