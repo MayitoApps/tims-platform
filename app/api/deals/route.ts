@@ -205,8 +205,7 @@ export async function POST(request: Request) {
         invoices = EXCLUDED.invoices,
         contract_url = EXCLUDED.contract_url,
         contract_file_name = EXCLUDED.contract_file_name,
-        expediente = EXCLUDED.expediente;
-        invoices = EXCLUDED.invoices,
+        expediente = EXCLUDED.expediente,
         updated_at = CURRENT_TIMESTAMP;
     `;
 

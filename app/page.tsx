@@ -962,7 +962,6 @@ export default function Home() {
     try {
       localStorage.setItem('tims_deals', JSON.stringify(nextList));
     } catch {}
-    showToast(`Cotización / Evento ${nextCode} guardado en Postgres`);
 
     try {
       const res = await fetch('/api/deals', {
@@ -970,7 +969,12 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(created)
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        showToast(`⚠️ Error al guardar evento en BD: ${data?.error || res.statusText}`);
+        return;
+      }
+      showToast(`Cotización / Evento ${nextCode} guardado en Postgres`);
       if (data?.deal) {
         setDeals((prev) => {
           const updated = prev.map((d) => (d.id === created.id ? data.deal : d));
@@ -982,6 +986,7 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Error saving deal to DB:', err);
+      showToast('⚠️ No se pudo conectar con la base de datos al guardar el evento');
     }
   };
 
