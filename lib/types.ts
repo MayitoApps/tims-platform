@@ -565,6 +565,10 @@ export interface HotelDeal {
   attendeesCount?: number; // Personas para banquete/evento
   checkInDate: string;
   checkOutDate: string;
+  isHourlyEvent?: boolean; // Evento de solo unas horas (mismo día)
+  eventStartTime?: string; // Hora inicio si es evento por horas
+  eventEndTime?: string; // Hora fin si es evento por horas
+  noRoomsRequired?: boolean; // Evento sin habitaciones requeridas
   assignedRep: string;
   assignedEmail?: string;
   notes: string;

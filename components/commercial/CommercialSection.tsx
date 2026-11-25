@@ -21,7 +21,7 @@ import {
   getExecutiveEventStatus
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
-import { formatCurrency, formatDate, getHotelDealStageBadge, getDealCategoryLabel, safeExternalUrl, getLocalDateStr, calculateProgressPercent, readPersistedNavValue, writePersistedNavValue } from '@/lib/utils';
+import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput, getHotelDealStageBadge, getDealCategoryLabel, safeExternalUrl, getLocalDateStr, calculateProgressPercent, readPersistedNavValue, writePersistedNavValue } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 import { QuotationPrintModal } from './QuotationPrintModal';
 import { AvailabilityCheckerModal } from './AvailabilityCheckerModal';
@@ -196,9 +196,9 @@ export function CommercialSection({
   const [editRoomQuantities, setEditRoomQuantities] = useState<Record<string, number>>({});
   const [editCategory, setEditCategory] = useState<DealCategory>('social');
   const [editStage, setEditStage] = useState<HotelDealStage>('rfp_recibido');
-  const [editTotalValue, setEditTotalValue] = useState('350000');
+  const [editTotalValue, setEditTotalValue] = useState('350,000.00');
   const [editCurrency, setEditCurrency] = useState<'MXN' | 'USD'>('MXN');
-  const [editDepositAmount, setEditDepositAmount] = useState('0');
+  const [editDepositAmount, setEditDepositAmount] = useState('0.00');
   const todayStr = getLocalDateStr();
   const defaultOutStr = getLocalDateStr(new Date(Date.now() + 2 * 86400000));
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
@@ -206,9 +206,13 @@ export function CommercialSection({
   const [editPaymentStatus, setEditPaymentStatus] = useState<PaymentStatus>('pendiente');
   const [editPaymentDueDate, setEditPaymentDueDate] = useState('');
   const [editRoomNights, setEditRoomNights] = useState('24');
+  const [editNoRoomsRequired, setEditNoRoomsRequired] = useState(false);
   const [editAttendees, setEditAttendees] = useState('120');
   const [editCheckIn, setEditCheckIn] = useState(todayStr);
   const [editCheckOut, setEditCheckOut] = useState(defaultOutStr);
+  const [editIsHourlyEvent, setEditIsHourlyEvent] = useState(false);
+  const [editEventStartTime, setEditEventStartTime] = useState('10:00');
+  const [editEventEndTime, setEditEventEndTime] = useState('16:00');
   const [editNotes, setEditNotes] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -236,15 +240,19 @@ export function CommercialSection({
   const [selectedSpaces, setSelectedSpaces] = useState<string[]>([]);
   const [roomQuantities, setRoomQuantities] = useState<Record<string, number>>({});
   const [category, setCategory] = useState<DealCategory>('social');
-  const [totalValue, setTotalValue] = useState('350000');
+  const [totalValue, setTotalValue] = useState('350,000.00');
   const [currency, setCurrency] = useState<'MXN' | 'USD'>('MXN');
-  const [depositAmount, setDepositAmount] = useState('0');
+  const [depositAmount, setDepositAmount] = useState('0.00');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('pendiente');
   const [paymentDueDate, setPaymentDueDate] = useState('');
   const [roomNights, setRoomNights] = useState('24');
+  const [noRoomsRequired, setNoRoomsRequired] = useState(false);
   const [attendees, setAttendees] = useState('120');
   const [checkIn, setCheckIn] = useState(todayStr);
   const [checkOut, setCheckOut] = useState(defaultOutStr);
+  const [isHourlyEvent, setIsHourlyEvent] = useState(false);
+  const [eventStartTime, setEventStartTime] = useState('10:00');
+  const [eventEndTime, setEventEndTime] = useState('16:00');
   const [notes, setNotes] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -642,15 +650,19 @@ export function CommercialSection({
     setEditSelectedSpaces(deal.selectedSpaces || []);
     setEditCategory(deal.category);
     setEditStage(deal.stage);
-    setEditTotalValue(String(deal.totalValue));
+    setEditTotalValue(formatMoneyInput(deal.totalValue, true));
     setEditCurrency(deal.currency);
-    setEditDepositAmount(String(deal.depositAmount || 0));
+    setEditDepositAmount(formatMoneyInput(deal.depositAmount || 0, true));
     setEditPaymentStatus(deal.paymentStatus || 'pendiente');
     setEditPaymentDueDate(deal.paymentDueDate || '');
     setEditRoomNights(String(deal.roomNights));
+    setEditNoRoomsRequired(Boolean(deal.noRoomsRequired));
     setEditAttendees(String(deal.attendeesCount || 0));
     setEditCheckIn(deal.checkInDate);
     setEditCheckOut(deal.checkOutDate);
+    setEditIsHourlyEvent(Boolean(deal.isHourlyEvent));
+    setEditEventStartTime(deal.eventStartTime || '10:00');
+    setEditEventEndTime(deal.eventEndTime || '16:00');
     setEditNotes(deal.notes || '');
     setEditEmail(deal.contactEmail || '');
     setEditPhone(deal.contactPhone || '');
@@ -881,12 +893,14 @@ export function CommercialSection({
       return;
     }
 
-    const requestedRoomsBreakdown = Object.entries(editRoomQuantities)
-      .filter(([_, count]) => count > 0)
-      .map(([roomTypeName, count]) => ({ roomTypeName, count }));
+    const requestedRoomsBreakdown = editNoRoomsRequired
+      ? []
+      : Object.entries(editRoomQuantities)
+          .filter(([_, count]) => count > 0)
+          .map(([roomTypeName, count]) => ({ roomTypeName, count }));
 
-    const editValNum = parseFloat(editTotalValue) || editingDeal.totalValue;
-    let editDepNum = parseFloat(editDepositAmount) || 0;
+    const editValNum = parseMoneyInput(editTotalValue) || editingDeal.totalValue;
+    let editDepNum = parseMoneyInput(editDepositAmount);
     let finalEditPaymentStatus = editPaymentStatus;
 
     if (editPaymentStatus === 'liquidado') {
@@ -912,10 +926,14 @@ export function CommercialSection({
       paymentStatus: finalEditPaymentStatus,
       balanceDue: calculatedEditBalance,
       paymentDueDate: editPaymentDueDate || undefined,
-      roomNights: parseInt(editRoomNights) || 0,
+      roomNights: editNoRoomsRequired ? 0 : (parseInt(editRoomNights) || 0),
+      noRoomsRequired: editNoRoomsRequired,
       attendeesCount: parseInt(editAttendees) || 0,
       checkInDate: editCheckIn,
-      checkOutDate: editCheckOut,
+      checkOutDate: editIsHourlyEvent ? editCheckIn : editCheckOut,
+      isHourlyEvent: editIsHourlyEvent,
+      eventStartTime: editIsHourlyEvent ? editEventStartTime : undefined,
+      eventEndTime: editIsHourlyEvent ? editEventEndTime : undefined,
       assignedRep: editAssignedRepName,
       assignedEmail: editAssignedRepEmail,
       notes: editNotes,
@@ -963,12 +981,14 @@ export function CommercialSection({
       }
     }
 
-    const requestedRoomsList: RequestedRoomType[] = Object.entries(roomQuantities)
-      .filter(([_, count]) => count > 0)
-      .map(([roomTypeName, count]) => ({ roomTypeName, count }));
+    const requestedRoomsList: RequestedRoomType[] = noRoomsRequired
+      ? []
+      : Object.entries(roomQuantities)
+          .filter(([_, count]) => count > 0)
+          .map(([roomTypeName, count]) => ({ roomTypeName, count }));
 
-    const totalValNum = parseFloat(totalValue) || 150000;
-    let depValNum = parseFloat(depositAmount) || 0;
+    const totalValNum = parseMoneyInput(totalValue) || 150000;
+    let depValNum = parseMoneyInput(depositAmount);
     let finalPaymentStatus = paymentStatus;
 
     if (paymentStatus === 'liquidado') {
@@ -978,6 +998,7 @@ export function CommercialSection({
     }
 
     const calculatedBalanceDue = finalPaymentStatus === 'liquidado' ? 0 : Math.max(0, totalValNum - depValNum);
+    const effectiveCheckOut = isHourlyEvent ? checkIn : checkOut;
 
     onAddDeal({
       clientName,
@@ -993,10 +1014,14 @@ export function CommercialSection({
       paymentStatus: finalPaymentStatus,
       balanceDue: calculatedBalanceDue,
       paymentDueDate: paymentDueDate || undefined,
-      roomNights: parseInt(roomNights) || (requestedRoomsList.reduce((acc, r) => acc + r.count, 0) * getStayNights(checkIn, checkOut)) || 10,
+      roomNights: noRoomsRequired ? 0 : (parseInt(roomNights) || (requestedRoomsList.reduce((acc, r) => acc + r.count, 0) * getStayNights(checkIn, effectiveCheckOut)) || 10),
+      noRoomsRequired,
       attendeesCount: parseInt(attendees) || 50,
       checkInDate: checkIn,
-      checkOutDate: checkOut,
+      checkOutDate: effectiveCheckOut,
+      isHourlyEvent,
+      eventStartTime: isHourlyEvent ? eventStartTime : undefined,
+      eventEndTime: isHourlyEvent ? eventEndTime : undefined,
       assignedRep: currentUser?.name || 'Alejandra Ocaña',
       assignedEmail: currentUser?.email || 'marketinggrupoorganico@gmail.com',
       comments: [],
@@ -1022,7 +1047,10 @@ export function CommercialSection({
     setNotes('');
     setSelectedSpaces([]);
     setRoomQuantities({});
-    setDepositAmount('0');
+    setNoRoomsRequired(false);
+    setRoomNights('24');
+    setTotalValue('350,000.00');
+    setDepositAmount('0.00');
     setPaymentStatus('pendiente');
     setPaymentDueDate('');
     setDealRequirements([]);
@@ -1030,6 +1058,9 @@ export function CommercialSection({
     setDealTimeline([]);
     setTimelineActivity('');
     setTimelineDescription('');
+    setIsHourlyEvent(false);
+    setEventStartTime('10:00');
+    setEventEndTime('16:00');
     setCheckIn(getLocalDateStr());
     setCheckOut(getLocalDateStr(new Date(Date.now() + 2 * 86400000)));
     setIsDealModalOpen(false);
@@ -2086,14 +2117,42 @@ export function CommercialSection({
 
               {/* HABITACIONES Y CABAÑAS REQUERIDAS DE ESTE HOTEL (Tipos oficiales de sus páginas web) */}
               <div className="space-y-2 bg-stone-50 p-3.5 rounded-2xl border border-stone-200">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-[11px] font-bold text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
                     <span>🛏️</span> Habitaciones Requeridas en {hotel}:
                   </label>
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                    {Object.values(roomQuantities).reduce((a, b) => a + b, 0)} habitaciones solicitadas
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !noRoomsRequired;
+                        setNoRoomsRequired(next);
+                        if (next) {
+                          setRoomQuantities({});
+                          setRoomNights('0');
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                        noRoomsRequired
+                          ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
+                          : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                      }`}
+                    >
+                      {noRoomsRequired ? '✓ Sin habitaciones (desactivado)' : '🚫 Evento sin habitaciones'}
+                    </button>
+                    {!noRoomsRequired && (
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                        {Object.values(roomQuantities).reduce((a, b) => a + b, 0)} habitaciones solicitadas
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {noRoomsRequired ? (
+                  <div className="p-3 rounded-xl bg-white border border-dashed border-stone-300 text-xs text-stone-500 text-center">
+                    Habitaciones y Room Nights desactivados para este evento (solo uso de salones / áreas).
+                  </div>
+                ) : (
+                  <>
                 <p className="text-[11px] text-stone-500">
                   Especifica cuántas habitaciones o cabañas de cada tipo necesitará el evento:
                 </p>
@@ -2160,6 +2219,8 @@ export function CommercialSection({
                     </span>
                   </div>
                 )}
+                  </>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2192,10 +2253,13 @@ export function CommercialSection({
                 <div>
                   <label className="block text-stone-700 font-bold mb-1">Valor Total Estimado</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={totalValue}
-                    onChange={(e) => setTotalValue(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                    onChange={(e) => setTotalValue(formatMoneyInput(e.target.value))}
+                    onBlur={(e) => setTotalValue(formatMoneyInput(e.target.value, true))}
+                    placeholder="350,000.00"
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 font-mono font-bold"
                   />
                 </div>
                 <div>
@@ -2213,9 +2277,12 @@ export function CommercialSection({
                   <label className="block text-stone-700 font-bold mb-1">Room Nights</label>
                   <input
                     type="number"
-                    value={roomNights}
+                    disabled={noRoomsRequired}
+                    value={noRoomsRequired ? '0' : roomNights}
                     onChange={(e) => setRoomNights(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                    className={`w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 ${
+                      noRoomsRequired ? 'bg-stone-100 text-stone-400 cursor-not-allowed' : ''
+                    }`}
                   />
                 </div>
               </div>
@@ -2227,7 +2294,7 @@ export function CommercialSection({
                     <span>💳</span> Control de Anticipos, Adelantos & Liquidación
                   </h4>
                   <span className="text-[11px] text-amber-800 font-semibold font-mono">
-                    Saldo Restante: {formatCurrency(paymentStatus === 'liquidado' ? 0 : Math.max(0, (parseFloat(totalValue) || 0) - (parseFloat(depositAmount) || 0)), currency)}
+                    Saldo Restante: {formatCurrency(paymentStatus === 'liquidado' ? 0 : Math.max(0, parseMoneyInput(totalValue) - parseMoneyInput(depositAmount)), currency)}
                   </span>
                 </div>
 
@@ -2237,18 +2304,19 @@ export function CommercialSection({
                       Anticipo / Adelanto Recibido ($)
                     </label>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       value={depositAmount}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        setDepositAmount(val);
-                        const num = parseFloat(val) || 0;
+                        const formatted = formatMoneyInput(e.target.value);
+                        setDepositAmount(formatted);
+                        const num = parseMoneyInput(formatted);
                         if (num > 0 && paymentStatus === 'pendiente') {
                           setPaymentStatus('anticipo_pagado');
                         }
                       }}
-                      placeholder="0"
+                      onBlur={(e) => setDepositAmount(formatMoneyInput(e.target.value, true))}
+                      placeholder="0.00"
                       className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-bold font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
@@ -2263,9 +2331,9 @@ export function CommercialSection({
                         const val = e.target.value as PaymentStatus;
                         setPaymentStatus(val);
                         if (val === 'liquidado') {
-                          setDepositAmount(totalValue || '0');
-                        } else if (val === 'pendiente' && depositAmount === totalValue) {
-                          setDepositAmount('0');
+                          setDepositAmount(totalValue || '0.00');
+                        } else if (val === 'pendiente' && parseMoneyInput(depositAmount) === parseMoneyInput(totalValue)) {
+                          setDepositAmount('0.00');
                         }
                       }}
                       className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -2290,42 +2358,95 @@ export function CommercialSection({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Fecha Check-in</label>
-                  <input
-                    type="date"
-                    value={checkIn}
-                    onChange={(e) => {
-                      const newCheckIn = e.target.value;
-                      setCheckIn(newCheckIn);
-                      setConflictError(null);
-                      const totalRooms = Object.values(roomQuantities).reduce((acc, count) => acc + count, 0);
-                      if (totalRooms > 0) {
-                        const nights = getStayNights(newCheckIn, checkOut);
-                        setRoomNights(String(totalRooms * nights));
+              <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+                    📅 Fechas y Horario del Evento
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isHourlyEvent;
+                      setIsHourlyEvent(next);
+                      if (next) {
+                        setCheckOut(checkIn);
                       }
                     }}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                      isHourlyEvent
+                        ? 'bg-blue-600 text-white border-blue-700 shadow-2xs'
+                        : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                    }`}
+                  >
+                    {isHourlyEvent ? '✓ Evento de solo unas horas' : '⏱️ Evento de solo unas horas'}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Fecha Check-out</label>
-                  <input
-                    type="date"
-                    value={checkOut}
-                    onChange={(e) => {
-                      const newCheckOut = e.target.value;
-                      setCheckOut(newCheckOut);
-                      setConflictError(null);
-                      const totalRooms = Object.values(roomQuantities).reduce((acc, count) => acc + count, 0);
-                      if (totalRooms > 0) {
-                        const nights = getStayNights(checkIn, newCheckOut);
-                        setRoomNights(String(totalRooms * nights));
-                      }
-                    }}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-stone-700 font-bold mb-1">
+                      {isHourlyEvent ? 'Fecha del Evento' : 'Fecha Check-in'}
+                    </label>
+                    <input
+                      type="date"
+                      value={checkIn}
+                      onChange={(e) => {
+                        const newCheckIn = e.target.value;
+                        setCheckIn(newCheckIn);
+                        if (isHourlyEvent) {
+                          setCheckOut(newCheckIn);
+                        }
+                        setConflictError(null);
+                        const totalRooms = Object.values(roomQuantities).reduce((acc, count) => acc + count, 0);
+                        if (totalRooms > 0 && !noRoomsRequired) {
+                          const nights = getStayNights(newCheckIn, isHourlyEvent ? newCheckIn : checkOut);
+                          setRoomNights(String(totalRooms * nights));
+                        }
+                      }}
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                    />
+                  </div>
+                  {!isHourlyEvent ? (
+                    <div>
+                      <label className="block text-stone-700 font-bold mb-1">Fecha Check-out</label>
+                      <input
+                        type="date"
+                        value={checkOut}
+                        onChange={(e) => {
+                          const newCheckOut = e.target.value;
+                          setCheckOut(newCheckOut);
+                          setConflictError(null);
+                          const totalRooms = Object.values(roomQuantities).reduce((acc, count) => acc + count, 0);
+                          if (totalRooms > 0 && !noRoomsRequired) {
+                            const nights = getStayNights(checkIn, newCheckOut);
+                            setRoomNights(String(totalRooms * nights));
+                          }
+                        }}
+                        className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-stone-700 font-bold mb-1">Hora Inicio</label>
+                        <input
+                          type="time"
+                          value={eventStartTime}
+                          onChange={(e) => setEventStartTime(e.target.value)}
+                          className="w-full border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-stone-700 font-bold mb-1">Hora Fin</label>
+                        <input
+                          type="time"
+                          value={eventEndTime}
+                          onChange={(e) => setEventEndTime(e.target.value)}
+                          className="w-full border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2755,14 +2876,41 @@ export function CommercialSection({
 
               {/* HABITACIONES REQUERIDAS */}
               <div className="space-y-2 bg-amber-50/50 p-3 rounded-xl border border-amber-200/80">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
                     <span>🛏️</span> Habitaciones por Tipo ({editHotel}):
                   </label>
-                  <span className="text-[11px] font-mono font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
-                    Total: {Object.values(editRoomQuantities).reduce((a, b) => a + b, 0)} habitaciones
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !editNoRoomsRequired;
+                        setEditNoRoomsRequired(next);
+                        if (next) {
+                          setEditRoomQuantities({});
+                          setEditRoomNights('0');
+                        }
+                      }}
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                        editNoRoomsRequired
+                          ? 'bg-rose-600 text-white border-rose-700 shadow-2xs'
+                          : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                      }`}
+                    >
+                      {editNoRoomsRequired ? '✓ Sin habitaciones (desactivado)' : '🚫 Evento sin habitaciones'}
+                    </button>
+                    {!editNoRoomsRequired && (
+                      <span className="text-[11px] font-mono font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
+                        Total: {Object.values(editRoomQuantities).reduce((a, b) => a + b, 0)} habitaciones
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {editNoRoomsRequired ? (
+                  <div className="p-2.5 rounded-xl bg-white border border-dashed border-stone-300 text-xs text-stone-500 text-center">
+                    Habitaciones y Room Nights desactivados para este evento.
+                  </div>
+                ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pt-1">
                   {(HOTEL_ROOM_TYPES[editHotel] || []).map((room) => {
                     const count = editRoomQuantities[room.name] || 0;
@@ -2798,47 +2946,100 @@ export function CommercialSection({
                     );
                   })}
                 </div>
+                )}
               </div>
 
               {/* Fechas de Check-In y Check-Out */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Fecha Check-In (Llegada)</label>
-                  <input
-                    type="date"
-                    required
-                    value={editCheckIn}
-                    onChange={(e) => {
-                      const newIn = e.target.value;
-                      setEditCheckIn(newIn);
-                      setEditConflictError(null);
-                      const totalRooms = Object.values(editRoomQuantities).reduce((acc, c) => acc + c, 0);
-                      if (totalRooms > 0) {
-                        const nights = getStayNights(newIn, editCheckOut);
-                        setEditRoomNights(String(totalRooms * nights));
+              <div className="bg-stone-50 p-3 rounded-xl border border-stone-200 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+                    📅 Fechas y Horario del Evento
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !editIsHourlyEvent;
+                      setEditIsHourlyEvent(next);
+                      if (next) {
+                        setEditCheckOut(editCheckIn);
                       }
                     }}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
-                  />
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                      editIsHourlyEvent
+                        ? 'bg-blue-600 text-white border-blue-700 shadow-2xs'
+                        : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
+                    }`}
+                  >
+                    {editIsHourlyEvent ? '✓ Evento de solo unas horas' : '⏱️ Evento de solo unas horas'}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Fecha Check-Out (Salida)</label>
-                  <input
-                    type="date"
-                    required
-                    value={editCheckOut}
-                    onChange={(e) => {
-                      const newOut = e.target.value;
-                      setEditCheckOut(newOut);
-                      setEditConflictError(null);
-                      const totalRooms = Object.values(editRoomQuantities).reduce((acc, c) => acc + c, 0);
-                      if (totalRooms > 0) {
-                        const nights = getStayNights(editCheckIn, newOut);
-                        setEditRoomNights(String(totalRooms * nights));
-                      }
-                    }}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-stone-700 font-bold mb-1">
+                      {editIsHourlyEvent ? 'Fecha del Evento' : 'Fecha Check-In (Llegada)'}
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={editCheckIn}
+                      onChange={(e) => {
+                        const newIn = e.target.value;
+                        setEditCheckIn(newIn);
+                        if (editIsHourlyEvent) {
+                          setEditCheckOut(newIn);
+                        }
+                        setEditConflictError(null);
+                        const totalRooms = Object.values(editRoomQuantities).reduce((acc, c) => acc + c, 0);
+                        if (totalRooms > 0 && !editNoRoomsRequired) {
+                          const nights = getStayNights(newIn, editIsHourlyEvent ? newIn : editCheckOut);
+                          setEditRoomNights(String(totalRooms * nights));
+                        }
+                      }}
+                      className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                    />
+                  </div>
+                  {!editIsHourlyEvent ? (
+                    <div>
+                      <label className="block text-stone-700 font-bold mb-1">Fecha Check-Out (Salida)</label>
+                      <input
+                        type="date"
+                        required
+                        value={editCheckOut}
+                        onChange={(e) => {
+                          const newOut = e.target.value;
+                          setEditCheckOut(newOut);
+                          setEditConflictError(null);
+                          const totalRooms = Object.values(editRoomQuantities).reduce((acc, c) => acc + c, 0);
+                          if (totalRooms > 0 && !editNoRoomsRequired) {
+                            const nights = getStayNights(editCheckIn, newOut);
+                            setEditRoomNights(String(totalRooms * nights));
+                          }
+                        }}
+                        className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-stone-700 font-bold mb-1">Hora Inicio</label>
+                        <input
+                          type="time"
+                          value={editEventStartTime}
+                          onChange={(e) => setEditEventStartTime(e.target.value)}
+                          className="w-full border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-stone-700 font-bold mb-1">Hora Fin</label>
+                        <input
+                          type="time"
+                          value={editEventEndTime}
+                          onChange={(e) => setEditEventEndTime(e.target.value)}
+                          className="w-full border border-stone-300 rounded-xl px-2 py-2 text-stone-900 bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2847,10 +3048,12 @@ export function CommercialSection({
                 <div>
                   <label className="block text-stone-700 font-bold mb-1">Valor Total</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={editTotalValue}
-                    onChange={(e) => setEditTotalValue(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                    onChange={(e) => setEditTotalValue(formatMoneyInput(e.target.value))}
+                    onBlur={(e) => setEditTotalValue(formatMoneyInput(e.target.value, true))}
+                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 font-mono font-bold"
                   />
                 </div>
                 <div>
@@ -2868,9 +3071,12 @@ export function CommercialSection({
                   <label className="block text-stone-700 font-bold mb-1">Room Nights</label>
                   <input
                     type="number"
-                    value={editRoomNights}
+                    disabled={editNoRoomsRequired}
+                    value={editNoRoomsRequired ? '0' : editRoomNights}
                     onChange={(e) => setEditRoomNights(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
+                    className={`w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 ${
+                      editNoRoomsRequired ? 'bg-stone-100 text-stone-400 cursor-not-allowed' : ''
+                    }`}
                   />
                 </div>
                 <div>
@@ -2891,7 +3097,7 @@ export function CommercialSection({
                     <span>💳</span> Control de Anticipos, Adelantos & Liquidación
                   </h4>
                   <span className="text-[11px] text-amber-800 font-semibold font-mono">
-                    Saldo Restante: {formatCurrency(editPaymentStatus === 'liquidado' ? 0 : Math.max(0, (parseFloat(editTotalValue) || 0) - (parseFloat(editDepositAmount) || 0)), editCurrency)}
+                    Saldo Restante: {formatCurrency(editPaymentStatus === 'liquidado' ? 0 : Math.max(0, parseMoneyInput(editTotalValue) - parseMoneyInput(editDepositAmount)), editCurrency)}
                   </span>
                 </div>
 
@@ -2901,18 +3107,19 @@ export function CommercialSection({
                       Anticipo / Adelanto Recibido ($)
                     </label>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       value={editDepositAmount}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        setEditDepositAmount(val);
-                        const num = parseFloat(val) || 0;
+                        const formatted = formatMoneyInput(e.target.value);
+                        setEditDepositAmount(formatted);
+                        const num = parseMoneyInput(formatted);
                         if (num > 0 && editPaymentStatus === 'pendiente') {
                           setEditPaymentStatus('anticipo_pagado');
                         }
                       }}
-                      placeholder="0"
+                      onBlur={(e) => setEditDepositAmount(formatMoneyInput(e.target.value, true))}
+                      placeholder="0.00"
                       className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-bold font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
@@ -2927,9 +3134,9 @@ export function CommercialSection({
                         const val = e.target.value as PaymentStatus;
                         setEditPaymentStatus(val);
                         if (val === 'liquidado') {
-                          setEditDepositAmount(editTotalValue || '0');
-                        } else if (val === 'pendiente' && editDepositAmount === editTotalValue) {
-                          setEditDepositAmount('0');
+                          setEditDepositAmount(editTotalValue || '0.00');
+                        } else if (val === 'pendiente' && parseMoneyInput(editDepositAmount) === parseMoneyInput(editTotalValue)) {
+                          setEditDepositAmount('0.00');
                         }
                       }}
                       className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -3686,15 +3893,21 @@ export function CommercialSection({
                     </span>
                     <div>
                       <span className="font-bold text-stone-900 block text-sm">
-                        {formatDate(viewingDeal.checkInDate)} → {formatDate(viewingDeal.checkOutDate)}
+                        {viewingDeal.isHourlyEvent
+                          ? `${formatDate(viewingDeal.checkInDate)} (${viewingDeal.eventStartTime || '10:00'} – ${viewingDeal.eventEndTime || '16:00'} hrs)`
+                          : `${formatDate(viewingDeal.checkInDate)} → ${formatDate(viewingDeal.checkOutDate)}`}
                       </span>
                       <span className="text-stone-500 text-[11px]">
-                        Bloqueo de calendario en {viewingDeal.hotelName} ({getStayNights(viewingDeal.checkInDate, viewingDeal.checkOutDate)} noches de ocupación)
+                        {viewingDeal.isHourlyEvent
+                          ? `Evento por horas en ${viewingDeal.hotelName}${viewingDeal.noRoomsRequired ? ' · Sin habitaciones' : ''}`
+                          : `Bloqueo de calendario en ${viewingDeal.hotelName} (${getStayNights(viewingDeal.checkInDate, viewingDeal.checkOutDate)} noches de ocupación${viewingDeal.noRoomsRequired ? ' · Sin habitaciones' : ''})`}
                       </span>
                     </div>
                   </div>
                   <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-stone-200/80 text-stone-800 font-bold self-start sm:self-auto">
-                    Check-in: 15:00 hrs · Check-out: 12:00 hrs
+                    {viewingDeal.isHourlyEvent
+                      ? `Horario: ${viewingDeal.eventStartTime || '10:00'} – ${viewingDeal.eventEndTime || '16:00'} hrs`
+                      : 'Check-in: 15:00 hrs · Check-out: 12:00 hrs'}
                   </span>
                 </div>
 

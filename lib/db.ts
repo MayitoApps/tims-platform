@@ -76,6 +76,10 @@ export async function ensureTables(): Promise<boolean> {
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS contract_url TEXT;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS contract_file_name TEXT;`;
     await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS expediente JSONB DEFAULT '{}'::jsonb;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS is_hourly_event BOOLEAN DEFAULT FALSE;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS event_start_time TEXT;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS event_end_time TEXT;`;
+    await sql`ALTER TABLE hotel_deals ADD COLUMN IF NOT EXISTS no_rooms_required BOOLEAN DEFAULT FALSE;`;
 
     // 2. Marketing Tasks Table
     await sql`
@@ -377,6 +381,10 @@ export function mapRowToDeal(row: any): HotelDeal {
     attendeesCount: Number(row.attendees_count) || 0,
     checkInDate: row.check_in_date,
     checkOutDate: row.check_out_date,
+    isHourlyEvent: Boolean(row.is_hourly_event),
+    eventStartTime: row.event_start_time || undefined,
+    eventEndTime: row.event_end_time || undefined,
+    noRoomsRequired: Boolean(row.no_rooms_required),
     assignedRep: row.assigned_rep,
     assignedEmail: row.assigned_email || undefined,
     notes: row.notes || '',

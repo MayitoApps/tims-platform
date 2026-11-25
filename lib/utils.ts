@@ -9,6 +9,31 @@ export function formatCurrency(amount: number, currency: 'MXN' | 'USD' = 'MXN'):
   return `${formatted} MXN`;
 }
 
+/** Formatea un valor numérico o cadena como cifra legible con comas y decimales (ej. "350,000.00"). */
+export function formatMoneyInput(value: string | number, forceDecimals = false): string {
+  const str = typeof value === 'number' ? (Number.isFinite(value) ? String(value) : '') : String(value ?? '');
+  const cleaned = str.replace(/[^0-9.]/g, '');
+  if (!cleaned) return forceDecimals ? '0.00' : '';
+  const dotIndex = cleaned.indexOf('.');
+  const rawInt = dotIndex >= 0 ? cleaned.slice(0, dotIndex) : cleaned;
+  const rawDec = dotIndex >= 0 ? cleaned.slice(dotIndex + 1).replace(/\./g, '').slice(0, 2) : '';
+  const intNormalized = rawInt.replace(/^0+(?=\d)/, '') || (dotIndex >= 0 ? '0' : '');
+  const formattedInt = intNormalized.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (forceDecimals) {
+    const num = parseFloat(`${intNormalized || '0'}.${rawDec || '0'}`) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return dotIndex >= 0 ? `${formattedInt}.${rawDec}` : formattedInt;
+}
+
+/** Convierte una cifra con comas (ej. "350,000.50") a número. */
+export function parseMoneyInput(value: string | number): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const cleaned = String(value ?? '').replace(/,/g, '').trim();
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : 0;
+}
+
 export function formatDate(dateString: string): string {
   if (!dateString) return '—';
   const parts = dateString.split('-');

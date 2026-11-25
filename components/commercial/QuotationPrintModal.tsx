@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { HotelDeal, DealRequirement, DealTimelineItem, PaymentStatus, HotelDealStage } from '@/lib/types';
 import { HOTEL_SPACES, HOTEL_ROOM_TYPES } from '@/lib/initial-data';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, formatMoneyInput, parseMoneyInput } from '@/lib/utils';
 
 interface QuotationPrintModalProps {
   deal: HotelDeal;
@@ -28,9 +28,9 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
   const [editCheckOutDate, setEditCheckOutDate] = useState(currentDeal.checkOutDate);
   const [editAttendeesCount, setEditAttendeesCount] = useState(String(currentDeal.attendeesCount || 50));
   const [editRoomNights, setEditRoomNights] = useState(String(currentDeal.roomNights || 10));
-  const [editTotalValue, setEditTotalValue] = useState(String(currentDeal.totalValue || 0));
+  const [editTotalValue, setEditTotalValue] = useState(formatMoneyInput(currentDeal.totalValue || 0, true));
   const [editCurrency, setEditCurrency] = useState<'MXN' | 'USD'>(currentDeal.currency || 'MXN');
-  const [editDepositAmount, setEditDepositAmount] = useState(String(currentDeal.depositAmount || 0));
+  const [editDepositAmount, setEditDepositAmount] = useState(formatMoneyInput(currentDeal.depositAmount || 0, true));
   const [editPaymentStatus, setEditPaymentStatus] = useState<PaymentStatus>(currentDeal.paymentStatus || 'pendiente');
   const [editPaymentDueDate, setEditPaymentDueDate] = useState(currentDeal.paymentDueDate || '');
   const [editSelectedSpaces, setEditSelectedSpaces] = useState<string[]>(currentDeal.selectedSpaces || []);
@@ -112,8 +112,8 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
   };
 
   const handleSaveEdits = (andPrint = false) => {
-    const totalValNum = parseFloat(editTotalValue) || currentDeal.totalValue;
-    const depValNum = parseFloat(editDepositAmount) || 0;
+    const totalValNum = parseMoneyInput(editTotalValue) || currentDeal.totalValue;
+    const depValNum = parseMoneyInput(editDepositAmount);
     const calculatedBalance = editPaymentStatus === 'liquidado' ? 0 : Math.max(0, totalValNum - depValNum);
 
     const updated: HotelDeal = {
@@ -615,19 +615,23 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
               <div>
                 <label className="block text-stone-700 font-bold mb-1">Importe Total ({editCurrency})</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={editTotalValue}
-                  onChange={(e) => setEditTotalValue(e.target.value)}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  onChange={(e) => setEditTotalValue(formatMoneyInput(e.target.value))}
+                  onBlur={(e) => setEditTotalValue(formatMoneyInput(e.target.value, true))}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-mono font-bold"
                 />
               </div>
               <div>
                 <label className="block text-stone-700 font-bold mb-1">Anticipo / Pago Recibido ($)</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={editDepositAmount}
-                  onChange={(e) => setEditDepositAmount(e.target.value)}
-                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white"
+                  onChange={(e) => setEditDepositAmount(formatMoneyInput(e.target.value))}
+                  onBlur={(e) => setEditDepositAmount(formatMoneyInput(e.target.value, true))}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-mono font-bold"
                 />
               </div>
               <div>
@@ -741,19 +745,44 @@ export function QuotationPrintModal({ deal, onClose, onUpdateDeal }: QuotationPr
                   <span className="text-stone-500">Hotel Sede:</span>{' '}
                   <strong className="text-stone-900 font-bold">{currentDeal.hotelName}</strong>
                 </div>
-                <div>
-                  <span className="text-stone-500">Fecha Check-in:</span>{' '}
-                  <strong className="text-stone-900">{formatDate(currentDeal.checkInDate)}</strong> (Horario oficial: 15:00 hrs)
-                </div>
-                <div>
-                  <span className="text-stone-500">Fecha Check-out:</span>{' '}
-                  <strong className="text-stone-900">{formatDate(currentDeal.checkOutDate)}</strong> (Horario oficial: 12:00 hrs)
-                </div>
-                <div>
-                  <span className="text-stone-500">Duración:</span>{' '}
-                  <span className="font-semibold text-stone-900">{getStayNights(currentDeal.checkInDate, currentDeal.checkOutDate)} noches de hospedaje</span>
-                  {currentDeal.roomNights > 0 && <span> · ({currentDeal.roomNights} Room Nights)</span>}
-                </div>
+                {currentDeal.isHourlyEvent ? (
+                  <>
+                    <div>
+                      <span className="text-stone-500">Fecha del Evento:</span>{' '}
+                      <strong className="text-stone-900">{formatDate(currentDeal.checkInDate)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-stone-500">Horario del Evento:</span>{' '}
+                      <strong className="text-stone-900">{currentDeal.eventStartTime || '10:00'} – {currentDeal.eventEndTime || '16:00'} hrs</strong>
+                    </div>
+                    <div>
+                      <span className="text-stone-500">Modalidad:</span>{' '}
+                      <span className="font-semibold text-stone-900">
+                        Evento por horas (mismo día){currentDeal.noRoomsRequired ? ' · Sin hospedaje' : ''}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <span className="text-stone-500">Fecha Check-in:</span>{' '}
+                      <strong className="text-stone-900">{formatDate(currentDeal.checkInDate)}</strong> (Horario oficial: 15:00 hrs)
+                    </div>
+                    <div>
+                      <span className="text-stone-500">Fecha Check-out:</span>{' '}
+                      <strong className="text-stone-900">{formatDate(currentDeal.checkOutDate)}</strong> (Horario oficial: 12:00 hrs)
+                    </div>
+                    <div>
+                      <span className="text-stone-500">Duración:</span>{' '}
+                      <span className="font-semibold text-stone-900">
+                        {currentDeal.noRoomsRequired
+                          ? 'Sin hospedaje requerido (solo salones / áreas)'
+                          : `${getStayNights(currentDeal.checkInDate, currentDeal.checkOutDate)} noches de hospedaje`}
+                      </span>
+                      {!currentDeal.noRoomsRequired && currentDeal.roomNights > 0 && <span> · ({currentDeal.roomNights} Room Nights)</span>}
+                    </div>
+                  </>
+                )}
                 <div>
                   <span className="text-stone-500">Asistentes Convocados (Pax):</span>{' '}
                   <span className="font-bold text-emerald-900">{currentDeal.attendeesCount || 'Por confirmar'} personas</span>
