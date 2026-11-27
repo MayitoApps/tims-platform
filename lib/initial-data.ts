@@ -30,6 +30,11 @@ export const HOTEL_PROPERTIES = [
   'Frontera 49 Roma Norte'
 ];
 
+export const MARKETING_REQUIREMENT_TARGETS = [
+  ...HOTEL_PROPERTIES,
+  'Origen'
+];
+
 // =============================================================
 // ESPACIOS OFICIALES EXTRAÍDOS DIRECTAMENTE DE:
 // https://www.gohb.com.mx/nuestros-espacios (Nombres 100% exactos)

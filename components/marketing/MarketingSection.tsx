@@ -21,7 +21,7 @@ import {
   REQUIREMENT_FORMATS,
   getExecutiveEventStatus
 } from '@/lib/types';
-import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS } from '@/lib/initial-data';
+import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS, MARKETING_REQUIREMENT_TARGETS } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge, safeExternalUrl, getLocalDateStr, calculateProgressPercent, readPersistedNavValue, writePersistedNavValue } from '@/lib/utils';
 import { SharedCalendar } from '@/components/SharedCalendar';
 
@@ -835,8 +835,8 @@ export function MarketingSection({
               onChange={(e) => setSelectedHotelFilter(e.target.value)}
               className="text-xs bg-stone-50 border border-stone-200 rounded-lg px-3 py-1.5 text-stone-800 font-semibold focus:ring-2 focus:ring-purple-500 focus:outline-none"
             >
-              <option value="all">Todas las 6 Propiedades</option>
-              {HOTEL_PROPERTIES.map((h) => (
+              <option value="all">Todas las Propiedades / Lugares</option>
+              {MARKETING_REQUIREMENT_TARGETS.map((h) => (
                 <option key={h} value={h}>
                   {h}
                 </option>
@@ -1663,7 +1663,7 @@ export function MarketingSection({
                   <div className="flex items-center gap-1 text-[11px]">
                     <button
                       type="button"
-                      onClick={() => setTHotelTargets([...HOTEL_PROPERTIES])}
+                      onClick={() => setTHotelTargets([...MARKETING_REQUIREMENT_TARGETS])}
                       className="text-purple-700 hover:text-purple-900 font-semibold cursor-pointer underline"
                     >
                       Todos
@@ -1680,7 +1680,7 @@ export function MarketingSection({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  {HOTEL_PROPERTIES.map((hotel) => {
+                  {MARKETING_REQUIREMENT_TARGETS.map((hotel) => {
                     const isSelected = tHotelTargets.includes(hotel);
                     return (
                       <button
@@ -1902,7 +1902,7 @@ export function MarketingSection({
                   <span>🏨 Hoteles Involucrados ({editTHotelTargets.length}):</span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {HOTEL_PROPERTIES.map((hotel) => {
+                  {MARKETING_REQUIREMENT_TARGETS.map((hotel) => {
                     const isSelected = editTHotelTargets.includes(hotel);
                     return (
                       <button
