@@ -21,7 +21,7 @@ export async function PUT(
     }
 
     await ensureTables();
-    if (!isUserAdmin(session)) {
+    if (!isUserAdmin(session) && session.role !== 'marketing') {
       const existing = await sql`SELECT lead_owner FROM marketing_campaigns WHERE id = ${id} LIMIT 1;`;
       if (existing.length === 0) {
         return NextResponse.json({ success: false, error: 'Campaña no encontrada' }, { status: 404 });
@@ -36,6 +36,7 @@ export async function PUT(
       SET
         title = COALESCE(${updates.title ?? null}, title),
         hotel_target = COALESCE(${updates.hotelTarget ?? null}, hotel_target),
+        hotel_targets = COALESCE(${updates.hotelTargets ? JSON.stringify(updates.hotelTargets) : null}::jsonb, hotel_targets),
         type = COALESCE(${updates.type ?? null}, type),
         status = COALESCE(${updates.status ?? null}, status),
         budget = COALESCE(${updates.budget ?? null}, budget),
@@ -46,6 +47,7 @@ export async function PUT(
         external_links = COALESCE(${updates.externalLinks ? JSON.stringify(updates.externalLinks) : null}::jsonb, external_links),
         lead_owner = COALESCE(${updates.leadOwner ?? null}, lead_owner),
         description = COALESCE(${updates.description ?? null}, description),
+        checklist = COALESCE(${updates.checklist ? JSON.stringify(updates.checklist) : null}::jsonb, checklist),
         comments = COALESCE(${updates.comments ? JSON.stringify(updates.comments) : null}::jsonb, comments)
       WHERE id = ${id};
     `;

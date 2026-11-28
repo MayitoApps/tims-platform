@@ -19,7 +19,8 @@ import {
   matchesUserIdentity,
   DESIGN_RESPONSIBLES,
   REQUIREMENT_FORMATS,
-  getExecutiveEventStatus
+  getExecutiveEventStatus,
+  createDefaultCampaignChecklist
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS, MARKETING_REQUIREMENT_TARGETS } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge, safeExternalUrl, getLocalDateStr, calculateProgressPercent, readPersistedNavValue, writePersistedNavValue } from '@/lib/utils';
@@ -153,13 +154,11 @@ export function MarketingSection({
   const [campaignToDelete, setCampaignToDelete] = useState<MarketingCampaign | null>(null);
 
   const [editCTitle, setEditCTitle] = useState('');
-  const [editCHotel, setEditCHotel] = useState<string>(CAMPAIGN_HOTEL_TARGETS[0]);
+  const [editCHotelTargets, setEditCHotelTargets] = useState<string[]>([HOTEL_PROPERTIES[0]]);
   const [editCType, setEditCType] = useState<MarketingCampaign['type']>('temporada');
   const [editCStatus, setEditCStatus] = useState<MarketingCampaignStatus>('planificacion');
-  const [editCBudget, setEditCBudget] = useState('45000');
   const [editCStart, setEditCStart] = useState(mktTodayStr);
   const [editCEnd, setEditCEnd] = useState(mktNextMonthStr);
-  const [editCChannels, setEditCChannels] = useState('Instagram Ads, Meta Ads');
   const [editCDriveUrl, setEditCDriveUrl] = useState('');
   const [editCDesc, setEditCDesc] = useState('');
 
@@ -212,12 +211,10 @@ export function MarketingSection({
 
   // Form states - Campaign
   const [cTitle, setCTitle] = useState('');
-  const [cHotel, setCHotel] = useState<string>(CAMPAIGN_HOTEL_TARGETS[0]);
+  const [cHotelTargets, setCHotelTargets] = useState<string[]>([HOTEL_PROPERTIES[0]]);
   const [cType, setCType] = useState<MarketingCampaign['type']>('temporada');
-  const [cBudget, setCBudget] = useState('45000');
   const [cStart, setCStart] = useState(mktTodayStr);
   const [cEnd, setCEnd] = useState(mktNextMonthStr);
-  const [cChannels, setCChannels] = useState('Instagram Ads, Meta Ads, Google Ads');
   const [cDriveUrl, setCDriveUrl] = useState('');
   const [cDesc, setCDesc] = useState('');
 
@@ -241,8 +238,12 @@ export function MarketingSection({
 
   const filteredCampaigns = campaigns.filter((c) => {
     if (selectedHotelFilter !== 'all') {
-      if (c.hotelTarget === 'Todos los Hoteles (Grupo Orgánico)') return true;
-      if (c.hotelTarget !== selectedHotelFilter) return false;
+      if (c.hotelTarget === 'Todos los Hoteles (Grupo Orgánico)' || c.hotelTarget.includes('Todos')) return true;
+      const targets =
+        c.hotelTargets && c.hotelTargets.length > 0
+          ? c.hotelTargets
+          : c.hotelTarget.split(',').map((s) => s.trim()).filter(Boolean);
+      if (!targets.includes(selectedHotelFilter)) return false;
     }
     return true;
   });
@@ -256,23 +257,53 @@ export function MarketingSection({
       ? [{ id: `lnk-drive-${Date.now()}`, title: 'Carpeta Drive (Artes y Diseños)', url: cleanDriveUrl, platform: 'drive' as const }]
       : [];
 
+    const selectedHotels = cHotelTargets.length > 0 ? cHotelTargets : [HOTEL_PROPERTIES[0]];
+    const resolvedHotelTarget =
+      selectedHotels.length >= HOTEL_PROPERTIES.length
+        ? 'Todos los Hoteles (Grupo Orgánico)'
+        : selectedHotels.join(', ');
+
     onAddCampaign({
       title: cTitle,
-      hotelTarget: cHotel,
+      hotelTarget: resolvedHotelTarget,
+      hotelTargets: selectedHotels,
       type: cType,
       status: 'planificacion',
-      budget: parseFloat(cBudget) || 25000,
+      budget: 0,
       startDate: cStart,
       endDate: cEnd,
-      channels: cChannels.split(',').map((s) => s.trim()).filter(Boolean),
+      channels: [],
       externalLinks,
       leadOwner: currentUser?.name || 'Marketing Team',
-      description: cDesc || 'Campaña estratégica de promoción y captación directa para Grupo Orgánico.'
+      description: cDesc || 'Campaña estratégica de promoción y captación directa para Grupo Orgánico.',
+      checklist: createDefaultCampaignChecklist()
     });
 
     setCTitle('');
+    setCHotelTargets([HOTEL_PROPERTIES[0]]);
     setCDriveUrl('');
+    setCDesc('');
     setIsCampaignModalOpen(false);
+  };
+
+  const handleToggleCampaignChecklistItem = (campaign: MarketingCampaign, itemId: string) => {
+    const baseChecklist =
+      campaign.checklist && campaign.checklist.length > 0
+        ? campaign.checklist
+        : createDefaultCampaignChecklist();
+    const updatedChecklist = baseChecklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    const updatedCampaign: MarketingCampaign = {
+      ...campaign,
+      checklist: updatedChecklist
+    };
+    if (onUpdateCampaign) {
+      onUpdateCampaign(updatedCampaign);
+    }
+    if (viewingCampaign && viewingCampaign.id === campaign.id) {
+      setViewingCampaign(updatedCampaign);
+    }
   };
 
   const handleCreatePublication = (e: React.FormEvent) => {
@@ -610,13 +641,20 @@ export function MarketingSection({
   const openEditCampaignModal = (c: MarketingCampaign) => {
     setEditingCampaign(c);
     setEditCTitle(c.title);
-    setEditCHotel(c.hotelTarget);
+    const parsedTargets =
+      c.hotelTargets && c.hotelTargets.length > 0
+        ? c.hotelTargets
+        : c.hotelTarget.includes('Todos')
+          ? [...HOTEL_PROPERTIES]
+          : c.hotelTarget
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+    setEditCHotelTargets(parsedTargets.length > 0 ? parsedTargets : [HOTEL_PROPERTIES[0]]);
     setEditCType(c.type);
     setEditCStatus(c.status);
-    setEditCBudget(String(c.budget));
     setEditCStart(c.startDate);
     setEditCEnd(c.endDate);
-    setEditCChannels(c.channels.join(', '));
     setEditCDriveUrl(c.externalLinks?.find((l) => l.platform === 'drive')?.url || '');
     setEditCDesc(c.description || '');
     setIsEditCampaignModalOpen(true);
@@ -643,16 +681,23 @@ export function MarketingSection({
         ]
       : existingOtherLinks;
 
+    const selectedHotels = editCHotelTargets.length > 0 ? editCHotelTargets : [HOTEL_PROPERTIES[0]];
+    const resolvedHotelTarget =
+      selectedHotels.length >= HOTEL_PROPERTIES.length
+        ? 'Todos los Hoteles (Grupo Orgánico)'
+        : selectedHotels.join(', ');
+
     const updated: MarketingCampaign = {
       ...editingCampaign,
       title: editCTitle,
-      hotelTarget: editCHotel,
+      hotelTarget: resolvedHotelTarget,
+      hotelTargets: selectedHotels,
       type: editCType,
       status: editCStatus,
-      budget: parseFloat(editCBudget) || editingCampaign.budget,
+      budget: editingCampaign.budget || 0,
       startDate: editCStart,
       endDate: editCEnd,
-      channels: editCChannels.split(',').map((s) => s.trim()).filter(Boolean),
+      channels: editingCampaign.channels || [],
       externalLinks: updatedExternalLinks,
       description: editCDesc
     };
@@ -817,7 +862,7 @@ export function MarketingSection({
                   : 'text-white/80 hover:text-white hover:bg-white/10'
               }`}
             >
-              Briefs & Documentos ({briefs.length})
+              Checklist Campañas ({campaigns.length})
             </button>
           </div>
         </div>
@@ -864,12 +909,9 @@ export function MarketingSection({
             )}
 
             {subView === 'briefs' && (
-              <button
-                onClick={() => setIsBriefModalOpen(true)}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>+ Redactar Nuevo Brief</span>
-              </button>
+              <span className="text-[11px] text-stone-500 font-medium">
+                Cada campaña creada en Campañas & Pauta genera su checklist automáticamente
+              </span>
             )}
           </div>
         </div>
@@ -1106,9 +1148,8 @@ export function MarketingSection({
                   <th className="py-3 px-4">Nombre de la Campaña</th>
                   <th className="py-3 px-4">Hotel / Alcance</th>
                   <th className="py-3 px-4">Estado</th>
-                  <th className="py-3 px-4">Presupuesto</th>
+                  <th className="py-3 px-4">Checklist</th>
                   <th className="py-3 px-4">Fechas</th>
-                  <th className="py-3 px-4">Canales</th>
                   <th className="py-3 px-4">Enlaces</th>
                   <th className="py-3 px-4 text-right">Acciones</th>
                 </tr>
@@ -1116,6 +1157,8 @@ export function MarketingSection({
               <tbody className="divide-y divide-stone-100">
                 {filteredCampaigns.map((c) => {
                   const badge = getMarketingStatusBadge(c.status);
+                  const chkList = c.checklist && c.checklist.length > 0 ? c.checklist : createDefaultCampaignChecklist();
+                  const chkDone = chkList.filter((i) => i.completed).length;
                   return (
                     <tr
                       key={c.id}
@@ -1152,20 +1195,17 @@ export function MarketingSection({
                           <option value="finalizada">Finalizada</option>
                         </select>
                       </td>
-                      <td className="py-3 px-4 font-mono font-bold text-stone-900">
-                        {formatCurrency(c.budget, 'MXN')}
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border ${
+                          chkDone === chkList.length
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-stone-100 text-stone-700 border-stone-200'
+                        }`}>
+                          ✓ {chkDone}/{chkList.length}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-stone-600 text-[11px] whitespace-nowrap font-medium">
                         {formatDate(c.startDate)} al {formatDate(c.endDate)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {c.channels.map((ch, idx) => (
-                            <span key={idx} className="bg-stone-100 text-stone-700 text-[9px] px-1.5 py-0.5 rounded-sm font-semibold">
-                              {ch}
-                            </span>
-                          ))}
-                        </div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex gap-1.5">
@@ -1224,58 +1264,104 @@ export function MarketingSection({
         </div>
       )}
 
-      {/* SUB-VIEW: BRIEFS CREATIVOS */}
+      {/* SUB-VIEW: CHECKLIST CAMPAÑAS */}
       {subView === 'briefs' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {briefs.map((brf) => (
-            <div
-              key={brf.id}
-              onClick={() => setViewingBrief(brf)}
-              className="bg-white border border-stone-200 rounded-2xl p-6 shadow-xs space-y-3 cursor-pointer hover:shadow-md hover:border-amber-300 hover:ring-2 hover:ring-amber-200/50 transition-all"
-            >
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[10px] uppercase font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-sm border border-amber-200">
-                  {brf.category.replace('_', ' ')}
-                </span>
-                <span className="text-stone-500 font-mono text-[11px]">{formatDate(brf.date)}</span>
-              </div>
-              <div>
-                <h4 className="font-editorial text-xl font-bold text-stone-900">{brf.title}</h4>
-                <p className="text-xs text-rose-600 font-bold">{brf.hotelTarget}</p>
-              </div>
-              <p className="text-xs text-stone-700 line-clamp-2 leading-relaxed bg-stone-50 p-3 rounded-xl border border-stone-100">
-                {brf.objective}
+        <div className="space-y-4">
+          {filteredCampaigns.length === 0 ? (
+            <div className="bg-white border border-dashed border-stone-300 rounded-2xl p-10 text-center space-y-2">
+              <div className="text-2xl">☑️</div>
+              <h4 className="font-bold text-stone-900 text-sm">Aún no hay campañas registradas</h4>
+              <p className="text-xs text-stone-500">
+                Cada vez que des de alta una campaña en <strong>Campañas & Pauta</strong>, aquí aparecerá automáticamente su checklist de 9 pasos.
               </p>
-              {/* Botón de apertura en grande */}
-              <div className="flex items-center justify-between pt-1 text-[10px] text-amber-800 font-semibold border-t border-stone-100">
-                <span className="flex items-center gap-1 hover:underline">👁️ Ver brief completo en grande</span>
-                <span className="text-stone-400 text-[9px]">Clic para ampliar</span>
-              </div>
-
-              <div className="pt-2 border-t border-stone-100 text-xs text-stone-500 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span>Autor: {brf.author}</span>
-                  <span className="font-bold text-stone-800">{brf.deliverables.length} entregables</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openEditBriefModal(brf)}
-                    className="p-1 rounded-md bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-900 text-xs font-semibold border border-stone-200"
-                    title="Editar Brief"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => setBriefToDelete(brf)}
-                    className="p-1 rounded-md bg-stone-100 hover:bg-rose-100 text-stone-700 hover:text-rose-800 text-xs border border-stone-200"
-                    title="Eliminar Brief"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
             </div>
-          ))}
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {filteredCampaigns.map((c) => {
+                const badge = getMarketingStatusBadge(c.status);
+                const checklist =
+                  c.checklist && c.checklist.length > 0 ? c.checklist : createDefaultCampaignChecklist();
+                const completedCount = checklist.filter((item) => item.completed).length;
+                const progressPct = Math.round((completedCount / checklist.length) * 100);
+
+                return (
+                  <div
+                    key={c.id}
+                    className="bg-white border border-stone-200 rounded-2xl p-5 shadow-xs space-y-4 hover:border-purple-300 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[11px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
+                            {c.code}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${badge.bg} ${badge.text} ${badge.border}`}>
+                            {badge.label}
+                          </span>
+                        </div>
+                        <h4 className="font-editorial text-xl font-bold text-stone-900 mt-1.5 break-words">
+                          {c.title}
+                        </h4>
+                        <p className="text-xs text-rose-700 font-semibold mt-0.5">
+                          🏨 {c.hotelTarget}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className={`text-sm font-mono font-extrabold ${
+                          progressPct === 100 ? 'text-emerald-700' : 'text-purple-800'
+                        }`}>
+                          {completedCount}/{checklist.length}
+                        </div>
+                        <div className="text-[10px] text-stone-500 font-semibold">{progressPct}% listo</div>
+                      </div>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div className="w-full h-2 bg-stone-100 rounded-full overflow-hidden border border-stone-200/70">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          progressPct === 100 ? 'bg-emerald-600' : 'bg-purple-600'
+                        }`}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+
+                    {/* Lista de 9 tareas palomeables */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {checklist.map((item, idx) => (
+                        <label
+                          key={item.id}
+                          className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
+                            item.completed
+                              ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-semibold'
+                              : 'bg-stone-50 border-stone-200 text-stone-800 hover:bg-purple-50/40 font-medium'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={item.completed}
+                            onChange={() => handleToggleCampaignChecklistItem(c, item.id)}
+                            className="h-4 w-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+                          />
+                          <span className="font-mono text-[10px] text-stone-400 font-bold shrink-0">
+                            {idx + 1}.
+                          </span>
+                          <span className={item.completed ? 'line-through text-emerald-800' : ''}>
+                            {item.text}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
+                      <span>👤 Responsable: <strong className="text-stone-700">{c.leadOwner}</strong></span>
+                      <span>📅 {formatDate(c.startDate)} – {formatDate(c.endDate)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1305,58 +1391,78 @@ export function MarketingSection({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Hotel o Alcance del Grupo</label>
-                  <select
-                    value={cHotel}
-                    onChange={(e) => setCHotel(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs focus:ring-2 focus:ring-rose-500"
-                  >
-                    {CAMPAIGN_HOTEL_TARGETS.map((h) => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
-                  <span className="text-[10px] text-stone-500 mt-0.5 block">
-                    Elige un hotel boutique o todos los hoteles del grupo.
-                  </span>
+              {/* Selección de Hoteles (Uno, varios o todos) */}
+              <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-stone-800 font-bold text-xs flex items-center gap-1.5">
+                    <span>🏨</span> Hoteles ({cHotelTargets.length} seleccionados):
+                  </label>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setCHotelTargets([...HOTEL_PROPERTIES])}
+                      className="text-rose-700 hover:text-rose-900 font-semibold cursor-pointer underline"
+                    >
+                      Todos
+                    </button>
+                    <span className="text-stone-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setCHotelTargets([HOTEL_PROPERTIES[0]])}
+                      className="text-stone-500 hover:text-stone-700 font-semibold cursor-pointer underline"
+                    >
+                      Solo 1
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Tipo de Campaña</label>
-                  <select
-                    value={cType}
-                    onChange={(e) => setCType(e.target.value as any)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs"
-                  >
-                    <option value="temporada">Temporada Alta / Festividades</option>
-                    <option value="marca">Branding & Posicionamiento</option>
-                    <option value="redes_sociales">Redes & Contenido Viral</option>
-                    <option value="relaciones_publicas">Relaciones Públicas & Prensa</option>
-                    <option value="gastronomia">Gastronomía & Restaurantes</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {HOTEL_PROPERTIES.map((hotel) => {
+                    const isSelected = cHotelTargets.includes(hotel);
+                    return (
+                      <button
+                        key={hotel}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            if (cHotelTargets.length > 1) {
+                              setCHotelTargets(cHotelTargets.filter((h) => h !== hotel));
+                            }
+                          } else {
+                            setCHotelTargets([...cHotelTargets, hotel]);
+                          }
+                        }}
+                        className={`p-2 rounded-xl border text-left text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                          isSelected
+                            ? 'bg-rose-100/70 border-rose-400 text-rose-950 font-bold shadow-2xs'
+                            : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-100 font-medium'
+                        }`}
+                      >
+                        <span className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-bold border ${
+                          isSelected ? 'bg-rose-600 text-white border-rose-600' : 'border-stone-300 bg-white'
+                        }`}>
+                          {isSelected ? '✓' : ''}
+                        </span>
+                        <span className="truncate">{hotel}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Presupuesto ($ MXN)</label>
-                  <input
-                    type="number"
-                    value={cBudget}
-                    onChange={(e) => setCBudget(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Canales</label>
-                  <input
-                    type="text"
-                    value={cChannels}
-                    onChange={(e) => setCChannels(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
-                </div>
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Tipo de Campaña</label>
+                <select
+                  value={cType}
+                  onChange={(e) => setCType(e.target.value as any)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs"
+                >
+                  <option value="temporada">Temporada Alta / Festividades</option>
+                  <option value="marca">Branding & Posicionamiento</option>
+                  <option value="redes_sociales">Redes & Contenido Viral</option>
+                  <option value="relaciones_publicas">Relaciones Públicas & Prensa</option>
+                  <option value="gastronomia">Gastronomía & Restaurantes</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2168,57 +2274,77 @@ export function MarketingSection({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Hotel o Alcance del Grupo</label>
-                  <select
-                    value={editCHotel}
-                    onChange={(e) => setEditCHotel(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs focus:ring-2 focus:ring-rose-500"
-                  >
-                    {CAMPAIGN_HOTEL_TARGETS.map((h) => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
-                  <span className="text-[10px] text-stone-500 mt-0.5 block">
-                    Elige un hotel boutique o todos los hoteles del grupo.
-                  </span>
+              {/* Hoteles (Uno, varios o todos) */}
+              <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-stone-800 font-bold text-xs">
+                    🏨 Hoteles ({editCHotelTargets.length} seleccionados):
+                  </label>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setEditCHotelTargets([...HOTEL_PROPERTIES])}
+                      className="text-rose-700 hover:text-rose-900 font-semibold cursor-pointer underline"
+                    >
+                      Todos
+                    </button>
+                    <span className="text-stone-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditCHotelTargets([HOTEL_PROPERTIES[0]])}
+                      className="text-stone-500 hover:text-stone-700 font-semibold cursor-pointer underline"
+                    >
+                      Solo 1
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Estado</label>
-                  <select
-                    value={editCStatus}
-                    onChange={(e) => setEditCStatus(e.target.value as MarketingCampaignStatus)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs"
-                  >
-                    <option value="planificacion">Planificación</option>
-                    <option value="en_produccion">En Producción</option>
-                    <option value="revision">En Revisión</option>
-                    <option value="activa">Activa en Pauta</option>
-                    <option value="finalizada">Finalizada</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {HOTEL_PROPERTIES.map((hotel) => {
+                    const isSelected = editCHotelTargets.includes(hotel);
+                    return (
+                      <button
+                        key={hotel}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            if (editCHotelTargets.length > 1) {
+                              setEditCHotelTargets(editCHotelTargets.filter((h) => h !== hotel));
+                            }
+                          } else {
+                            setEditCHotelTargets([...editCHotelTargets, hotel]);
+                          }
+                        }}
+                        className={`p-1.5 rounded-xl border text-left text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                          isSelected
+                            ? 'bg-rose-100/70 border-rose-400 text-rose-950 font-bold'
+                            : 'bg-white border-stone-200 text-stone-600'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold border ${
+                          isSelected ? 'bg-rose-600 text-white border-rose-600' : 'border-stone-300 bg-white'
+                        }`}>
+                          {isSelected ? '✓' : ''}
+                        </span>
+                        <span className="truncate">{hotel}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Presupuesto ($ MXN)</label>
-                  <input
-                    type="number"
-                    value={editCBudget}
-                    onChange={(e) => setEditCBudget(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-stone-700 font-bold mb-1">Canales</label>
-                  <input
-                    type="text"
-                    value={editCChannels}
-                    onChange={(e) => setEditCChannels(e.target.value)}
-                    className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900"
-                  />
-                </div>
+              <div>
+                <label className="block text-stone-700 font-bold mb-1">Estado</label>
+                <select
+                  value={editCStatus}
+                  onChange={(e) => setEditCStatus(e.target.value as MarketingCampaignStatus)}
+                  className="w-full border border-stone-300 rounded-xl px-3 py-2 text-stone-900 bg-white font-semibold text-xs"
+                >
+                  <option value="planificacion">Planificación</option>
+                  <option value="en_produccion">En Producción</option>
+                  <option value="revision">En Revisión</option>
+                  <option value="activa">Activa en Pauta</option>
+                  <option value="finalizada">Finalizada</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -3207,19 +3333,33 @@ export function MarketingSection({
                   </span>
                 </div>
 
-                {/* Canales de Difusión */}
+                {/* Checklist de Campaña */}
                 <div className="space-y-2">
                   <h4 className="font-bold text-stone-900 text-xs uppercase tracking-wider">
-                    Canales de Difusión & Medios:
+                    ☑️ Checklist de Campaña:
                   </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {viewingCampaign.channels.map((ch, idx) => (
-                      <span
-                        key={idx}
-                        className="px-3 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-800 font-semibold text-xs"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {(viewingCampaign.checklist && viewingCampaign.checklist.length > 0
+                      ? viewingCampaign.checklist
+                      : createDefaultCampaignChecklist()
+                    ).map((item, idx) => (
+                      <label
+                        key={item.id}
+                        className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer select-none ${
+                          item.completed
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-950 font-semibold'
+                            : 'bg-stone-50 border-stone-200 text-stone-800'
+                        }`}
                       >
-                        📣 {ch}
-                      </span>
+                        <input
+                          type="checkbox"
+                          checked={item.completed}
+                          onChange={() => handleToggleCampaignChecklistItem(viewingCampaign, item.id)}
+                          className="h-3.5 w-3.5 accent-emerald-600 rounded cursor-pointer shrink-0"
+                        />
+                        <span className="font-mono text-[10px] text-stone-400 font-bold">{idx + 1}.</span>
+                        <span className={item.completed ? 'line-through text-emerald-800' : ''}>{item.text}</span>
+                      </label>
                     ))}
                   </div>
                 </div>

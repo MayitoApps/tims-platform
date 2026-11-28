@@ -201,7 +201,7 @@ export default function Home() {
   }, [marketingTasks, currentUser, isCurrentUserAdmin]);
 
   const visibleCampaigns = useMemo(() => {
-    if (!currentUser || isCurrentUserAdmin) return campaigns;
+    if (!currentUser || isCurrentUserAdmin || currentUser.role === 'marketing') return campaigns;
     return campaigns.filter((c) => matchesUserIdentity(currentUser, undefined, c.leadOwner));
   }, [campaigns, currentUser, isCurrentUserAdmin]);
 

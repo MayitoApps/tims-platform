@@ -50,7 +50,9 @@ export const HOTEL_SPACES: Record<string, HotelSpaceInfo[]> = {
     { id: 'aj-jar-chu', name: 'Jardín Chula Vista', description: 'Capacidad: 120 personas', type: 'jardin' },
     { id: 'aj-jar-lal', name: 'Jardín Loma Alta', description: 'Capacidad: 60 personas', type: 'jardin' },
     { id: 'aj-jar-les', name: 'Jardín Loma Escondida', description: 'Capacidad: 30 personas', type: 'jardin' },
-    { id: 'aj-jar-lli', name: 'Jardín Loma Linda', description: 'Capacidad: 200 personas', type: 'jardin' }
+    { id: 'aj-jar-lli', name: 'Jardín Loma Linda', description: 'Capacidad: 200 personas', type: 'jardin' },
+    { id: 'aj-ter-bar', name: 'Terraza Bar', description: 'Área de terraza y bar', type: 'terraza' },
+    { id: 'aj-ter-fue', name: 'Terraza Fuego', description: 'Área de terraza al aire libre', type: 'terraza' }
   ],
   'Orgánico Tepoztlán': [
     { id: 'tp-jar-equ', name: 'Jardín Equilibrio', description: 'Capacidad: 150 personas', type: 'jardin' },

@@ -130,6 +130,8 @@ export async function ensureTables(): Promise<boolean> {
     `;
 
     await sql`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS hotel_targets JSONB DEFAULT '[]'::jsonb;`;
+    await sql`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS checklist JSONB DEFAULT '[]'::jsonb;`;
 
     // 4. Content Publications Table
     await sql`
@@ -432,6 +434,7 @@ export function mapRowToCampaign(row: any): MarketingCampaign {
     code: row.code,
     title: row.title,
     hotelTarget: row.hotel_target,
+    hotelTargets: typeof row.hotel_targets === 'string' ? JSON.parse(row.hotel_targets) : (row.hotel_targets || []),
     type: row.type,
     status: row.status,
     budget: Number(row.budget) || 0,
@@ -442,6 +445,7 @@ export function mapRowToCampaign(row: any): MarketingCampaign {
     externalLinks: typeof row.external_links === 'string' ? JSON.parse(row.external_links) : (row.external_links || []),
     leadOwner: row.lead_owner,
     description: row.description || '',
+    checklist: typeof row.checklist === 'string' ? JSON.parse(row.checklist) : (row.checklist || []),
     comments: typeof row.comments === 'string' ? JSON.parse(row.comments) : (row.comments || [])
   };
 }

@@ -347,11 +347,32 @@ export const REQUIREMENT_FORMATS = [
 
 export type RequirementFormat = (typeof REQUIREMENT_FORMATS)[number] | string;
 
+export const DEFAULT_CAMPAIGN_CHECKLIST_ITEMS = [
+  'Storytelling',
+  'Planeación General',
+  'Información Gerentes',
+  'Landing Page',
+  'Artes Generales',
+  'Artes Impresos',
+  'Capacitación Comercial',
+  'Carta Compromiso Comercial',
+  'Entrega Oficial'
+] as const;
+
+export function createDefaultCampaignChecklist(): TaskChecklistItem[] {
+  return DEFAULT_CAMPAIGN_CHECKLIST_ITEMS.map((text, idx) => ({
+    id: `camp-chk-${idx + 1}`,
+    text,
+    completed: false
+  }));
+}
+
 export interface MarketingCampaign {
   id: string;
   code: string;
   title: string;
   hotelTarget: string;
+  hotelTargets?: string[];
   type: 'temporada' | 'marca' | 'redes_sociales' | 'relaciones_publicas' | 'influencers' | 'gastronomia';
   status: MarketingCampaignStatus;
   budget: number;
@@ -363,6 +384,7 @@ export interface MarketingCampaign {
   leadOwner: string;
   description: string;
   selectedSpaces?: string[];
+  checklist?: TaskChecklistItem[];
   comments?: TaskComment[];
 }
 

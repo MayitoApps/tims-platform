@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb, ensureTables, mapRowToCampaign } from '@/lib/db';
 import { INITIAL_CAMPAIGNS } from '@/lib/initial-data';
-import { MarketingCampaign, isUserAdmin, matchesUserIdentity } from '@/lib/types';
+import { MarketingCampaign, isUserAdmin, matchesUserIdentity, createDefaultCampaignChecklist } from '@/lib/types';
 import { requireAuthSession, NO_STORE_HEADERS } from '@/lib/auth';
 
 export async function GET() {
@@ -21,7 +21,7 @@ export async function GET() {
       ORDER BY start_date ASC, created_at DESC;
     `;
     let campaigns = rows.map(mapRowToCampaign);
-    if (!isUserAdmin(session)) {
+    if (!isUserAdmin(session) && session.role !== 'marketing') {
       campaigns = campaigns.filter((c) => matchesUserIdentity(session, undefined, c.leadOwner));
     }
     return NextResponse.json({ source: 'postgres', campaigns }, { headers: NO_STORE_HEADERS });
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       code: raw.code || `CMP-${Date.now().toString().slice(-4)}`,
       title: raw.title || 'Nueva Campaña',
       hotelTarget: raw.hotelTarget || 'Orgánico Ajusco',
+      hotelTargets: Array.isArray(raw.hotelTargets) ? raw.hotelTargets : [],
       type: raw.type || 'temporada',
       status: raw.status || 'planificacion',
       budget: Number(raw.budget) || 0,
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
       externalLinks: Array.isArray(raw.externalLinks) ? raw.externalLinks : [],
       leadOwner: raw.leadOwner || 'Marketing Team',
       description: raw.description || '',
+      checklist: Array.isArray(raw.checklist) && raw.checklist.length > 0 ? raw.checklist : createDefaultCampaignChecklist(),
       comments: Array.isArray(raw.comments) ? raw.comments : []
     };
 
@@ -71,18 +73,21 @@ export async function POST(request: Request) {
     await ensureTables();
     await sql`
       INSERT INTO marketing_campaigns (
-        id, code, title, hotel_target, type, status, budget, spent,
-        start_date, end_date, channels, external_links, lead_owner, description
+        id, code, title, hotel_target, hotel_targets, type, status, budget, spent,
+        start_date, end_date, channels, external_links, lead_owner, description, checklist
       ) VALUES (
         ${campaign.id}, ${campaign.code}, ${campaign.title}, ${campaign.hotelTarget},
+        ${JSON.stringify(campaign.hotelTargets || [])}::jsonb,
         ${campaign.type}, ${campaign.status}, ${campaign.budget}, ${campaign.spent || 0},
         ${campaign.startDate}, ${campaign.endDate},
         ${JSON.stringify(campaign.channels || [])}::jsonb,
         ${JSON.stringify(campaign.externalLinks || [])}::jsonb,
-        ${campaign.leadOwner || 'Marketing Team'}, ${campaign.description || ''}
+        ${campaign.leadOwner || 'Marketing Team'}, ${campaign.description || ''},
+        ${JSON.stringify(campaign.checklist || [])}::jsonb
       ) ON CONFLICT (id) DO UPDATE SET
         title = EXCLUDED.title,
         hotel_target = EXCLUDED.hotel_target,
+        hotel_targets = EXCLUDED.hotel_targets,
         type = EXCLUDED.type,
         status = EXCLUDED.status,
         budget = EXCLUDED.budget,
@@ -91,7 +96,8 @@ export async function POST(request: Request) {
         end_date = EXCLUDED.end_date,
         channels = EXCLUDED.channels,
         external_links = EXCLUDED.external_links,
-        description = EXCLUDED.description;
+        description = EXCLUDED.description,
+        checklist = EXCLUDED.checklist;
     `;
 
     return NextResponse.json({ success: true, source: 'postgres', campaign });
