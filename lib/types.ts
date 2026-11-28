@@ -337,6 +337,7 @@ export const DESIGN_RESPONSIBLES = [
 
 export const REQUIREMENT_FORMATS = [
   'Historia',
+  'Feed',
   'Carrusel',
   'Cambio en sitio web',
   'Flyer',
