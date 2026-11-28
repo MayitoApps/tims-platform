@@ -20,7 +20,8 @@ import {
   DESIGN_RESPONSIBLES,
   REQUIREMENT_FORMATS,
   getExecutiveEventStatus,
-  createDefaultCampaignChecklist
+  createDefaultCampaignChecklist,
+  normalizeCampaignChecklist
 } from '@/lib/types';
 import { HOTEL_PROPERTIES, HOTEL_SPACES, CAMPAIGN_HOTEL_TARGETS, MARKETING_REQUIREMENT_TARGETS } from '@/lib/initial-data';
 import { formatCurrency, formatDate, getMarketingStatusBadge, safeExternalUrl, getLocalDateStr, calculateProgressPercent, readPersistedNavValue, writePersistedNavValue } from '@/lib/utils';
@@ -287,10 +288,7 @@ export function MarketingSection({
   };
 
   const handleToggleCampaignChecklistItem = (campaign: MarketingCampaign, itemId: string) => {
-    const baseChecklist =
-      campaign.checklist && campaign.checklist.length > 0
-        ? campaign.checklist
-        : createDefaultCampaignChecklist();
+    const baseChecklist = normalizeCampaignChecklist(campaign.checklist);
     const updatedChecklist = baseChecklist.map((item) =>
       item.id === itemId ? { ...item, completed: !item.completed } : item
     );
@@ -1157,7 +1155,7 @@ export function MarketingSection({
               <tbody className="divide-y divide-stone-100">
                 {filteredCampaigns.map((c) => {
                   const badge = getMarketingStatusBadge(c.status);
-                  const chkList = c.checklist && c.checklist.length > 0 ? c.checklist : createDefaultCampaignChecklist();
+                  const chkList = normalizeCampaignChecklist(c.checklist);
                   const chkDone = chkList.filter((i) => i.completed).length;
                   return (
                     <tr
@@ -1279,8 +1277,7 @@ export function MarketingSection({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filteredCampaigns.map((c) => {
                 const badge = getMarketingStatusBadge(c.status);
-                const checklist =
-                  c.checklist && c.checklist.length > 0 ? c.checklist : createDefaultCampaignChecklist();
+                const checklist = normalizeCampaignChecklist(c.checklist);
                 const completedCount = checklist.filter((item) => item.completed).length;
                 const progressPct = Math.round((completedCount / checklist.length) * 100);
 
@@ -3339,10 +3336,7 @@ export function MarketingSection({
                     ☑️ Checklist de Campaña:
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {(viewingCampaign.checklist && viewingCampaign.checklist.length > 0
-                      ? viewingCampaign.checklist
-                      : createDefaultCampaignChecklist()
-                    ).map((item, idx) => (
+                    {normalizeCampaignChecklist(viewingCampaign.checklist).map((item, idx) => (
                       <label
                         key={item.id}
                         className={`flex items-center gap-2 p-2 rounded-xl border text-xs cursor-pointer select-none ${

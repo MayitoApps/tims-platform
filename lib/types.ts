@@ -357,7 +357,8 @@ export const DEFAULT_CAMPAIGN_CHECKLIST_ITEMS = [
   'Artes Impresos',
   'Capacitación Comercial',
   'Carta Compromiso Comercial',
-  'Entrega Oficial'
+  'Entrega Oficial',
+  'Solicitud de Presupuesto'
 ] as const;
 
 export function createDefaultCampaignChecklist(): TaskChecklistItem[] {
@@ -366,6 +367,19 @@ export function createDefaultCampaignChecklist(): TaskChecklistItem[] {
     text,
     completed: false
   }));
+}
+
+export function normalizeCampaignChecklist(existing?: TaskChecklistItem[]): TaskChecklistItem[] {
+  if (!existing || existing.length === 0) {
+    return createDefaultCampaignChecklist();
+  }
+  const existingByText = new Set(existing.map((item) => item.text));
+  const missing = DEFAULT_CAMPAIGN_CHECKLIST_ITEMS.map((text, idx) => ({
+    id: `camp-chk-${idx + 1}`,
+    text,
+    completed: false
+  })).filter((item) => !existingByText.has(item.text));
+  return missing.length > 0 ? [...existing, ...missing] : existing;
 }
 
 export interface MarketingCampaign {
